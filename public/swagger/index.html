@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swagger Playground — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+  <style>
+    /* Swagger UI dark theme overrides */
+    .swagger-ui { background: transparent; color: #e2e8f0; }
+    .swagger-ui .topbar { display: none; }
+    .swagger-ui .wrapper { padding: 1rem; }
+
+    /* Info section */
+    .swagger-ui .info { margin: 20px 0; }
+    .swagger-ui .info .title { color: #f1f5f9; }
+    .swagger-ui .info .title small { background: #6366f1 !important; }
+    .swagger-ui .info .title small pre { color: #f1f5f9; }
+    .swagger-ui .info p, .swagger-ui .info li, .swagger-ui .info table { color: #cbd5e1; }
+    .swagger-ui .info a { color: #818cf8; }
+    .swagger-ui .info .base-url { color: #94a3b8; }
+
+    /* Servers */
+    .swagger-ui .scheme-container { background: transparent; box-shadow: none; padding: 16px 0; }
+    .swagger-ui .scheme-container .schemes > label { color: #94a3b8; }
+    .swagger-ui select { background: #1e293b; color: #e2e8f0; border-color: #475569; border-radius: 6px; }
+
+    /* Tags / groups */
+    .swagger-ui .opblock-tag { color: #f1f5f9 !important; border-color: #334155 !important; }
+    .swagger-ui .opblock-tag:hover { background: rgba(99, 102, 241, 0.05); }
+    .swagger-ui .opblock-tag small { color: #94a3b8; }
+    .swagger-ui .opblock-tag svg { fill: #94a3b8; }
+
+    /* Operation blocks */
+    .swagger-ui .opblock { border-color: #334155 !important; background: #1e293b !important; border-radius: 8px !important; margin-bottom: 8px; }
+    .swagger-ui .opblock .opblock-summary { border-color: #334155 !important; }
+    .swagger-ui .opblock .opblock-summary-method { font-size: 0.75rem; border-radius: 4px; }
+    .swagger-ui .opblock .opblock-summary-path,
+    .swagger-ui .opblock .opblock-summary-path__deprecated { color: #cbd5e1 !important; }
+    .swagger-ui .opblock .opblock-summary-description { color: #94a3b8; }
+    .swagger-ui .opblock .opblock-summary-control svg { fill: #94a3b8; }
+    .swagger-ui .opblock-description-wrapper p { color: #cbd5e1; }
+
+    /* GET/POST/PUT/DELETE specific opblock backgrounds */
+    .swagger-ui .opblock.opblock-get { background: rgba(97, 175, 254, 0.08) !important; border-color: rgba(97, 175, 254, 0.3) !important; }
+    .swagger-ui .opblock.opblock-post { background: rgba(73, 204, 144, 0.08) !important; border-color: rgba(73, 204, 144, 0.3) !important; }
+    .swagger-ui .opblock.opblock-put { background: rgba(252, 161, 48, 0.08) !important; border-color: rgba(252, 161, 48, 0.3) !important; }
+    .swagger-ui .opblock.opblock-delete { background: rgba(249, 62, 62, 0.08) !important; border-color: rgba(249, 62, 62, 0.3) !important; }
+    .swagger-ui .opblock.opblock-patch { background: rgba(80, 227, 194, 0.08) !important; border-color: rgba(80, 227, 194, 0.3) !important; }
+
+    /* Expanded operation content */
+    .swagger-ui .opblock-body { color: #cbd5e1; }
+    .swagger-ui .opblock-body pre { background: #0f172a !important; color: #e2e8f0 !important; border-color: #334155; border-radius: 6px; }
+    .swagger-ui .opblock-section-header { background: rgba(15, 23, 42, 0.5) !important; border-color: #334155 !important; }
+    .swagger-ui .opblock-section-header h4 { color: #e2e8f0; }
+    .swagger-ui .opblock-section-header label { color: #94a3b8; }
+
+    /* Parameters */
+    .swagger-ui .parameters-col_description p { color: #94a3b8; }
+    .swagger-ui .parameters-col_name { color: #e2e8f0; }
+    .swagger-ui .parameter__name { color: #e2e8f0; }
+    .swagger-ui .parameter__name.required::after { color: #ef4444; }
+    .swagger-ui .parameter__type { color: #94a3b8; }
+    .swagger-ui .parameter__in { color: #64748b; }
+
+    /* Tables */
+    .swagger-ui table thead tr th { color: #94a3b8; border-color: #334155; }
+    .swagger-ui table tbody tr td { color: #cbd5e1; border-color: #334155; }
+    .swagger-ui table tbody tr { background: transparent; }
+
+    /* Responses */
+    .swagger-ui .response-col_status { color: #e2e8f0; }
+    .swagger-ui .response-col_description { color: #94a3b8; }
+    .swagger-ui .response-col_description__inner p { color: #94a3b8; }
+    .swagger-ui .responses-inner h4, .swagger-ui .responses-inner h5 { color: #e2e8f0; }
+
+    /* Tabs */
+    .swagger-ui .tab li { color: #94a3b8; }
+    .swagger-ui .tab li.active { color: #e2e8f0; }
+
+    /* Buttons */
+    .swagger-ui .btn { border-color: #475569; color: #e2e8f0; }
+    .swagger-ui .btn:hover { background: rgba(99, 102, 241, 0.1); }
+    .swagger-ui .btn.execute { background: #6366f1; border-color: #6366f1; color: #fff; }
+    .swagger-ui .btn.authorize { color: #22c55e; border-color: #22c55e; }
+    .swagger-ui .btn-group .btn { background: #1e293b; }
+
+    /* Models / Schemas section */
+    .swagger-ui section.models { border-color: #334155; background: #1e293b; border-radius: 8px; }
+    .swagger-ui section.models h4 { color: #f1f5f9; border-color: #334155; }
+    .swagger-ui section.models h4 svg { fill: #94a3b8; }
+    .swagger-ui .model-container { background: #0f172a; border-radius: 6px; margin: 8px 0; }
+    .swagger-ui .model-box { background: transparent; }
+    .swagger-ui .model { color: #cbd5e1; }
+    .swagger-ui .model .property { color: #e2e8f0; }
+    .swagger-ui .model .property.primitive { color: #94a3b8; }
+    .swagger-ui .model-title { color: #f1f5f9; }
+    .swagger-ui .model-title__text { color: #f1f5f9; }
+    .swagger-ui .model span.prop-type { color: #818cf8; }
+    .swagger-ui .model .prop-format { color: #64748b; }
+
+    /* Code / pre blocks */
+    .swagger-ui .highlight-code .microlight { background: #0f172a !important; color: #e2e8f0 !important; border-radius: 6px; }
+    .swagger-ui .microlight { background: #0f172a !important; color: #e2e8f0 !important; }
+
+    /* Markdown content */
+    .swagger-ui .markdown p, .swagger-ui .markdown li { color: #94a3b8; }
+    .swagger-ui .markdown code { background: #0f172a; color: #818cf8; padding: 2px 6px; border-radius: 4px; }
+    .swagger-ui .renderedMarkdown p { color: #94a3b8; }
+
+    /* Inputs */
+    .swagger-ui input[type=text], .swagger-ui textarea { background: #0f172a; color: #e2e8f0; border-color: #475569; border-radius: 6px; }
+
+    /* Scrollbars inside swagger */
+    .swagger-ui ::-webkit-scrollbar { width: 6px; height: 6px; }
+    .swagger-ui ::-webkit-scrollbar-track { background: #0f172a; }
+    .swagger-ui ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* Auth dialog */
+    .swagger-ui .dialog-ux .modal-ux { background: #1e293b; border-color: #334155; }
+    .swagger-ui .dialog-ux .modal-ux-header h3 { color: #f1f5f9; }
+    .swagger-ui .dialog-ux .modal-ux-content p { color: #94a3b8; }
+
+    /* Loading */
+    .swagger-ui .loading-container .loading::after { color: #94a3b8; }
+
+    /* Empty state */
+    #swagger-container:empty::after {
+      content: "Swagger UI will render here once a valid schema is loaded.";
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #475569;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Swagger Playground</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <span id="status-badge" class="hidden text-xs font-medium px-2.5 py-0.5 rounded-full"></span>
+        <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear</button>
+        <button id="btn-sample" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Load sample</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="flex h-[calc(100vh-3rem)]">
+
+    <!-- Left panel: input + diagnostics -->
+    <div class="w-1/2 flex flex-col border-r border-surface-lighter min-w-0">
+
+      <!-- Drop zone / textarea -->
+      <div id="drop-zone" class="relative flex-1 flex flex-col min-h-0">
+        <div id="drop-overlay" class="hidden absolute inset-0 z-40 bg-brand/10 border-2 border-dashed border-brand rounded-lg m-2 flex items-center justify-center">
+          <span class="text-brand-light font-medium text-lg">Drop your OpenAPI file here</span>
+        </div>
+        <textarea
+          id="schema-input"
+          class="flex-1 w-full bg-transparent text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none placeholder:text-gray-600"
+          placeholder="Paste your OpenAPI schema here (JSON or YAML), or drag & drop a file..."
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <!-- Diagnostics panel -->
+      <div id="diagnostics" class="border-t border-surface-lighter bg-surface-light overflow-y-auto max-h-56 min-h-[3rem]">
+        <div class="px-4 py-2 flex items-center gap-2 sticky top-0 bg-surface-light border-b border-surface-lighter">
+          <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Diagnostics</span>
+          <span id="diag-count" class="text-xs text-gray-500"></span>
+        </div>
+        <div id="diag-list" class="px-4 py-2 space-y-1 text-sm">
+          <p class="text-gray-500 text-xs">No schema loaded yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: Swagger UI -->
+    <div class="w-1/2 overflow-y-auto min-w-0 bg-surface">
+      <div id="swagger-container" class="min-h-full"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const input = document.getElementById('schema-input');
+    const dropZone = document.getElementById('drop-zone');
+    const dropOverlay = document.getElementById('drop-overlay');
+    const diagList = document.getElementById('diag-list');
+    const diagCount = document.getElementById('diag-count');
+    const statusBadge = document.getElementById('status-badge');
+    const btnClear = document.getElementById('btn-clear');
+    const btnSample = document.getElementById('btn-sample');
+    const swaggerContainer = document.getElementById('swagger-container');
+
+    let debounceTimer = null;
+    let currentSwaggerUI = null;
+
+    // --- Drag & Drop ---
+    let dragCounter = 0;
+
+    dropZone.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      dropOverlay.classList.remove('hidden');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) dropOverlay.classList.add('hidden');
+    });
+
+    dropZone.addEventListener('dragover', (e) => e.preventDefault());
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.add('hidden');
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        input.value = reader.result;
+        processSchema(reader.result);
+      };
+      reader.readAsText(file);
+    });
+
+    // --- Input handling ---
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => processSchema(input.value), 400);
+    });
+
+    // --- Clear ---
+    btnClear.addEventListener('click', () => {
+      input.value = '';
+      diagList.innerHTML = '<p class="text-gray-500 text-xs">No schema loaded yet.</p>';
+      diagCount.textContent = '';
+      statusBadge.classList.add('hidden');
+      btnClear.classList.add('hidden');
+      swaggerContainer.innerHTML = '';
+      if (currentSwaggerUI) {
+        currentSwaggerUI = null;
+      }
+    });
+
+    // --- Load sample ---
+    btnSample.addEventListener('click', () => {
+      const sample = `openapi: "3.0.3"
+info:
+  title: Pet Store API
+  description: A sample Pet Store API
+  version: "1.0.0"
+servers:
+  - url: https://petstore.example.com/v1
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      operationId: listPets
+      tags:
+        - pets
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pet"
+    post:
+      summary: Create a pet
+      operationId: createPet
+      tags:
+        - pets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Pet"
+      responses:
+        "201":
+          description: Pet created
+  /pets/{petId}:
+    get:
+      summary: Info for a specific pet
+      operationId: showPetById
+      tags:
+        - pets
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        tag:
+          type: string`;
+      input.value = sample;
+      processSchema(sample);
+    });
+
+    // --- Schema processing ---
+    function processSchema(raw) {
+      raw = raw.trim();
+      if (!raw) return;
+
+      const diagnostics = [];
+      let spec = null;
+
+      // Try parsing
+      try {
+        // Try JSON first
+        if (raw.startsWith('{')) {
+          spec = JSON.parse(raw);
+        } else {
+          spec = jsyaml.load(raw);
+        }
+      } catch (e) {
+        diagnostics.push({ level: 'error', message: `Parse error: ${e.message}` });
+      }
+
+      if (spec && typeof spec === 'object') {
+        validateSpec(spec, diagnostics);
+      }
+
+      renderDiagnostics(diagnostics);
+
+      // Render Swagger UI if we got a valid-enough spec
+      if (spec && typeof spec === 'object' && (spec.openapi || spec.swagger)) {
+        renderSwagger(spec);
+      }
+
+      btnClear.classList.remove('hidden');
+    }
+
+    function validateSpec(spec, diags) {
+      // Check OpenAPI version
+      if (!spec.openapi && !spec.swagger) {
+        diags.push({ level: 'error', message: 'Missing "openapi" or "swagger" version field.' });
+        return;
+      }
+
+      if (spec.swagger) {
+        diags.push({ level: 'warn', message: `Swagger 2.0 detected. Consider upgrading to OpenAPI 3.x.` });
+      }
+
+      if (spec.openapi) {
+        const v = String(spec.openapi);
+        if (!v.startsWith('3.')) {
+          diags.push({ level: 'warn', message: `Unusual OpenAPI version: ${v}` });
+        } else {
+          diags.push({ level: 'info', message: `OpenAPI version: ${v}` });
+        }
+      }
+
+      // Info
+      if (!spec.info) {
+        diags.push({ level: 'error', message: 'Missing required "info" object.' });
+      } else {
+        if (!spec.info.title) diags.push({ level: 'error', message: 'Missing required "info.title".' });
+        if (!spec.info.version) diags.push({ level: 'error', message: 'Missing required "info.version".' });
+        if (spec.info.title) diags.push({ level: 'info', message: `Title: ${spec.info.title}` });
+        if (spec.info.version) diags.push({ level: 'info', message: `Version: ${spec.info.version}` });
+      }
+
+      // Paths
+      if (!spec.paths || Object.keys(spec.paths).length === 0) {
+        diags.push({ level: 'warn', message: 'No paths defined.' });
+      } else {
+        const pathCount = Object.keys(spec.paths).length;
+        let opCount = 0;
+        const methods = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'];
+
+        for (const [path, pathItem] of Object.entries(spec.paths)) {
+          if (!path.startsWith('/')) {
+            diags.push({ level: 'error', message: `Path must start with "/": ${path}` });
+          }
+
+          if (pathItem && typeof pathItem === 'object') {
+            for (const method of methods) {
+              if (pathItem[method]) {
+                opCount++;
+                const op = pathItem[method];
+
+                if (!op.responses || Object.keys(op.responses).length === 0) {
+                  diags.push({ level: 'warn', message: `${method.toUpperCase()} ${path} — no responses defined.` });
+                }
+
+                if (!op.operationId) {
+                  diags.push({ level: 'warn', message: `${method.toUpperCase()} ${path} — missing operationId.` });
+                }
+
+                if (!op.summary && !op.description) {
+                  diags.push({ level: 'warn', message: `${method.toUpperCase()} ${path} — no summary or description.` });
+                }
+
+                // Check parameters
+                if (op.parameters) {
+                  for (const param of op.parameters) {
+                    if (!param.name) {
+                      diags.push({ level: 'error', message: `${method.toUpperCase()} ${path} — parameter missing "name".` });
+                    }
+                    if (!param.in) {
+                      diags.push({ level: 'error', message: `${method.toUpperCase()} ${path} — parameter "${param.name || '?'}" missing "in".` });
+                    }
+                    if (param.in === 'path' && !param.required) {
+                      diags.push({ level: 'warn', message: `${method.toUpperCase()} ${path} — path parameter "${param.name}" should have required: true.` });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        diags.push({ level: 'info', message: `${pathCount} path(s), ${opCount} operation(s) found.` });
+      }
+
+      // Servers
+      if (spec.openapi && (!spec.servers || spec.servers.length === 0)) {
+        diags.push({ level: 'warn', message: 'No servers defined. Swagger UI will use the current host.' });
+      }
+
+      // Components / definitions
+      if (spec.openapi) {
+        if (spec.components && spec.components.schemas) {
+          diags.push({ level: 'info', message: `${Object.keys(spec.components.schemas).length} schema(s) in components.` });
+        }
+      } else if (spec.swagger) {
+        if (spec.definitions) {
+          diags.push({ level: 'info', message: `${Object.keys(spec.definitions).length} definition(s) found.` });
+        }
+      }
+
+      // Check for $ref validity (basic)
+      const refs = [];
+      collectRefs(spec, refs);
+      for (const ref of refs) {
+        if (ref.startsWith('#/')) {
+          const resolved = resolveLocalRef(spec, ref);
+          if (resolved === undefined) {
+            diags.push({ level: 'error', message: `Broken $ref: "${ref}"` });
+          }
+        }
+      }
+
+      if (diags.filter(d => d.level === 'error').length === 0 && diags.filter(d => d.level === 'warn').length === 0) {
+        diags.push({ level: 'info', message: 'Schema looks valid. No issues detected.' });
+      }
+    }
+
+    function collectRefs(obj, refs) {
+      if (!obj || typeof obj !== 'object') return;
+      if (Array.isArray(obj)) {
+        for (const item of obj) collectRefs(item, refs);
+        return;
+      }
+      if (obj.$ref && typeof obj.$ref === 'string') {
+        refs.push(obj.$ref);
+      }
+      for (const val of Object.values(obj)) {
+        collectRefs(val, refs);
+      }
+    }
+
+    function resolveLocalRef(spec, ref) {
+      const parts = ref.replace('#/', '').split('/');
+      let current = spec;
+      for (const part of parts) {
+        if (current == null || typeof current !== 'object') return undefined;
+        current = current[part];
+      }
+      return current;
+    }
+
+    // --- Render diagnostics ---
+    function renderDiagnostics(diags) {
+      const errors = diags.filter(d => d.level === 'error').length;
+      const warns = diags.filter(d => d.level === 'warn').length;
+      const infos = diags.filter(d => d.level === 'info').length;
+
+      // Badge
+      statusBadge.classList.remove('hidden');
+      if (errors > 0) {
+        statusBadge.textContent = `${errors} error${errors > 1 ? 's' : ''}`;
+        statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-err/15 text-err';
+      } else if (warns > 0) {
+        statusBadge.textContent = `${warns} warning${warns > 1 ? 's' : ''}`;
+        statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-warn/15 text-warn';
+      } else {
+        statusBadge.textContent = 'Valid';
+        statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-ok/15 text-ok';
+      }
+
+      // Count
+      const parts = [];
+      if (errors) parts.push(`${errors} error${errors > 1 ? 's' : ''}`);
+      if (warns) parts.push(`${warns} warning${warns > 1 ? 's' : ''}`);
+      if (infos) parts.push(`${infos} info`);
+      diagCount.textContent = parts.join(', ');
+
+      // List
+      diagList.innerHTML = diags.map(d => {
+        const colors = {
+          error: 'text-err',
+          warn: 'text-warn',
+          info: 'text-gray-400',
+        };
+        const icons = {
+          error: '&#x2715;',
+          warn: '&#x26A0;',
+          info: '&#x2139;',
+        };
+        return `<div class="flex items-start gap-2 py-0.5">
+          <span class="${colors[d.level]} flex-shrink-0 w-4 text-center">${icons[d.level]}</span>
+          <span class="${d.level === 'info' ? 'text-gray-400' : colors[d.level]} text-xs">${escapeHtml(d.message)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      const el = document.createElement('span');
+      el.textContent = str;
+      return el.innerHTML;
+    }
+
+    // --- Render Swagger UI ---
+    function renderSwagger(spec) {
+      swaggerContainer.innerHTML = '';
+      currentSwaggerUI = SwaggerUIBundle({
+        spec: spec,
+        domNode: swaggerContainer,
+        presets: [SwaggerUIBundle.presets.apis],
+        layout: 'BaseLayout',
+        deepLinking: false,
+        supportedSubmitMethods: [],
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+  <div class="max-w-5xl mx-auto px-6 py-16">
+    <header class="mb-16 text-center">
+      <h1 class="text-5xl font-bold tracking-tight bg-gradient-to-r from-brand-light to-indigo-300 bg-clip-text text-transparent">
+        tools.massadas.com
+      </h1>
+      <p class="mt-4 text-lg text-gray-400 max-w-2xl mx-auto">
+        Browser-only tools that run 100% locally. No data is ever sent anywhere.
+      </p>
+    </header>
+
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" id="tools">
+
+      <a href="/swagger/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
+            { }
+          </div>
+          <h2 class="text-lg font-semibold text-gray-100 group-hover:text-brand-light transition">Swagger Playground</h2>
+        </div>
+        <p class="text-sm text-gray-400 leading-relaxed">
+          Paste or drag &amp; drop an OpenAPI schema (JSON/YAML) to instantly preview it with Swagger UI and see validation warnings.
+        </p>
+      </a>
+
+      <a href="/image-to-pdf/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
+            PDF
+          </div>
+          <h2 class="text-lg font-semibold text-gray-100 group-hover:text-brand-light transition">Image to PDF</h2>
+        </div>
+        <p class="text-sm text-gray-400 leading-relaxed">
+          Drop or select images (PNG, JPEG, WebP, etc.), reorder them by dragging, and download as a single PDF.
+        </p>
+      </a>
+
+      <a href="/file-to-markdown/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
+            MD
+          </div>
+          <h2 class="text-lg font-semibold text-gray-100 group-hover:text-brand-light transition">File to Markdown</h2>
+        </div>
+        <p class="text-sm text-gray-400 leading-relaxed">
+          Convert PDF, DOCX, PPTX, and other documents to Markdown using Cloudflare Workers AI.
+        </p>
+      </a>
+
+    </div>
+
+    <footer class="mt-24 text-center text-sm text-gray-500">
+      Most tools run entirely in your browser. Some use Cloudflare Workers AI for processing.
+    </footer>
+  </div>
+</body>
+</html>

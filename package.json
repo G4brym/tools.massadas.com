@@ -1,0 +1,25 @@
+{
+  "name": "tools.massadas.com",
+  "version": "1.0.0",
+  "description": "bunch of tools that run strictly on a browser and don't send data anywhere",
+  "main": "index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/G4brym/tools.massadas.com.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/G4brym/tools.massadas.com/issues"
+  },
+  "homepage": "https://github.com/G4brym/tools.massadas.com#readme",
+  "devDependencies": {
+    "wrangler": "^4.81.0"
+  }
+}

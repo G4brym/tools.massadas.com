@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File to Markdown — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">File to Markdown</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <button id="btn-clear-history" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear history</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- Privacy notice -->
+    <div class="mb-6 rounded-lg bg-surface-light border border-surface-lighter px-4 py-3 text-sm text-gray-400">
+      Files are sent to
+      <a href="https://developers.cloudflare.com/workers-ai/features/markdown-conversion/" target="_blank" rel="noopener" class="text-brand-light hover:underline">Cloudflare Workers AI</a>
+      for conversion. No files are stored — they are processed and discarded immediately.
+    </div>
+
+    <!-- Drop zone -->
+    <div id="drop-zone" class="relative group rounded-2xl border-2 border-dashed border-surface-lighter hover:border-brand transition p-12 text-center cursor-pointer">
+      <div id="drop-overlay" class="hidden absolute inset-0 z-10 rounded-2xl bg-brand/10 border-2 border-dashed border-brand flex items-center justify-center">
+        <span class="text-brand-light font-medium text-lg">Drop your file here</span>
+      </div>
+      <div id="upload-idle">
+        <div class="text-4xl text-gray-500 mb-3">&#128196;</div>
+        <p class="text-gray-300 font-medium">Drop a file here or click to select</p>
+        <p class="text-sm text-gray-500 mt-1">PDF, DOCX, PPTX, XLSX, HTML, XML, CSV, and more. No images.</p>
+      </div>
+      <div id="upload-loading" class="hidden">
+        <div class="inline-block w-8 h-8 border-2 border-brand-light border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p class="text-gray-300 font-medium">Converting <span id="converting-name"></span>...</p>
+        <p class="text-sm text-gray-500 mt-1">Sending to Cloudflare Workers AI</p>
+      </div>
+      <input id="file-input" type="file" class="hidden" />
+    </div>
+
+    <!-- Result -->
+    <div id="result" class="hidden mt-6">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span id="result-name" class="text-sm font-medium text-gray-200"></span>
+          <span id="result-tokens" class="text-xs text-gray-500"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btn-copy" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Copy</button>
+          <button id="btn-download-md" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Download .md</button>
+        </div>
+      </div>
+      <div id="result-error" class="hidden rounded-lg bg-err/10 border border-err/30 px-4 py-3 text-sm text-err"></div>
+      <pre id="result-markdown" class="rounded-lg bg-surface-light border border-surface-lighter p-4 text-sm text-gray-200 font-mono overflow-x-auto max-h-[60vh] overflow-y-auto whitespace-pre-wrap"></pre>
+    </div>
+
+    <!-- History -->
+    <div id="history-section" class="hidden mt-10">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Conversion History</h2>
+      <div id="history-list" class="space-y-2"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'file-to-markdown-history';
+    const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml'];
+
+    const dropZone = document.getElementById('drop-zone');
+    const dropOverlay = document.getElementById('drop-overlay');
+    const uploadIdle = document.getElementById('upload-idle');
+    const uploadLoading = document.getElementById('upload-loading');
+    const convertingName = document.getElementById('converting-name');
+    const fileInput = document.getElementById('file-input');
+    const resultSection = document.getElementById('result');
+    const resultName = document.getElementById('result-name');
+    const resultTokens = document.getElementById('result-tokens');
+    const resultError = document.getElementById('result-error');
+    const resultMarkdown = document.getElementById('result-markdown');
+    const btnCopy = document.getElementById('btn-copy');
+    const btnDownloadMd = document.getElementById('btn-download-md');
+    const btnClearHistory = document.getElementById('btn-clear-history');
+    const historySection = document.getElementById('history-section');
+    const historyList = document.getElementById('history-list');
+
+    let currentMarkdown = '';
+    let currentFileName = '';
+
+    // --- Drop zone ---
+    let dragCounter = 0;
+
+    dropZone.addEventListener('click', () => {
+      if (!uploadLoading.classList.contains('hidden')) return;
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+      fileInput.value = '';
+    });
+
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files')) dropOverlay.classList.remove('hidden');
+    });
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) dropOverlay.classList.add('hidden');
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.add('hidden');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    // --- Handle file ---
+    async function handleFile(file) {
+      if (IMAGE_TYPES.includes(file.type)) {
+        showError('Image files are not supported. Please use a document file (PDF, DOCX, etc.).');
+        return;
+      }
+
+      // Show loading
+      uploadIdle.classList.add('hidden');
+      uploadLoading.classList.remove('hidden');
+      convertingName.textContent = file.name;
+      resultSection.classList.add('hidden');
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/convert-to-markdown', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError(data.error || `Conversion failed (${res.status})`);
+          return;
+        }
+
+        currentMarkdown = data.markdown;
+        currentFileName = file.name;
+
+        resultSection.classList.remove('hidden');
+        resultError.classList.add('hidden');
+        resultMarkdown.classList.remove('hidden');
+        resultName.textContent = file.name;
+        resultTokens.textContent = data.tokens ? `~${data.tokens} tokens` : '';
+        resultMarkdown.textContent = data.markdown;
+
+        // Save to history
+        saveToHistory({
+          name: file.name,
+          markdown: data.markdown,
+          tokens: data.tokens,
+          mimetype: data.mimetype,
+          date: new Date().toISOString(),
+        });
+
+      } catch (err) {
+        showError(err.message || 'Network error');
+      } finally {
+        uploadIdle.classList.remove('hidden');
+        uploadLoading.classList.add('hidden');
+      }
+    }
+
+    function showError(message) {
+      resultSection.classList.remove('hidden');
+      resultError.classList.remove('hidden');
+      resultError.textContent = message;
+      resultMarkdown.classList.add('hidden');
+      resultName.textContent = '';
+      resultTokens.textContent = '';
+      uploadIdle.classList.remove('hidden');
+      uploadLoading.classList.add('hidden');
+    }
+
+    // --- Copy ---
+    btnCopy.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(currentMarkdown);
+      btnCopy.textContent = 'Copied!';
+      setTimeout(() => { btnCopy.textContent = 'Copy'; }, 1500);
+    });
+
+    // --- Download .md ---
+    btnDownloadMd.addEventListener('click', () => {
+      const blob = new Blob([currentMarkdown], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentFileName.replace(/\.[^.]+$/, '') + '.md';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // --- History ---
+    function getHistory() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      } catch { return []; }
+    }
+
+    function saveToHistory(entry) {
+      const history = getHistory();
+      // Keep last 50 entries
+      history.unshift(entry);
+      if (history.length > 50) history.length = 50;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const history = getHistory();
+
+      if (history.length === 0) {
+        historySection.classList.add('hidden');
+        btnClearHistory.classList.add('hidden');
+        return;
+      }
+
+      historySection.classList.remove('hidden');
+      btnClearHistory.classList.remove('hidden');
+
+      historyList.innerHTML = history.map((entry, i) => {
+        const date = new Date(entry.date);
+        const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const preview = (entry.markdown || '').slice(0, 120).replace(/\n/g, ' ');
+
+        return `<div class="rounded-lg bg-surface-light border border-surface-lighter p-3 hover:border-surface-lighter/80 transition">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-medium text-gray-200">${escapeHtml(entry.name)}</span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-500">${dateStr}</span>
+              <button class="history-load text-xs text-brand-light hover:underline cursor-pointer" data-index="${i}">Load</button>
+              <button class="history-delete text-xs text-gray-500 hover:text-err cursor-pointer" data-index="${i}">Remove</button>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 truncate">${escapeHtml(preview)}</p>
+        </div>`;
+      }).join('');
+
+      // Load buttons
+      historyList.querySelectorAll('.history-load').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const entry = history[parseInt(btn.dataset.index)];
+          currentMarkdown = entry.markdown;
+          currentFileName = entry.name;
+          resultSection.classList.remove('hidden');
+          resultError.classList.add('hidden');
+          resultMarkdown.classList.remove('hidden');
+          resultName.textContent = entry.name;
+          resultTokens.textContent = entry.tokens ? `~${entry.tokens} tokens` : '';
+          resultMarkdown.textContent = entry.markdown;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+
+      // Delete buttons
+      historyList.querySelectorAll('.history-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const h = getHistory();
+          h.splice(parseInt(btn.dataset.index), 1);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+          renderHistory();
+        });
+      });
+    }
+
+    btnClearHistory.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
+    });
+
+    function escapeHtml(str) {
+      const el = document.createElement('span');
+      el.textContent = str;
+      return el.innerHTML;
+    }
+
+    // Init
+    renderHistory();
+  </script>
+</body>
+</html>

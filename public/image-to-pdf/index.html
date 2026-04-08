@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image to PDF — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1/dist/pdf-lib.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Image to PDF</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <span id="image-count" class="text-xs text-gray-500"></span>
+        <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear all</button>
+        <button id="btn-download" class="text-xs font-medium px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-light transition cursor-pointer hidden">Download PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Drop zone -->
+  <div id="drop-zone" class="flex flex-col items-center justify-center min-h-[calc(100vh-3rem)]">
+
+    <div id="drop-overlay" class="hidden fixed inset-0 z-40 bg-brand/10 border-2 border-dashed border-brand flex items-center justify-center pointer-events-none">
+      <span class="text-brand-light font-medium text-lg">Drop images here</span>
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="flex flex-col items-center gap-4 py-20">
+      <div class="w-16 h-16 rounded-2xl bg-surface-light border border-surface-lighter flex items-center justify-center text-3xl text-gray-500">
+        🖼
+      </div>
+      <div class="text-center">
+        <p class="text-gray-300 font-medium">Drop images here or click to select</p>
+        <p class="text-sm text-gray-500 mt-1">Supports PNG, JPEG, WebP, TIFF, GIF, BMP. Drag to reorder.</p>
+      </div>
+      <button id="btn-select" class="mt-2 px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+        Select images
+      </button>
+      <input id="file-input" type="file" accept="image/*" multiple class="hidden" />
+    </div>
+
+    <!-- Image grid -->
+    <div id="image-grid" class="hidden w-full max-w-5xl mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    </div>
+
+    <!-- Add more (shown when images exist) -->
+    <div id="add-more" class="hidden pb-8">
+      <button id="btn-add-more" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+        + Add more images
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const { PDFDocument } = PDFLib;
+
+    const dropZone = document.getElementById('drop-zone');
+    const dropOverlay = document.getElementById('drop-overlay');
+    const emptyState = document.getElementById('empty-state');
+    const imageGrid = document.getElementById('image-grid');
+    const addMore = document.getElementById('add-more');
+    const fileInput = document.getElementById('file-input');
+    const btnSelect = document.getElementById('btn-select');
+    const btnAddMore = document.getElementById('btn-add-more');
+    const btnClear = document.getElementById('btn-clear');
+    const btnDownload = document.getElementById('btn-download');
+    const imageCount = document.getElementById('image-count');
+
+    let images = []; // { file, dataUrl, name }
+    let dragSrcIndex = null;
+
+    // --- File selection ---
+    btnSelect.addEventListener('click', () => fileInput.click());
+    btnAddMore.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      addFiles(fileInput.files);
+      fileInput.value = '';
+    });
+
+    // --- Drag & Drop files ---
+    let dragCounter = 0;
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files')) {
+        dropOverlay.classList.remove('hidden');
+      }
+    });
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) dropOverlay.classList.add('hidden');
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.add('hidden');
+      if (e.dataTransfer.files.length) {
+        addFiles(e.dataTransfer.files);
+      }
+    });
+
+    // --- Add files ---
+    function addFiles(fileList) {
+      const imageFiles = [...fileList].filter(f => f.type.startsWith('image/'));
+      if (!imageFiles.length) return;
+
+      let loaded = 0;
+      for (const file of imageFiles) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          images.push({ file, dataUrl: reader.result, name: file.name });
+          loaded++;
+          if (loaded === imageFiles.length) renderGrid();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // --- Render grid ---
+    function renderGrid() {
+      if (images.length === 0) {
+        emptyState.classList.remove('hidden');
+        imageGrid.classList.add('hidden');
+        addMore.classList.add('hidden');
+        btnClear.classList.add('hidden');
+        btnDownload.classList.add('hidden');
+        imageCount.textContent = '';
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      imageGrid.classList.remove('hidden');
+      addMore.classList.remove('hidden');
+      btnClear.classList.remove('hidden');
+      btnDownload.classList.remove('hidden');
+      imageCount.textContent = `${images.length} image${images.length > 1 ? 's' : ''}`;
+
+      imageGrid.innerHTML = images.map((img, i) => `
+        <div class="group relative rounded-xl overflow-hidden bg-surface-light border border-surface-lighter aspect-square cursor-grab"
+             draggable="true" data-index="${i}">
+          <img src="${img.dataUrl}" alt="${img.name}" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition"></div>
+          <button class="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                  data-index="${i}">✕</button>
+          <span class="absolute bottom-2 left-2 text-xs text-white/80 bg-black/50 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition">${i + 1}</span>
+        </div>
+      `).join('');
+
+      // Remove buttons
+      imageGrid.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          images.splice(parseInt(btn.dataset.index), 1);
+          renderGrid();
+        });
+      });
+
+      // Drag reorder
+      const cards = imageGrid.querySelectorAll('[draggable]');
+      cards.forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+          dragSrcIndex = parseInt(card.dataset.index);
+          card.classList.add('opacity-40');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', '');
+        });
+        card.addEventListener('dragend', () => {
+          card.classList.remove('opacity-40');
+          dragSrcIndex = null;
+        });
+        card.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+        card.addEventListener('dragenter', () => {
+          if (dragSrcIndex !== null) card.classList.add('ring-2', 'ring-brand');
+        });
+        card.addEventListener('dragleave', () => {
+          card.classList.remove('ring-2', 'ring-brand');
+        });
+        card.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          card.classList.remove('ring-2', 'ring-brand');
+          const destIndex = parseInt(card.dataset.index);
+          if (dragSrcIndex !== null && dragSrcIndex !== destIndex) {
+            const [moved] = images.splice(dragSrcIndex, 1);
+            images.splice(destIndex, 0, moved);
+            renderGrid();
+          }
+        });
+      });
+    }
+
+    // --- Clear ---
+    btnClear.addEventListener('click', () => {
+      images = [];
+      renderGrid();
+    });
+
+    // --- Download PDF ---
+    btnDownload.addEventListener('click', async () => {
+      if (!images.length) return;
+
+      btnDownload.textContent = 'Generating...';
+      btnDownload.disabled = true;
+
+      try {
+        const pdfDoc = await PDFDocument.create();
+
+        for (const img of images) {
+          const bytes = await img.file.arrayBuffer();
+          let pdfImage;
+
+          const type = img.file.type;
+          if (type === 'image/png') {
+            pdfImage = await pdfDoc.embedPng(bytes);
+          } else if (type === 'image/jpeg' || type === 'image/jpg') {
+            pdfImage = await pdfDoc.embedJpg(bytes);
+          } else {
+            // For other formats (webp, gif, bmp, tiff), convert via canvas
+            pdfImage = await embedViaCanvas(pdfDoc, img.dataUrl);
+          }
+
+          const page = pdfDoc.addPage([pdfImage.width, pdfImage.height]);
+          page.drawImage(pdfImage, {
+            x: 0,
+            y: 0,
+            width: pdfImage.width,
+            height: pdfImage.height,
+          });
+        }
+
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'images.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('PDF generation failed:', err);
+      } finally {
+        btnDownload.textContent = 'Download PDF';
+        btnDownload.disabled = false;
+      }
+    });
+
+    async function embedViaCanvas(pdfDoc, dataUrl) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const pngDataUrl = canvas.toDataURL('image/png');
+          const base64 = pngDataUrl.split(',')[1];
+          const pngBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+          const pdfImage = await pdfDoc.embedPng(pngBytes);
+          resolve(pdfImage);
+        };
+        img.src = dataUrl;
+      });
+    }
+  </script>
+</body>
+</html>
