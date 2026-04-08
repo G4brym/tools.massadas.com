@@ -1,18 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "account_id": "0983f9c21d0167d8d677be145016932e",
-  "name": "tools-massadas-com",
+  "name": "browser-tools",
   "main": "src/worker.js",
   "compatibility_date": "2026-04-08",
   "assets": {
     "directory": "./public"
   },
-  "routes": [
-    {
-      "pattern": "tools.massadas.com",
-      "custom_domain": true
-    }
-  ],
   "ai": {
     "binding": "AI"
   }

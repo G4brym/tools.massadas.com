@@ -4,6 +4,8 @@ A collection of browser-only tools that run 100% locally — no data is ever sen
 
 Deployed as a Cloudflare Workers static asset site.
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/G4brym/tools.massadas.com)
+
 ## Tools
 
 - **[Swagger Playground](/swagger/)** — Paste or drag & drop an OpenAPI schema (JSON/YAML) to preview it with Swagger UI and see validation diagnostics.
@@ -25,15 +27,27 @@ Deployed as a Cloudflare Workers static asset site.
 - **[Password Generator](/password-generator/)** — Generate secure random passwords or passphrases.
 - **[EXIF Stripper](/exif-stripper/)** — View image EXIF metadata and download a stripped copy.
 
-## Development
+## Running Locally
 
 ```bash
+# Install dependencies (npm, pnpm, or bun)
 npm install
+
+# Start the dev server
 npm run dev
 ```
 
-## Deployment
+Then open [http://localhost:8787](http://localhost:8787).
+
+> **Note:** The File to Markdown tool requires a Cloudflare AI binding and will only work when deployed to Cloudflare. All other tools work fully offline.
+
+## Deploy to Cloudflare
+
+The easiest way is the button above — it forks the repo and deploys to your Cloudflare account in one click.
+
+To deploy manually:
 
 ```bash
-npm run deploy
+npm install
+npx wrangler deploy
 ```
