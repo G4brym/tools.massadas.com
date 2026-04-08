@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Password Generator</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Password display -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-6">
+      <div id="password-display" class="font-mono text-xl md:text-2xl text-gray-100 break-all min-h-[3rem] select-all leading-relaxed"></div>
+      <div class="flex items-center gap-3 mt-4">
+        <button id="btn-generate" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Generate</button>
+        <button id="btn-copy" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+      </div>
+    </div>
+
+    <!-- Strength meter -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-medium text-gray-400">Strength</span>
+        <span id="entropy-label" class="text-xs font-medium text-gray-400"></span>
+      </div>
+      <div class="w-full h-2 bg-surface-lighter rounded-full overflow-hidden">
+        <div id="strength-bar" class="h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
+      </div>
+      <div class="flex justify-between mt-1.5">
+        <span class="text-[10px] text-gray-600">Weak</span>
+        <span class="text-[10px] text-gray-600">Strong</span>
+      </div>
+    </div>
+
+    <!-- Mode toggle -->
+    <div class="flex rounded-lg border border-surface-lighter overflow-hidden">
+      <button id="btn-mode-password" class="flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center">Password</button>
+      <button id="btn-mode-passphrase" class="flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center">Passphrase</button>
+    </div>
+
+    <!-- Password options -->
+    <div id="password-options" class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+      <!-- Length slider -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label for="pw-length" class="text-sm font-medium text-gray-300">Length</label>
+          <span id="pw-length-value" class="text-sm font-mono text-brand-light">20</span>
+        </div>
+        <input type="range" id="pw-length" min="8" max="128" value="20" class="w-full">
+      </div>
+
+      <!-- Character toggles -->
+      <div class="grid grid-cols-2 gap-3">
+        <label class="flex items-center gap-2.5 cursor-pointer">
+          <input type="checkbox" id="opt-upper" checked class="w-4 h-4 rounded border-surface-lighter text-brand accent-brand cursor-pointer">
+          <span class="text-sm text-gray-300">Uppercase (A-Z)</span>
+        </label>
+        <label class="flex items-center gap-2.5 cursor-pointer">
+          <input type="checkbox" id="opt-lower" checked class="w-4 h-4 rounded border-surface-lighter text-brand accent-brand cursor-pointer">
+          <span class="text-sm text-gray-300">Lowercase (a-z)</span>
+        </label>
+        <label class="flex items-center gap-2.5 cursor-pointer">
+          <input type="checkbox" id="opt-digits" checked class="w-4 h-4 rounded border-surface-lighter text-brand accent-brand cursor-pointer">
+          <span class="text-sm text-gray-300">Digits (0-9)</span>
+        </label>
+        <label class="flex items-center gap-2.5 cursor-pointer">
+          <input type="checkbox" id="opt-symbols" checked class="w-4 h-4 rounded border-surface-lighter text-brand accent-brand cursor-pointer">
+          <span class="text-sm text-gray-300">Symbols (!@#$...)</span>
+        </label>
+      </div>
+
+      <!-- Exclude ambiguous -->
+      <label class="flex items-center gap-2.5 cursor-pointer border-t border-surface-lighter pt-4">
+        <input type="checkbox" id="opt-exclude-ambiguous" class="w-4 h-4 rounded border-surface-lighter text-brand accent-brand cursor-pointer">
+        <span class="text-sm text-gray-300">Exclude ambiguous characters (0, O, 1, l, I)</span>
+      </label>
+    </div>
+
+    <!-- Passphrase options (hidden by default) -->
+    <div id="passphrase-options" class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5 hidden">
+      <!-- Word count slider -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label for="pp-words" class="text-sm font-medium text-gray-300">Word Count</label>
+          <span id="pp-words-value" class="text-sm font-mono text-brand-light">4</span>
+        </div>
+        <input type="range" id="pp-words" min="3" max="10" value="4" class="w-full">
+      </div>
+
+      <!-- Separator -->
+      <div>
+        <label class="text-sm font-medium text-gray-300 mb-2 block">Separator</label>
+        <div class="flex gap-2">
+          <button data-sep="-" class="sep-btn px-4 py-1.5 text-sm font-mono rounded-lg bg-brand text-white transition cursor-pointer">-</button>
+          <button data-sep=" " class="sep-btn px-4 py-1.5 text-sm font-mono rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">&#x2423;</button>
+          <button data-sep="." class="sep-btn px-4 py-1.5 text-sm font-mono rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">.</button>
+          <button data-sep="_" class="sep-btn px-4 py-1.5 text-sm font-mono rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">_</button>
+        </div>
+      </div>
+
+      <!-- Capitalize -->
+      <label class="flex items-center gap-2.5 cursor-pointer border-t border-surface-lighter pt-4">
+        <input type="checkbox" id="opt-capitalize" checked class="w-4 h-4 rounded border-surface-lighter text-brand accent-brand cursor-pointer">
+        <span class="text-sm text-gray-300">Capitalize first letter of each word</span>
+      </label>
+    </div>
+
+  </main>
+
+  <script>
+    // --- Word list (~2048 common English words, 4-8 letters) ---
+    const WORDS = [
+      "about","above","accept","across","action","actual","after","again","agree","ahead",
+      "allow","almost","along","among","amount","anger","angle","angry","apart","apple",
+      "apply","argue","arise","around","aside","atlas","avoid","awful","basic","beach",
+      "began","begin","being","below","bench","birth","black","blade","blame","blank",
+      "blast","blaze","bleed","blend","bless","blind","block","blood","bloom","blown",
+      "board","bones","bonus","boost","bound","brain","brand","brave","bread","break",
+      "breed","brick","brief","bring","broad","broke","brook","brown","brush","buddy",
+      "build","built","bunch","burst","buyer","cabin","carry","catch","cause","chain",
+      "chair","chalk","champ","charm","chase","cheap","check","cheek","chess","chief",
+      "child","chill","china","chunk","civic","claim","clash","class","clean","clear",
+      "clerk","click","cliff","climb","cling","clock","clone","close","cloud","coach",
+      "coast","comet","coral","could","count","court","cover","crack","craft","crash",
+      "crazy","cream","creek","crest","crime","cross","crowd","crush","curve","cycle",
+      "daily","dance","death","debut","decay","delta","demon","depot","depth","derby",
+      "desks","diary","dirty","donor","doubt","draft","drain","drama","drank","drawn",
+      "dream","dress","dried","drift","drill","drink","drive","drops","drove","dying",
+      "eager","eagle","early","earth","eight","elder","elect","elite","embed","empty",
+      "enemy","enjoy","enter","entry","equal","equip","error","essay","event","every",
+      "exact","exist","extra","fable","faced","faith","false","fancy","fatal","fault",
+      "feast","fence","fever","fiber","field","fifty","fight","final","first","fixed",
+      "flame","flash","fleet","flesh","float","flood","floor","flour","flown","fluid",
+      "flush","focus","force","forge","forth","forum","found","frame","frank","fraud",
+      "fresh","front","frost","froze","fruit","funds","funny","gauge","genre","ghost",
+      "giant","given","glass","glide","globe","gloom","glory","gloss","grain","grand",
+      "grant","graph","grasp","grass","grave","great","green","greet","grief","grind",
+      "groan","groom","gross","group","grove","grown","guard","guess","guest","guide",
+      "guild","guilt","habit","happy","harsh","haunt","haven","heart","heavy","hence",
+      "herbs","honey","honor","horse","hotel","house","human","humor","hurry","hyper",
+      "ideal","image","imply","inbox","index","indie","inner","input","irony","issue",
+      "ivory","jewel","joint","joker","judge","juice","karma","knack","kneel","knife",
+      "knock","known","label","lance","large","laser","later","laugh","layer","learn",
+      "least","legal","lemon","level","light","lilac","limit","linen","links","liver",
+      "llama","local","lodge","logic","loose","lotus","lover","lower","loyal","lucky",
+      "lunar","lunch","lying","magic","major","maker","manga","manor","maple","march",
+      "mason","match","maybe","mayor","medal","media","mercy","merge","merit","metal",
+      "meter","might","miner","minor","minus","mixed","model","money","month","moose",
+      "moral","motor","mount","mouse","mouth","moved","movie","music","nerve","never",
+      "night","ninja","noble","noise","north","noted","novel","nurse","nylon","occur",
+      "ocean","offer","often","olive","onset","opera","orbit","order","organ","other",
+      "ought","outer","owner","oxide","ozone","paint","panel","panic","paper","parse",
+      "party","pasta","patch","pause","peace","peach","pearl","penny","phase","phone",
+      "photo","piano","piece","pilot","pinch","pitch","pixel","pizza","place","plain",
+      "plane","plant","plate","plaza","plead","pluck","plumb","plume","plush","point",
+      "polar","pound","power","press","price","pride","prime","print","prior","prize",
+      "probe","prone","proof","prose","proud","prove","psalm","pulse","punch","pupil",
+      "purse","quake","queen","query","quest","queue","quick","quiet","quota","quote",
+      "radar","radio","raise","range","rapid","ratio","raven","reach","react","ready",
+      "realm","rebel","refer","reign","relax","relay","renew","repay","rider","ridge",
+      "rifle","right","rigid","risky","rival","river","roast","robin","robot","rocky",
+      "rogue","roman","roost","rough","round","route","royal","rugby","ruler","rumor",
+      "rural","saint","salad","salon","sauce","sauna","scale","scare","scene","scope",
+      "score","scout","scrap","sense","serve","setup","seven","shade","shake","shall",
+      "shame","shape","share","shark","sharp","shear","shelf","shell","shift","shine",
+      "shirt","shock","shoot","shore","short","shout","shown","sight","sigma","since",
+      "sixth","sixty","sized","skill","skull","slash","slate","slave","sleep","slice",
+      "slide","slope","smart","smell","smile","smoke","snake","solar","solid","solve",
+      "sonic","sorry","sound","south","space","spare","spark","speak","spear","speed",
+      "spell","spend","spice","spill","spine","spite","split","spoke","sport","spray",
+      "squad","stack","staff","stage","stain","stake","stale","stalk","stamp","stand",
+      "stark","start","state","stays","steak","steal","steam","steel","steep","steer",
+      "stern","stick","stiff","still","stock","stomp","stone","stood","store","storm",
+      "story","stove","strip","stuck","study","stuff","style","sugar","suite","sunny",
+      "super","surge","swamp","swear","sweep","sweet","swept","swift","swing","swiss",
+      "sword","syrup","table","taken","taste","teach","teeth","tempo","thank","theme",
+      "there","thick","thief","thing","think","third","thorn","those","three","threw",
+      "throw","thumb","tiger","tight","timer","tired","title","today","token","topic",
+      "total","touch","tough","towel","tower","toxic","trace","track","trade","trail",
+      "train","trait","trash","treat","trend","trial","tribe","trick","tried","troop",
+      "truck","truly","trunk","trust","truth","tumor","tuner","twice","twist","ultra",
+      "under","union","unite","unity","until","upper","upset","urban","usage","usher",
+      "using","usual","utter","valid","value","valve","vapor","vault","venue","verse",
+      "video","vigor","vinyl","viral","virus","visit","vista","vital","vivid","vocal",
+      "voice","voter","wagon","waist","waste","watch","water","weary","weave","wedge",
+      "weigh","weird","wheat","wheel","where","which","while","white","whole","whose",
+      "wider","widow","width","wiper","woman","world","worry","worse","worst","worth",
+      "would","wound","wrath","write","wrong","wrote","yacht","yield","young","yours",
+      "youth","zebra","acorn","adapt","admit","adopt","alarm","album","alert","alien",
+      "align","alive","alley","amber","ample","angel","ankle","annual","arena","armor",
+      "arrow","asset","award","badge","baker","basis","batch","beard","beast","being",
+      "belly","berry","bible","bingo","blade","blank","bliss","blown","bluff","blunt",
+      "boats","bolts","bored","brain","brass","bravo","brisk","budge","bunch","candy",
+      "cargo","cedar","cells","chase","chess","chore","chunk","cisco","civil","cloth",
+      "clown","cobra","coils","comic","comma","conch","coral","corps","couch","crane",
+      "crawl","crews","crisp","crown","cubic","daddy","darts","deals","dense","detox",
+      "digit","disco","ditch","dodge","dolls","donor","dough","drape","drums","dunce",
+      "dutch","dwarf","eagle","eaten","edges","ember","emoji","enact","envoy","equal",
+      "ethic","evade","exile","faint","fairy","falls","feast","ferry","fetch","fifth",
+      "filth","finch","flask","flint","flock","focal","folly","forge","forty","foyer",
+      "frail","freed","froze","gains","gamma","genus","ghost","given","gleam","gloss",
+      "gnome","goats","grade","grasp","greed","grief","grill","grips","grove","grown",
+      "guard","guild","guise","gully","gummy","gusto","haven","hawks","hazel","heist",
+      "herbs","hoist","holly","homes","honey","hooks","horns","hover","humid","hunts",
+      "icing","impel","ivory","jelly","jolly","jumbo","kebab","kelps","kicks","kings",
+      "knelt","kudos","laden","lakes","lapel","latch","latte","ledge","liked","limbs",
+      "lobby","locks","lodge","lofty","looks","lousy","lover","lyric","macro","mango",
+      "marsh","masks","midst","mills","mimic","mirth","moist","monks","moods","motel",
+      "motto","mound","mourn","mulch","myths","naval","nerds","nests","noble","notch",
+      "oasis","olive","onset","opted","orbit","ovens","oxide","paddy","panda","panel",
+      "parks","paste","paths","patio","pedal","perch","perks","picks","pints","pipes",
+      "pivot","plaid","plots","plugs","poems","poise","poker","pools","ports","poser",
+      "pouch","poult","prank","prawn","prism","prowl","prune","pulls","pumps","puppy",
+      "quail","quest","quilt","raids","rally","ranch","razor","reefs","reign","reins",
+      "ridge","rings","risen","risks","roots","rowdy","ruins","ruler","rungs","sadly",
+      "saint","salsa","sandy","sapid","satin","saved","scald","scalp","scent","seeds",
+      "seize","shelf","ships","shrug","siege","siren","sixth","skate","skull","slabs",
+      "slang","slick","sling","sloth","slugs","snack","snail","soaps","solar","solve",
+      "sorts","sours","spade","spans","specs","spicy","spins","spoke","spoon","spots",
+      "spurs","squid","stamp","stems","stirs","stoic","stray","stubs","stung","suing",
+      "sulky","sunks","swans","swirl","tales","tanks","tango","tarts","tease","tests",
+      "texts","thaws","tidal","tiger","tiles","timer","tints","toast","tolls","tonic",
+      "torch","tours","towed","traps","trays","trees","trims","trips","tuber","tulip",
+      "tunes","turns","tutor","twigs","twist","typed","ultra","uncap","uncut","undid",
+      "unfit","union","unite","unlit","unpeg","unpin","unset","untie","upset","urban",
+      "valid","veils","venom","vents","verge","vigor","vines","visor","vivid","vowed",
+      "waged","wagon","walks","waltz","warns","watts","waved","waves","wells","whale",
+      "whelk","whims","whips","wicks","winds","wings","witch","woken","wolfs","woods",
+      "words","works","worms","wraps","wrist","yards","yeast","zeros","zones"
+    ];
+
+    // Deduplicate the word list
+    const WORDLIST = [...new Set(WORDS)];
+
+    // --- Elements ---
+    const passwordDisplay = document.getElementById('password-display');
+    const btnGenerate = document.getElementById('btn-generate');
+    const btnCopy = document.getElementById('btn-copy');
+    const entropyLabel = document.getElementById('entropy-label');
+    const strengthBar = document.getElementById('strength-bar');
+    const btnModePassword = document.getElementById('btn-mode-password');
+    const btnModePassphrase = document.getElementById('btn-mode-passphrase');
+    const passwordOptions = document.getElementById('password-options');
+    const passphraseOptions = document.getElementById('passphrase-options');
+
+    // Password options
+    const pwLength = document.getElementById('pw-length');
+    const pwLengthValue = document.getElementById('pw-length-value');
+    const optUpper = document.getElementById('opt-upper');
+    const optLower = document.getElementById('opt-lower');
+    const optDigits = document.getElementById('opt-digits');
+    const optSymbols = document.getElementById('opt-symbols');
+    const optExcludeAmbiguous = document.getElementById('opt-exclude-ambiguous');
+
+    // Passphrase options
+    const ppWords = document.getElementById('pp-words');
+    const ppWordsValue = document.getElementById('pp-words-value');
+    const optCapitalize = document.getElementById('opt-capitalize');
+    const sepBtns = document.querySelectorAll('.sep-btn');
+
+    let mode = 'password'; // 'password' | 'passphrase'
+    let separator = '-';
+
+    // --- Cryptographic random helpers ---
+    function secureRandomInt(max) {
+      // Returns a uniform random integer in [0, max)
+      // Uses rejection sampling to avoid modulo bias
+      if (max <= 0) return 0;
+      const limit = Math.floor(0xFFFFFFFF / max) * max;
+      const arr = new Uint32Array(1);
+      let val;
+      do {
+        crypto.getRandomValues(arr);
+        val = arr[0];
+      } while (val >= limit);
+      return val % max;
+    }
+
+    function secureRandomChar(charset) {
+      return charset[secureRandomInt(charset.length)];
+    }
+
+    // --- Character sets ---
+    const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const LOWER = 'abcdefghijklmnopqrstuvwxyz';
+    const DIGITS = '0123456789';
+    const SYMBOLS = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`';
+    const AMBIGUOUS = '0O1lI';
+
+    // --- Generate password ---
+    function generatePassword() {
+      let charset = '';
+      if (optUpper.checked) charset += UPPER;
+      if (optLower.checked) charset += LOWER;
+      if (optDigits.checked) charset += DIGITS;
+      if (optSymbols.checked) charset += SYMBOLS;
+
+      if (charset.length === 0) {
+        // Fallback: at least lowercase
+        charset = LOWER;
+        optLower.checked = true;
+      }
+
+      if (optExcludeAmbiguous.checked) {
+        charset = charset.split('').filter(c => !AMBIGUOUS.includes(c)).join('');
+      }
+
+      const length = parseInt(pwLength.value, 10);
+      let password = '';
+      for (let i = 0; i < length; i++) {
+        password += secureRandomChar(charset);
+      }
+
+      return { password, entropy: Math.log2(Math.pow(charset.length, length)) };
+    }
+
+    // --- Generate passphrase ---
+    function generatePassphrase() {
+      const count = parseInt(ppWords.value, 10);
+      const words = [];
+      for (let i = 0; i < count; i++) {
+        let word = WORDLIST[secureRandomInt(WORDLIST.length)];
+        if (optCapitalize.checked) {
+          word = word.charAt(0).toUpperCase() + word.slice(1);
+        }
+        words.push(word);
+      }
+      const passphrase = words.join(separator);
+      const entropy = Math.log2(Math.pow(WORDLIST.length, count));
+      return { password: passphrase, entropy };
+    }
+
+    // --- Strength meter ---
+    function updateStrengthMeter(entropy) {
+      const bits = Math.round(entropy);
+      entropyLabel.textContent = bits + ' bits of entropy';
+
+      // Map entropy to percentage (cap at 128 bits = 100%)
+      const pct = Math.min(100, (bits / 128) * 100);
+      strengthBar.style.width = pct + '%';
+
+      // Color coding
+      if (bits < 40) {
+        strengthBar.style.background = '#ef4444'; // red
+        entropyLabel.style.color = '#ef4444';
+      } else if (bits < 60) {
+        strengthBar.style.background = '#f59e0b'; // orange
+        entropyLabel.style.color = '#f59e0b';
+      } else if (bits < 80) {
+        strengthBar.style.background = '#eab308'; // yellow
+        entropyLabel.style.color = '#eab308';
+      } else {
+        strengthBar.style.background = '#22c55e'; // green
+        entropyLabel.style.color = '#22c55e';
+      }
+    }
+
+    // --- Generate and display ---
+    function generate() {
+      let result;
+      if (mode === 'password') {
+        result = generatePassword();
+      } else {
+        result = generatePassphrase();
+      }
+      passwordDisplay.textContent = result.password;
+      updateStrengthMeter(result.entropy);
+    }
+
+    // --- Mode switching ---
+    function setMode(newMode) {
+      mode = newMode;
+      if (mode === 'password') {
+        btnModePassword.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnModePassphrase.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        passwordOptions.classList.remove('hidden');
+        passphraseOptions.classList.add('hidden');
+      } else {
+        btnModePassphrase.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnModePassword.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        passwordOptions.classList.add('hidden');
+        passphraseOptions.classList.remove('hidden');
+      }
+      generate();
+    }
+
+    // --- Separator button handling ---
+    function setSeparator(sep) {
+      separator = sep;
+      sepBtns.forEach(btn => {
+        if (btn.dataset.sep === sep) {
+          btn.className = 'sep-btn px-4 py-1.5 text-sm font-mono rounded-lg bg-brand text-white transition cursor-pointer';
+        } else {
+          btn.className = 'sep-btn px-4 py-1.5 text-sm font-mono rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer';
+        }
+      });
+      generate();
+    }
+
+    // --- Event listeners ---
+    btnGenerate.addEventListener('click', generate);
+
+    btnCopy.addEventListener('click', async () => {
+      const text = passwordDisplay.textContent;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btnCopy.textContent;
+        btnCopy.textContent = 'Copied!';
+        setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+      } catch {
+        // Fallback: create temp textarea
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const orig = btnCopy.textContent;
+        btnCopy.textContent = 'Copied!';
+        setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+      }
+    });
+
+    btnModePassword.addEventListener('click', () => setMode('password'));
+    btnModePassphrase.addEventListener('click', () => setMode('passphrase'));
+
+    // Password option listeners
+    pwLength.addEventListener('input', () => {
+      pwLengthValue.textContent = pwLength.value;
+      generate();
+    });
+
+    [optUpper, optLower, optDigits, optSymbols, optExcludeAmbiguous].forEach(el => {
+      el.addEventListener('change', generate);
+    });
+
+    // Passphrase option listeners
+    ppWords.addEventListener('input', () => {
+      ppWordsValue.textContent = ppWords.value;
+      generate();
+    });
+
+    optCapitalize.addEventListener('change', generate);
+
+    sepBtns.forEach(btn => {
+      btn.addEventListener('click', () => setSeparator(btn.dataset.sep));
+    });
+
+    // --- Initialize ---
+    generate();
+  </script>
+</body>
+</html>

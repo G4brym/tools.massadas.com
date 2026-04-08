@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UUID Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">UUID Generator</h1>
+    </div>
+  </header>
+
+  <div class="max-w-3xl mx-auto px-6 py-8">
+
+    <!-- Type selector -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-300 mb-2">Type</label>
+      <div class="flex flex-wrap gap-2" id="type-tabs">
+        <button data-type="uuidv4" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-brand text-white">UUID v4</button>
+        <button data-type="uuidv7" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light">UUID v7</button>
+        <button data-type="ulid" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light">ULID</button>
+        <button data-type="nanoid" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light">Nanoid</button>
+      </div>
+    </div>
+
+    <!-- Quantity -->
+    <div class="mb-6">
+      <label for="quantity" class="block text-sm font-medium text-gray-300 mb-2">Quantity</label>
+      <input
+        id="quantity"
+        type="number"
+        min="1"
+        max="100"
+        value="10"
+        class="w-32 bg-surface-light border border-surface-lighter rounded-lg text-sm text-gray-200 font-mono px-4 py-2 focus:outline-none focus:border-brand"
+      />
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex gap-3 mb-6">
+      <button id="btn-generate" class="px-5 py-2.5 rounded-lg bg-brand hover:bg-brand-light text-white text-sm font-medium transition cursor-pointer">
+        Generate
+      </button>
+      <button id="btn-copy" class="px-5 py-2.5 rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light text-sm font-medium transition cursor-pointer">
+        Copy All
+      </button>
+    </div>
+
+    <!-- Timestamp info (for UUID v7 and ULID) -->
+    <div id="timestamp-info" class="hidden mb-4 rounded-lg bg-surface-light border border-surface-lighter px-4 py-3">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Decoded Timestamps</p>
+      <div id="timestamp-list" class="space-y-1 max-h-60 overflow-y-auto font-mono text-xs"></div>
+    </div>
+
+    <!-- Output -->
+    <div>
+      <label for="output" class="block text-sm font-medium text-gray-300 mb-2">Output</label>
+      <textarea
+        id="output"
+        class="w-full bg-surface-light border border-surface-lighter rounded-lg text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none focus:border-brand h-80"
+        readonly
+        spellcheck="false"
+      ></textarea>
+    </div>
+
+  </div>
+
+  <script>
+    const typeTabs = document.getElementById('type-tabs');
+    const quantityInput = document.getElementById('quantity');
+    const btnGenerate = document.getElementById('btn-generate');
+    const btnCopy = document.getElementById('btn-copy');
+    const output = document.getElementById('output');
+    const timestampInfo = document.getElementById('timestamp-info');
+    const timestampList = document.getElementById('timestamp-list');
+
+    let currentType = 'uuidv4';
+
+    // --- Tab switching ---
+    typeTabs.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      currentType = btn.dataset.type;
+      typeTabs.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = 'tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light';
+      });
+      btn.className = 'tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-brand text-white';
+      generate();
+    });
+
+    // --- Quantity change ---
+    quantityInput.addEventListener('input', () => {
+      generate();
+    });
+
+    // --- Generate button ---
+    btnGenerate.addEventListener('click', () => {
+      generate();
+    });
+
+    // --- Copy button ---
+    btnCopy.addEventListener('click', async () => {
+      if (!output.value) return;
+      await navigator.clipboard.writeText(output.value);
+      const orig = btnCopy.textContent;
+      btnCopy.textContent = 'Copied!';
+      setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+    });
+
+    // --- UUID v4 ---
+    function generateUUIDv4() {
+      return crypto.randomUUID();
+    }
+
+    // --- UUID v7 ---
+    function generateUUIDv7() {
+      const now = Date.now();
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+
+      // Encode timestamp in first 48 bits (big-endian)
+      bytes[0] = (now / 2**40) & 0xff;
+      bytes[1] = (now / 2**32) & 0xff;
+      bytes[2] = (now / 2**24) & 0xff;
+      bytes[3] = (now / 2**16) & 0xff;
+      bytes[4] = (now / 2**8) & 0xff;
+      bytes[5] = now & 0xff;
+
+      // Version 7: set bits 48-51 to 0111
+      bytes[6] = (bytes[6] & 0x0f) | 0x70;
+
+      // Variant 10: set bits 64-65 to 10
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+      return formatUUID(bytes);
+    }
+
+    function formatUUID(bytes) {
+      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      return (
+        hex.slice(0, 8) + '-' +
+        hex.slice(8, 12) + '-' +
+        hex.slice(12, 16) + '-' +
+        hex.slice(16, 20) + '-' +
+        hex.slice(20, 32)
+      );
+    }
+
+    function decodeUUIDv7Timestamp(uuid) {
+      const hex = uuid.replace(/-/g, '');
+      const timestampHex = hex.slice(0, 12);
+      const timestamp = parseInt(timestampHex, 16);
+      return new Date(timestamp);
+    }
+
+    // --- ULID ---
+    const CROCKFORD_BASE32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+    function generateULID() {
+      const now = Date.now();
+
+      // Encode 48-bit timestamp (10 chars in Crockford base32)
+      let ts = now;
+      const timeChars = new Array(10);
+      for (let i = 9; i >= 0; i--) {
+        timeChars[i] = CROCKFORD_BASE32[ts & 0x1f];
+        ts = Math.floor(ts / 32);
+      }
+
+      // Encode 80-bit randomness (16 chars in Crockford base32)
+      const randBytes = new Uint8Array(10);
+      crypto.getRandomValues(randBytes);
+      const randChars = new Array(16);
+      // Convert 10 bytes (80 bits) into 16 base32 chars
+      // Process 5 bytes at a time (40 bits = 8 base32 chars)
+      for (let block = 0; block < 2; block++) {
+        const offset = block * 5;
+        const outOffset = block * 8;
+        const b0 = randBytes[offset];
+        const b1 = randBytes[offset + 1];
+        const b2 = randBytes[offset + 2];
+        const b3 = randBytes[offset + 3];
+        const b4 = randBytes[offset + 4];
+        randChars[outOffset]     = CROCKFORD_BASE32[(b0 >> 3) & 0x1f];
+        randChars[outOffset + 1] = CROCKFORD_BASE32[((b0 << 2) | (b1 >> 6)) & 0x1f];
+        randChars[outOffset + 2] = CROCKFORD_BASE32[(b1 >> 1) & 0x1f];
+        randChars[outOffset + 3] = CROCKFORD_BASE32[((b1 << 4) | (b2 >> 4)) & 0x1f];
+        randChars[outOffset + 4] = CROCKFORD_BASE32[((b2 << 1) | (b3 >> 7)) & 0x1f];
+        randChars[outOffset + 5] = CROCKFORD_BASE32[(b3 >> 2) & 0x1f];
+        randChars[outOffset + 6] = CROCKFORD_BASE32[((b3 << 3) | (b4 >> 5)) & 0x1f];
+        randChars[outOffset + 7] = CROCKFORD_BASE32[b4 & 0x1f];
+      }
+
+      return timeChars.join('') + randChars.join('');
+    }
+
+    function decodeULIDTimestamp(ulid) {
+      const timeStr = ulid.slice(0, 10);
+      let timestamp = 0;
+      for (let i = 0; i < 10; i++) {
+        const idx = CROCKFORD_BASE32.indexOf(timeStr[i].toUpperCase());
+        timestamp = timestamp * 32 + idx;
+      }
+      return new Date(timestamp);
+    }
+
+    // --- Nanoid ---
+    function generateNanoid() {
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+      const size = 21;
+      const mask = 63; // 2^6 - 1, since alphabet length is 64
+      const bytes = new Uint8Array(size);
+      crypto.getRandomValues(bytes);
+      let id = '';
+      for (let i = 0; i < size; i++) {
+        id += alphabet[bytes[i] & mask];
+      }
+      return id;
+    }
+
+    // --- Main generate ---
+    function generate() {
+      let qty = parseInt(quantityInput.value, 10);
+      if (isNaN(qty) || qty < 1) qty = 1;
+      if (qty > 100) qty = 100;
+
+      const ids = [];
+      const generators = {
+        uuidv4: generateUUIDv4,
+        uuidv7: generateUUIDv7,
+        ulid: generateULID,
+        nanoid: generateNanoid,
+      };
+
+      const gen = generators[currentType];
+      for (let i = 0; i < qty; i++) {
+        ids.push(gen());
+      }
+
+      output.value = ids.join('\n');
+
+      // Show timestamps for UUID v7 and ULID
+      if (currentType === 'uuidv7' || currentType === 'ulid') {
+        timestampInfo.classList.remove('hidden');
+        const decoder = currentType === 'uuidv7' ? decodeUUIDv7Timestamp : decodeULIDTimestamp;
+        const html = ids.map(id => {
+          const date = decoder(id);
+          return '<div class="flex gap-4"><span class="text-gray-400 shrink-0">' + escapeHtml(id) + '</span><span class="text-brand-light">' + escapeHtml(date.toISOString()) + '</span></div>';
+        }).join('');
+        timestampList.innerHTML = html;
+      } else {
+        timestampInfo.classList.add('hidden');
+        timestampList.innerHTML = '';
+      }
+    }
+
+    function escapeHtml(str) {
+      const el = document.createElement('span');
+      el.textContent = str;
+      return el.innerHTML;
+    }
+
+    // --- Initial generation on load ---
+    generate();
+  </script>
+</body>
+</html>

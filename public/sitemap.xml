@@ -12,4 +12,49 @@
   <url>
     <loc>https://tools.massadas.com/file-to-markdown/</loc>
   </url>
+  <url>
+    <loc>https://tools.massadas.com/json-formatter/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/base64/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/jwt-decoder/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/diff/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/regex/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/csv-viewer/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/uuid-generator/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/cron-parser/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/color-converter/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/hash-generator/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/image-compressor/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/svg-optimizer/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/qr-code/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/password-generator/</loc>
+  </url>
+  <url>
+    <loc>https://tools.massadas.com/exif-stripper/</loc>
+  </url>
 </urlset>

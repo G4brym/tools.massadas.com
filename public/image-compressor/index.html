@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Compressor — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Image Compressor</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-4xl mx-auto px-4 py-8">
+
+    <!-- Drop zone -->
+    <div id="drop-zone" class="relative border-2 border-dashed border-surface-lighter rounded-2xl p-12 flex flex-col items-center justify-center gap-4 transition hover:border-brand/50 cursor-pointer">
+      <div class="w-16 h-16 rounded-2xl bg-surface-light border border-surface-lighter flex items-center justify-center text-gray-500">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      </div>
+      <div class="text-center">
+        <p class="text-gray-300 font-medium">Drop an image here or click to select</p>
+        <p class="text-sm text-gray-500 mt-1">Supports PNG, JPEG, WebP, GIF, BMP, TIFF</p>
+      </div>
+      <button id="btn-select" class="mt-2 px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+        Select image
+      </button>
+      <input id="file-input" type="file" accept="image/*" class="hidden" />
+    </div>
+
+    <!-- Drop overlay -->
+    <div id="drop-overlay" class="hidden fixed inset-0 z-40 bg-brand/10 border-2 border-dashed border-brand flex items-center justify-center pointer-events-none">
+      <span class="text-brand-light font-medium text-lg">Drop image here</span>
+    </div>
+
+    <!-- Editor (hidden until image loaded) -->
+    <div id="editor" class="hidden mt-8 space-y-8">
+
+      <!-- Original info -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-300">Original</h2>
+          <button id="btn-change" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Change image</button>
+        </div>
+        <div class="flex gap-6 items-start">
+          <img id="preview-original" class="max-h-48 rounded-lg border border-surface-lighter object-contain bg-surface" alt="Original preview" />
+          <div class="flex flex-col gap-1 text-sm text-gray-400 pt-1">
+            <span id="info-name" class="text-gray-200 font-medium"></span>
+            <span id="info-dimensions"></span>
+            <span id="info-size"></span>
+            <span id="info-type"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-4 space-y-6">
+        <h2 class="text-sm font-semibold text-gray-300">Settings</h2>
+
+        <!-- Output format -->
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-2">Output format</label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="format" value="image/jpeg" checked class="accent-brand" />
+              <span class="text-sm text-gray-300">JPEG</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="format" value="image/png" class="accent-brand" />
+              <span class="text-sm text-gray-300">PNG</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="format" value="image/webp" class="accent-brand" />
+              <span class="text-sm text-gray-300">WebP</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Quality -->
+        <div id="quality-section">
+          <label class="block text-xs font-medium text-gray-400 mb-2">Quality: <span id="quality-value" class="text-gray-200">0.80</span></label>
+          <input id="quality-slider" type="range" min="0.1" max="1" step="0.05" value="0.8" class="w-full accent-brand" />
+          <div class="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0.1 (smallest)</span>
+            <span>1.0 (best)</span>
+          </div>
+        </div>
+
+        <!-- Resize -->
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-2">Resize mode</label>
+          <div class="flex gap-3 mb-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="resize-mode" value="percentage" checked class="accent-brand" />
+              <span class="text-sm text-gray-300">Percentage</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="resize-mode" value="custom" class="accent-brand" />
+              <span class="text-sm text-gray-300">Custom dimensions</span>
+            </label>
+          </div>
+
+          <!-- Percentage slider -->
+          <div id="resize-percentage">
+            <label class="block text-xs font-medium text-gray-400 mb-2">Scale: <span id="scale-value" class="text-gray-200">100%</span></label>
+            <input id="scale-slider" type="range" min="10" max="100" step="1" value="100" class="w-full accent-brand" />
+            <div class="flex justify-between text-xs text-gray-500 mt-1">
+              <span>10%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <!-- Custom dimensions -->
+          <div id="resize-custom" class="hidden">
+            <div class="flex items-end gap-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Width (px)</label>
+                <input id="custom-width" type="number" min="1" class="w-28 px-3 py-1.5 text-sm bg-surface border border-surface-lighter rounded-lg text-gray-200 outline-none focus:border-brand transition" />
+              </div>
+              <div class="pb-1.5 text-gray-500 text-sm">&times;</div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Height (px)</label>
+                <input id="custom-height" type="number" min="1" class="w-28 px-3 py-1.5 text-sm bg-surface border border-surface-lighter rounded-lg text-gray-200 outline-none focus:border-brand transition" />
+              </div>
+              <button id="btn-lock" class="mb-0.5 px-3 py-1.5 text-sm rounded-lg border transition cursor-pointer" title="Toggle aspect ratio lock">
+                <svg id="lock-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compressed result -->
+      <div id="result-section" class="bg-surface-light border border-surface-lighter rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-300">Compressed</h2>
+          <span id="savings" class="text-sm font-medium text-ok"></span>
+        </div>
+
+        <div id="compressing-indicator" class="hidden text-sm text-gray-400 py-4 text-center">Compressing...</div>
+
+        <div id="result-content" class="hidden">
+          <div class="flex gap-6 items-start">
+            <img id="preview-compressed" class="max-h-48 rounded-lg border border-surface-lighter object-contain bg-surface" alt="Compressed preview" />
+            <div class="flex flex-col gap-1 text-sm text-gray-400 pt-1">
+              <span id="result-dimensions"></span>
+              <span id="result-size"></span>
+              <span id="result-format"></span>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <button id="btn-download" class="px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+              Download
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- State ---
+    let originalFile = null;
+    let originalImage = null; // HTMLImageElement
+    let originalWidth = 0;
+    let originalHeight = 0;
+    let aspectRatio = 1;
+    let lockAspect = true;
+    let compressedBlob = null;
+    let compressedUrl = null;
+    let debounceTimer = null;
+
+    // --- Elements ---
+    const dropZone = document.getElementById('drop-zone');
+    const dropOverlay = document.getElementById('drop-overlay');
+    const fileInput = document.getElementById('file-input');
+    const btnSelect = document.getElementById('btn-select');
+    const editor = document.getElementById('editor');
+    const btnChange = document.getElementById('btn-change');
+    const previewOriginal = document.getElementById('preview-original');
+    const infoName = document.getElementById('info-name');
+    const infoDimensions = document.getElementById('info-dimensions');
+    const infoSize = document.getElementById('info-size');
+    const infoType = document.getElementById('info-type');
+    const qualitySection = document.getElementById('quality-section');
+    const qualitySlider = document.getElementById('quality-slider');
+    const qualityValue = document.getElementById('quality-value');
+    const scaleSlider = document.getElementById('scale-slider');
+    const scaleValue = document.getElementById('scale-value');
+    const resizePercentage = document.getElementById('resize-percentage');
+    const resizeCustom = document.getElementById('resize-custom');
+    const customWidth = document.getElementById('custom-width');
+    const customHeight = document.getElementById('custom-height');
+    const btnLock = document.getElementById('btn-lock');
+    const lockIcon = document.getElementById('lock-icon');
+    const compressingIndicator = document.getElementById('compressing-indicator');
+    const resultContent = document.getElementById('result-content');
+    const previewCompressed = document.getElementById('preview-compressed');
+    const resultDimensions = document.getElementById('result-dimensions');
+    const resultSize = document.getElementById('result-size');
+    const resultFormat = document.getElementById('result-format');
+    const savings = document.getElementById('savings');
+    const btnDownload = document.getElementById('btn-download');
+    const formatRadios = document.querySelectorAll('input[name="format"]');
+    const resizeModeRadios = document.querySelectorAll('input[name="resize-mode"]');
+
+    // --- Helpers ---
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      const val = bytes / Math.pow(1024, i);
+      return val.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+    }
+
+    function getSelectedFormat() {
+      return document.querySelector('input[name="format"]:checked').value;
+    }
+
+    function getResizeMode() {
+      return document.querySelector('input[name="resize-mode"]:checked').value;
+    }
+
+    function getExtension(mime) {
+      if (mime === 'image/jpeg') return '.jpg';
+      if (mime === 'image/png') return '.png';
+      if (mime === 'image/webp') return '.webp';
+      return '.bin';
+    }
+
+    function formatMime(mime) {
+      if (mime === 'image/jpeg') return 'JPEG';
+      if (mime === 'image/png') return 'PNG';
+      if (mime === 'image/webp') return 'WebP';
+      return mime;
+    }
+
+    // --- Lock button styling ---
+    function updateLockButton() {
+      if (lockAspect) {
+        btnLock.className = 'mb-0.5 px-3 py-1.5 text-sm rounded-lg border border-brand text-brand-light transition cursor-pointer';
+      } else {
+        btnLock.className = 'mb-0.5 px-3 py-1.5 text-sm rounded-lg border border-surface-lighter text-gray-500 transition cursor-pointer';
+      }
+    }
+
+    // --- File loading ---
+    function loadImage(file) {
+      originalFile = file;
+
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        originalImage = img;
+        originalWidth = img.naturalWidth;
+        originalHeight = img.naturalHeight;
+        aspectRatio = originalWidth / originalHeight;
+
+        // Show editor, hide drop zone
+        dropZone.classList.add('hidden');
+        editor.classList.remove('hidden');
+
+        // Populate original info
+        previewOriginal.src = url;
+        infoName.textContent = file.name;
+        infoDimensions.textContent = `${originalWidth} x ${originalHeight} px`;
+        infoSize.textContent = formatBytes(file.size);
+        infoType.textContent = file.type || 'Unknown';
+
+        // Reset custom dimension inputs
+        customWidth.value = originalWidth;
+        customHeight.value = originalHeight;
+
+        // Reset scale
+        scaleSlider.value = 100;
+        scaleValue.textContent = '100%';
+
+        // Trigger initial compression
+        scheduleCompress();
+      };
+      img.src = url;
+    }
+
+    // --- Drag & drop ---
+    let dragCounter = 0;
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files')) {
+        dropOverlay.classList.remove('hidden');
+      }
+    });
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) dropOverlay.classList.add('hidden');
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.add('hidden');
+      const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      if (files.length > 0) loadImage(files[0]);
+    });
+
+    // Click to select
+    dropZone.addEventListener('click', (e) => {
+      if (e.target.closest('#btn-select') || e.target === dropZone || e.target.closest('#drop-zone')) {
+        fileInput.click();
+      }
+    });
+    btnChange.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        loadImage(fileInput.files[0]);
+      }
+      fileInput.value = '';
+    });
+
+    // --- Format change ---
+    formatRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        const fmt = getSelectedFormat();
+        // Disable quality for PNG
+        if (fmt === 'image/png') {
+          qualitySlider.disabled = true;
+          qualitySection.classList.add('opacity-40');
+        } else {
+          qualitySlider.disabled = false;
+          qualitySection.classList.remove('opacity-40');
+        }
+        scheduleCompress();
+      });
+    });
+
+    // --- Quality slider ---
+    qualitySlider.addEventListener('input', () => {
+      qualityValue.textContent = parseFloat(qualitySlider.value).toFixed(2);
+      scheduleCompress();
+    });
+
+    // --- Resize mode ---
+    resizeModeRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        const mode = getResizeMode();
+        if (mode === 'percentage') {
+          resizePercentage.classList.remove('hidden');
+          resizeCustom.classList.add('hidden');
+        } else {
+          resizePercentage.classList.add('hidden');
+          resizeCustom.classList.remove('hidden');
+        }
+        scheduleCompress();
+      });
+    });
+
+    // --- Scale slider ---
+    scaleSlider.addEventListener('input', () => {
+      scaleValue.textContent = scaleSlider.value + '%';
+      scheduleCompress();
+    });
+
+    // --- Custom dimensions ---
+    let widthChanging = false;
+    let heightChanging = false;
+
+    customWidth.addEventListener('input', () => {
+      if (lockAspect && !heightChanging) {
+        widthChanging = true;
+        const w = parseInt(customWidth.value) || 0;
+        customHeight.value = Math.round(w / aspectRatio) || '';
+        widthChanging = false;
+      }
+      scheduleCompress();
+    });
+
+    customHeight.addEventListener('input', () => {
+      if (lockAspect && !widthChanging) {
+        heightChanging = true;
+        const h = parseInt(customHeight.value) || 0;
+        customWidth.value = Math.round(h * aspectRatio) || '';
+        heightChanging = false;
+      }
+      scheduleCompress();
+    });
+
+    // --- Lock toggle ---
+    btnLock.addEventListener('click', () => {
+      lockAspect = !lockAspect;
+      updateLockButton();
+      if (lockAspect) {
+        // Recalculate height from current width
+        const w = parseInt(customWidth.value) || originalWidth;
+        customHeight.value = Math.round(w / aspectRatio);
+        scheduleCompress();
+      }
+    });
+    updateLockButton();
+
+    // --- Debounced compress ---
+    function scheduleCompress() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(compress, 300);
+    }
+
+    // --- Compress ---
+    function compress() {
+      if (!originalImage) return;
+
+      const format = getSelectedFormat();
+      const quality = parseFloat(qualitySlider.value);
+      const resizeMode = getResizeMode();
+
+      let targetW, targetH;
+      if (resizeMode === 'percentage') {
+        const scale = parseInt(scaleSlider.value) / 100;
+        targetW = Math.round(originalWidth * scale);
+        targetH = Math.round(originalHeight * scale);
+      } else {
+        targetW = parseInt(customWidth.value) || originalWidth;
+        targetH = parseInt(customHeight.value) || originalHeight;
+      }
+
+      // Ensure at least 1px
+      targetW = Math.max(1, targetW);
+      targetH = Math.max(1, targetH);
+
+      // Show compressing state
+      compressingIndicator.classList.remove('hidden');
+      resultContent.classList.add('hidden');
+
+      // Draw to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+
+      // For JPEG, fill white background (transparency becomes black otherwise)
+      if (format === 'image/jpeg') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, targetW, targetH);
+      }
+
+      ctx.drawImage(originalImage, 0, 0, targetW, targetH);
+
+      // For PNG, quality param is ignored by browsers; pass undefined
+      const qualityArg = format === 'image/png' ? undefined : quality;
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          compressingIndicator.classList.add('hidden');
+          return;
+        }
+
+        // Clean up previous
+        if (compressedUrl) URL.revokeObjectURL(compressedUrl);
+
+        compressedBlob = blob;
+        compressedUrl = URL.createObjectURL(blob);
+
+        // Update preview
+        previewCompressed.src = compressedUrl;
+        resultDimensions.textContent = `${targetW} x ${targetH} px`;
+        resultSize.textContent = formatBytes(blob.size);
+        resultFormat.textContent = formatMime(format);
+
+        // Calculate savings
+        const originalSize = originalFile.size;
+        const compressedSize = blob.size;
+        const savedPct = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+
+        if (compressedSize < originalSize) {
+          savings.textContent = `Saved ${savedPct}% (${formatBytes(originalSize)} \u2192 ${formatBytes(compressedSize)})`;
+          savings.className = 'text-sm font-medium text-ok';
+        } else {
+          const increasePct = (((compressedSize / originalSize) - 1) * 100).toFixed(1);
+          savings.textContent = `+${increasePct}% larger (${formatBytes(originalSize)} \u2192 ${formatBytes(compressedSize)})`;
+          savings.className = 'text-sm font-medium text-red-400';
+        }
+
+        // Show result
+        compressingIndicator.classList.add('hidden');
+        resultContent.classList.remove('hidden');
+      }, format, qualityArg);
+    }
+
+    // --- Download ---
+    btnDownload.addEventListener('click', () => {
+      if (!compressedBlob) return;
+      const format = getSelectedFormat();
+      const baseName = originalFile.name.replace(/\.[^.]+$/, '');
+      const ext = getExtension(format);
+      const a = document.createElement('a');
+      a.href = compressedUrl;
+      a.download = baseName + '-compressed' + ext;
+      a.click();
+    });
+  </script>
+</body>
+</html>

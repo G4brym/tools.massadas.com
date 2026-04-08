@@ -9,3 +9,18 @@ Deployed as a Cloudflare Workers static asset site.
 - [Swagger Playground](https://tools.massadas.com/swagger/): Paste or drag & drop an OpenAPI schema (JSON/YAML) to preview it with Swagger UI and see validation diagnostics.
 - [Image to PDF](https://tools.massadas.com/image-to-pdf/): Drop or select images, reorder by dragging, and download as a single PDF.
 - [File to Markdown](https://tools.massadas.com/file-to-markdown/): Convert PDF, DOCX, PPTX, and other documents to Markdown using Cloudflare Workers AI.
+- [JSON Formatter](https://tools.massadas.com/json-formatter/): Format, validate, and syntax-highlight JSON. Minify, copy, or export as YAML.
+- [Base64 Encode/Decode](https://tools.massadas.com/base64/): Encode text or files to Base64, or decode Base64 back. Full UTF-8 support.
+- [JWT Decoder](https://tools.massadas.com/jwt-decoder/): Decode JWT header, payload, and check expiration status.
+- [Diff Viewer](https://tools.massadas.com/diff/): Paste two texts and see a highlighted side-by-side diff.
+- [Regex Tester](https://tools.massadas.com/regex/): Write regex patterns with live matching and capture group highlighting.
+- [CSV Viewer](https://tools.massadas.com/csv-viewer/): Paste or drop a CSV to view as a sortable, filterable table.
+- [UUID Generator](https://tools.massadas.com/uuid-generator/): Generate UUIDs (v4, v7), ULIDs, and Nanoids in bulk.
+- [Cron Parser](https://tools.massadas.com/cron-parser/): Parse cron expressions to see next run times and a plain English description.
+- [Color Converter](https://tools.massadas.com/color-converter/): Convert colors between HEX, RGB, HSL, and oklch.
+- [Hash Generator](https://tools.massadas.com/hash-generator/): Generate MD5, SHA-1, SHA-256, SHA-384, and SHA-512 hashes.
+- [Image Compressor](https://tools.massadas.com/image-compressor/): Resize, compress, and convert images between JPEG, PNG, and WebP.
+- [SVG Optimizer](https://tools.massadas.com/svg-optimizer/): Strip metadata and optimize SVGs to reduce file size.
+- [QR Code Generator](https://tools.massadas.com/qr-code/): Generate QR codes with custom size, colors, and error correction.
+- [Password Generator](https://tools.massadas.com/password-generator/): Generate secure random passwords or passphrases.
+- [EXIF Stripper](https://tools.massadas.com/exif-stripper/): View image EXIF metadata and download a stripped copy.

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT Decoder — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">JWT Decoder</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <span id="status-badge" class="hidden text-xs font-medium px-2.5 py-0.5 rounded-full"></span>
+        <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-4xl mx-auto px-6 py-8">
+
+    <!-- Token input -->
+    <div class="mb-6">
+      <label for="jwt-input" class="block text-sm font-medium text-gray-300 mb-2">Paste JWT Token</label>
+      <textarea
+        id="jwt-input"
+        class="w-full bg-surface-light border border-surface-lighter rounded-lg text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none focus:border-brand placeholder:text-gray-600 h-32"
+        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        spellcheck="false"
+      ></textarea>
+    </div>
+
+    <!-- Decoded sections -->
+    <div id="decoded-sections" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        <!-- Header -->
+        <div class="rounded-lg bg-surface-light border border-surface-lighter overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-lighter">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Header</span>
+            <button class="copy-btn text-xs text-gray-500 hover:text-brand-light transition cursor-pointer" data-target="header-content">Copy</button>
+          </div>
+          <pre id="header-content" class="p-4 text-sm font-mono overflow-x-auto leading-relaxed"></pre>
+        </div>
+
+        <!-- Payload -->
+        <div class="rounded-lg bg-surface-light border border-surface-lighter overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-lighter">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Payload</span>
+            <button class="copy-btn text-xs text-gray-500 hover:text-brand-light transition cursor-pointer" data-target="payload-content">Copy</button>
+          </div>
+          <pre id="payload-content" class="p-4 text-sm font-mono overflow-x-auto leading-relaxed"></pre>
+          <div id="claims-info" class="border-t border-surface-lighter px-4 py-3 space-y-1.5"></div>
+        </div>
+
+        <!-- Signature -->
+        <div class="rounded-lg bg-surface-light border border-surface-lighter overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-lighter">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Signature</span>
+            <button class="copy-btn text-xs text-gray-500 hover:text-brand-light transition cursor-pointer" data-target="signature-content">Copy</button>
+          </div>
+          <pre id="signature-content" class="p-4 text-sm font-mono overflow-x-auto leading-relaxed text-gray-300 break-all whitespace-pre-wrap"></pre>
+          <div class="border-t border-surface-lighter px-4 py-3">
+            <p class="text-xs text-gray-500">Signature verification requires the secret/key</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Error display -->
+    <div id="error-section" class="hidden mt-4 rounded-lg bg-err/10 border border-err/30 px-4 py-3 text-sm text-err"></div>
+
+  </div>
+
+  <script>
+    const jwtInput = document.getElementById('jwt-input');
+    const decodedSections = document.getElementById('decoded-sections');
+    const headerContent = document.getElementById('header-content');
+    const payloadContent = document.getElementById('payload-content');
+    const signatureContent = document.getElementById('signature-content');
+    const claimsInfo = document.getElementById('claims-info');
+    const statusBadge = document.getElementById('status-badge');
+    const btnClear = document.getElementById('btn-clear');
+    const errorSection = document.getElementById('error-section');
+
+    let debounceTimer = null;
+
+    // --- Input handling ---
+    jwtInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => decodeJWT(jwtInput.value.trim()), 300);
+    });
+
+    // --- Clear ---
+    btnClear.addEventListener('click', () => {
+      jwtInput.value = '';
+      decodedSections.classList.add('hidden');
+      errorSection.classList.add('hidden');
+      statusBadge.classList.add('hidden');
+      btnClear.classList.add('hidden');
+    });
+
+    // --- Copy buttons ---
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const target = document.getElementById(btn.dataset.target);
+        await navigator.clipboard.writeText(target.textContent);
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+    });
+
+    // --- Base64url decode ---
+    function base64urlDecode(str) {
+      // Replace base64url chars with base64 chars
+      let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+      // Pad with = to make length a multiple of 4
+      const pad = base64.length % 4;
+      if (pad === 2) base64 += '==';
+      else if (pad === 3) base64 += '=';
+      return atob(base64);
+    }
+
+    // --- Syntax highlight JSON ---
+    function syntaxHighlight(json) {
+      const str = JSON.stringify(json, null, 2);
+      return str.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+        let cls = 'text-brand-light'; // number
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            // key
+            return '<span class="text-brand-light">' + escapeHtml(match.slice(0, -1)) + '</span>:';
+          } else {
+            // string value
+            cls = 'text-ok';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'text-warn';
+        } else if (/null/.test(match)) {
+          cls = 'text-gray-500';
+        }
+        return '<span class="' + cls + '">' + escapeHtml(match) + '</span>';
+      });
+    }
+
+    function escapeHtml(str) {
+      const el = document.createElement('span');
+      el.textContent = str;
+      return el.innerHTML;
+    }
+
+    // --- Time formatting ---
+    function formatTimestamp(ts) {
+      const date = new Date(ts * 1000);
+      return date.toLocaleString();
+    }
+
+    function timeAgo(ts) {
+      const now = Date.now() / 1000;
+      const diff = ts - now;
+      const absDiff = Math.abs(diff);
+
+      if (absDiff < 60) return Math.round(absDiff) + 's';
+      if (absDiff < 3600) return Math.round(absDiff / 60) + 'm';
+      if (absDiff < 86400) return Math.round(absDiff / 3600) + 'h';
+      return Math.round(absDiff / 86400) + 'd';
+    }
+
+    // --- Set status badge ---
+    function setBadge(type, text) {
+      statusBadge.classList.remove('hidden');
+      if (type === 'valid') {
+        statusBadge.textContent = text;
+        statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-ok/15 text-ok';
+      } else if (type === 'expired') {
+        statusBadge.textContent = text;
+        statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-warn/15 text-warn';
+      } else {
+        statusBadge.textContent = text;
+        statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-err/15 text-err';
+      }
+    }
+
+    // --- Decode JWT ---
+    function decodeJWT(token) {
+      if (!token) {
+        decodedSections.classList.add('hidden');
+        errorSection.classList.add('hidden');
+        statusBadge.classList.add('hidden');
+        btnClear.classList.add('hidden');
+        return;
+      }
+
+      btnClear.classList.remove('hidden');
+      errorSection.classList.add('hidden');
+
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        showError('Invalid JWT: expected 3 parts separated by dots, got ' + parts.length);
+        setBadge('invalid', 'Invalid');
+        decodedSections.classList.add('hidden');
+        return;
+      }
+
+      let header, payload;
+
+      // Decode header
+      try {
+        const headerJson = base64urlDecode(parts[0]);
+        header = JSON.parse(headerJson);
+      } catch (e) {
+        showError('Failed to decode header: ' + e.message);
+        setBadge('invalid', 'Invalid');
+        decodedSections.classList.add('hidden');
+        return;
+      }
+
+      // Decode payload
+      try {
+        const payloadJson = base64urlDecode(parts[1]);
+        payload = JSON.parse(payloadJson);
+      } catch (e) {
+        showError('Failed to decode payload: ' + e.message);
+        setBadge('invalid', 'Invalid');
+        decodedSections.classList.add('hidden');
+        return;
+      }
+
+      // Render header
+      headerContent.innerHTML = syntaxHighlight(header);
+
+      // Render payload
+      payloadContent.innerHTML = syntaxHighlight(payload);
+
+      // Render signature
+      signatureContent.textContent = parts[2];
+
+      // Render claims info
+      renderClaimsInfo(payload);
+
+      // Determine status
+      const now = Date.now() / 1000;
+      if (payload.exp !== undefined) {
+        if (payload.exp < now) {
+          setBadge('expired', 'Expired');
+        } else {
+          setBadge('valid', 'Valid JWT');
+        }
+      } else {
+        setBadge('valid', 'Valid JWT');
+      }
+
+      decodedSections.classList.remove('hidden');
+    }
+
+    // --- Render special claims ---
+    function renderClaimsInfo(payload) {
+      const items = [];
+      const now = Date.now() / 1000;
+
+      if (payload.exp !== undefined) {
+        const isExpired = payload.exp < now;
+        const relText = isExpired
+          ? 'expired ' + timeAgo(payload.exp) + ' ago'
+          : 'expires in ' + timeAgo(payload.exp);
+        const relColor = isExpired ? 'text-err' : 'text-ok';
+        items.push(
+          '<div class="flex items-center justify-between">' +
+            '<span class="text-xs text-gray-500">exp</span>' +
+            '<span class="text-xs text-gray-400">' + escapeHtml(formatTimestamp(payload.exp)) + '</span>' +
+          '</div>' +
+          '<div class="text-right"><span class="text-xs ' + relColor + '">' + escapeHtml(relText) + '</span></div>'
+        );
+      }
+
+      if (payload.iat !== undefined) {
+        items.push(
+          '<div class="flex items-center justify-between">' +
+            '<span class="text-xs text-gray-500">iat</span>' +
+            '<span class="text-xs text-gray-400">issued at ' + escapeHtml(formatTimestamp(payload.iat)) + '</span>' +
+          '</div>'
+        );
+      }
+
+      if (payload.nbf !== undefined) {
+        items.push(
+          '<div class="flex items-center justify-between">' +
+            '<span class="text-xs text-gray-500">nbf</span>' +
+            '<span class="text-xs text-gray-400">not before ' + escapeHtml(formatTimestamp(payload.nbf)) + '</span>' +
+          '</div>'
+        );
+      }
+
+      if (items.length > 0) {
+        claimsInfo.innerHTML = items.join('');
+        claimsInfo.classList.remove('hidden');
+      } else {
+        claimsInfo.innerHTML = '';
+        claimsInfo.classList.add('hidden');
+      }
+    }
+
+    // --- Show error ---
+    function showError(message) {
+      errorSection.classList.remove('hidden');
+      errorSection.textContent = message;
+    }
+  </script>
+</body>
+</html>

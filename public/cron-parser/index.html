@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cron Parser — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-ok: #22c55e;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/croner@9/dist/croner.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cronstrue@2/dist/cronstrue.min.js"></script>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Cron Parser</h1>
+    </div>
+  </header>
+
+  <div class="max-w-3xl mx-auto px-6 py-8">
+
+    <!-- Cron input -->
+    <div class="mb-6">
+      <label for="cron-input" class="block text-sm font-medium text-gray-300 mb-2">Cron Expression</label>
+      <input
+        id="cron-input"
+        type="text"
+        class="w-full bg-surface-light border border-surface-lighter rounded-lg text-lg text-gray-200 font-mono px-4 py-3 focus:outline-none focus:border-brand placeholder:text-gray-600"
+        placeholder="* * * * *"
+        spellcheck="false"
+        autocomplete="off"
+      />
+    </div>
+
+    <!-- Preset chips -->
+    <div class="mb-6 flex flex-wrap gap-2">
+      <button class="preset-chip px-3 py-1.5 text-xs font-medium rounded-full border border-surface-lighter bg-surface-light text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer" data-cron="* * * * *">Every minute</button>
+      <button class="preset-chip px-3 py-1.5 text-xs font-medium rounded-full border border-surface-lighter bg-surface-light text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer" data-cron="0 * * * *">Every hour</button>
+      <button class="preset-chip px-3 py-1.5 text-xs font-medium rounded-full border border-surface-lighter bg-surface-light text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer" data-cron="0 0 * * *">Daily at midnight</button>
+      <button class="preset-chip px-3 py-1.5 text-xs font-medium rounded-full border border-surface-lighter bg-surface-light text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer" data-cron="0 0 * * 1">Weekly on Monday</button>
+      <button class="preset-chip px-3 py-1.5 text-xs font-medium rounded-full border border-surface-lighter bg-surface-light text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer" data-cron="0 0 1 * *">Monthly 1st</button>
+    </div>
+
+    <!-- Human-readable description -->
+    <div id="description-box" class="hidden mb-6 rounded-lg bg-brand/10 border border-brand/30 px-4 py-3">
+      <p id="description-text" class="text-sm text-brand-light font-medium"></p>
+    </div>
+
+    <!-- Error display -->
+    <div id="error-section" class="hidden mb-6 rounded-lg bg-err/10 border border-err/30 px-4 py-3 text-sm text-err"></div>
+
+    <!-- Next 10 Runs -->
+    <div id="runs-section" class="hidden">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Next 10 Runs</h2>
+      <div class="rounded-lg bg-surface-light border border-surface-lighter overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-surface-lighter">
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">#</th>
+              <th class="text-left px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Date &amp; Time</th>
+              <th class="text-right px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Relative</th>
+            </tr>
+          </thead>
+          <tbody id="runs-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const cronInput = document.getElementById('cron-input');
+    const descriptionBox = document.getElementById('description-box');
+    const descriptionText = document.getElementById('description-text');
+    const errorSection = document.getElementById('error-section');
+    const runsSection = document.getElementById('runs-section');
+    const runsTbody = document.getElementById('runs-tbody');
+
+    let debounceTimer = null;
+
+    // --- Formatters ---
+    const dtfDate = new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+
+    const dtfTime = new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+
+    function formatRelative(date) {
+      const now = Date.now();
+      const diffMs = date.getTime() - now;
+      const diffSec = diffMs / 1000;
+      const diffMin = diffSec / 60;
+      const diffHour = diffMin / 60;
+      const diffDay = diffHour / 24;
+
+      if (Math.abs(diffSec) < 60) {
+        return rtf.format(Math.round(diffSec), 'second');
+      } else if (Math.abs(diffMin) < 60) {
+        return rtf.format(Math.round(diffMin), 'minute');
+      } else if (Math.abs(diffHour) < 24) {
+        return rtf.format(Math.round(diffHour), 'hour');
+      } else if (Math.abs(diffDay) < 30) {
+        return rtf.format(Math.round(diffDay), 'day');
+      } else {
+        const diffMonth = diffDay / 30;
+        return rtf.format(Math.round(diffMonth), 'month');
+      }
+    }
+
+    // --- Parsing ---
+    function parseCron(expression) {
+      if (!expression.trim()) {
+        hideAll();
+        return;
+      }
+
+      errorSection.classList.add('hidden');
+
+      // Get human-readable description
+      let description;
+      try {
+        description = cronstrue.toString(expression);
+      } catch (e) {
+        showError('Invalid cron expression: ' + e.message);
+        descriptionBox.classList.add('hidden');
+        runsSection.classList.add('hidden');
+        return;
+      }
+
+      // Get next 10 runs
+      let runs;
+      try {
+        const job = new Cron(expression);
+        runs = job.nextRuns(10);
+      } catch (e) {
+        showError('Invalid cron expression: ' + (e.message || e));
+        descriptionBox.classList.add('hidden');
+        runsSection.classList.add('hidden');
+        return;
+      }
+
+      if (!runs || runs.length === 0) {
+        showError('This cron expression does not produce any future runs.');
+        descriptionBox.classList.add('hidden');
+        runsSection.classList.add('hidden');
+        return;
+      }
+
+      // Show description
+      descriptionText.textContent = description;
+      descriptionBox.classList.remove('hidden');
+
+      // Show runs table
+      runsTbody.innerHTML = '';
+      runs.forEach((date, i) => {
+        const tr = document.createElement('tr');
+        if (i < runs.length - 1) {
+          tr.className = 'border-b border-surface-lighter';
+        }
+        const dateStr = dtfDate.format(date) + ' at ' + dtfTime.format(date);
+        const relStr = formatRelative(date);
+        tr.innerHTML =
+          '<td class="px-4 py-2.5 text-gray-500 font-mono">' + (i + 1) + '</td>' +
+          '<td class="px-4 py-2.5 text-gray-200">' + escapeHtml(dateStr) + '</td>' +
+          '<td class="px-4 py-2.5 text-right text-gray-400">' + escapeHtml(relStr) + '</td>';
+        runsTbody.appendChild(tr);
+      });
+      runsSection.classList.remove('hidden');
+    }
+
+    function hideAll() {
+      descriptionBox.classList.add('hidden');
+      errorSection.classList.add('hidden');
+      runsSection.classList.add('hidden');
+    }
+
+    function showError(message) {
+      errorSection.textContent = message;
+      errorSection.classList.remove('hidden');
+    }
+
+    function escapeHtml(str) {
+      const el = document.createElement('span');
+      el.textContent = str;
+      return el.innerHTML;
+    }
+
+    // --- Input handling ---
+    cronInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => parseCron(cronInput.value.trim()), 300);
+    });
+
+    // --- Preset chips ---
+    document.querySelectorAll('.preset-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        cronInput.value = chip.dataset.cron;
+        parseCron(chip.dataset.cron);
+      });
+    });
+  </script>
+</body>
+</html>

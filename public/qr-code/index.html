@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">QR Code Generator</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Text input -->
+    <div>
+      <label for="qr-input" class="block text-xs font-medium text-gray-400 mb-2">Content to encode</label>
+      <textarea
+        id="qr-input"
+        rows="4"
+        class="w-full bg-surface-light border border-surface-lighter rounded-lg text-sm text-gray-200 p-3 resize-y outline-none font-mono placeholder-gray-600 focus:border-brand transition"
+        placeholder="Enter text or URL..."
+      ></textarea>
+      <div class="flex items-center justify-between mt-1.5">
+        <span id="char-count" class="text-xs text-gray-500">0 characters</span>
+        <span id="capacity-warning" class="text-xs text-yellow-400 hidden"></span>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="grid grid-cols-2 gap-4">
+      <!-- Size -->
+      <div>
+        <label for="qr-size" class="block text-xs font-medium text-gray-400 mb-2">Size</label>
+        <select
+          id="qr-size"
+          class="w-full bg-surface-light border border-surface-lighter rounded-lg text-sm text-gray-200 px-3 py-2 outline-none focus:border-brand transition cursor-pointer"
+        >
+          <option value="128">128 x 128 px</option>
+          <option value="256" selected>256 x 256 px</option>
+          <option value="512">512 x 512 px</option>
+          <option value="1024">1024 x 1024 px</option>
+        </select>
+      </div>
+
+      <!-- Error correction -->
+      <div>
+        <span class="block text-xs font-medium text-gray-400 mb-2">Error correction</span>
+        <div class="flex rounded-md border border-surface-lighter overflow-hidden text-xs">
+          <label class="flex-1 text-center">
+            <input type="radio" name="ec" value="L" class="sr-only peer">
+            <span class="block px-3 py-2 font-medium bg-surface-light text-gray-400 peer-checked:bg-brand peer-checked:text-white hover:text-gray-200 transition cursor-pointer">L</span>
+          </label>
+          <label class="flex-1 text-center">
+            <input type="radio" name="ec" value="M" checked class="sr-only peer">
+            <span class="block px-3 py-2 font-medium bg-surface-light text-gray-400 peer-checked:bg-brand peer-checked:text-white hover:text-gray-200 transition cursor-pointer">M</span>
+          </label>
+          <label class="flex-1 text-center">
+            <input type="radio" name="ec" value="Q" class="sr-only peer">
+            <span class="block px-3 py-2 font-medium bg-surface-light text-gray-400 peer-checked:bg-brand peer-checked:text-white hover:text-gray-200 transition cursor-pointer">Q</span>
+          </label>
+          <label class="flex-1 text-center">
+            <input type="radio" name="ec" value="H" class="sr-only peer">
+            <span class="block px-3 py-2 font-medium bg-surface-light text-gray-400 peer-checked:bg-brand peer-checked:text-white hover:text-gray-200 transition cursor-pointer">H</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Foreground color -->
+      <div>
+        <label for="fg-color" class="block text-xs font-medium text-gray-400 mb-2">Foreground color</label>
+        <div class="flex items-center gap-3">
+          <input
+            type="color"
+            id="fg-color"
+            value="#000000"
+            class="w-10 h-10 rounded-lg border border-surface-lighter cursor-pointer bg-transparent"
+          >
+          <span id="fg-hex" class="text-sm text-gray-300 font-mono">#000000</span>
+        </div>
+      </div>
+
+      <!-- Background color -->
+      <div>
+        <label for="bg-color" class="block text-xs font-medium text-gray-400 mb-2">Background color</label>
+        <div class="flex items-center gap-3">
+          <input
+            type="color"
+            id="bg-color"
+            value="#ffffff"
+            class="w-10 h-10 rounded-lg border border-surface-lighter cursor-pointer bg-transparent"
+          >
+          <span id="bg-hex" class="text-sm text-gray-300 font-mono">#ffffff</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR Code preview -->
+    <div class="flex flex-col items-center gap-4">
+      <div id="qr-preview" class="bg-white rounded-xl p-4 inline-flex items-center justify-center shadow-lg">
+        <canvas id="qr-canvas"></canvas>
+      </div>
+      <p id="qr-empty" class="text-sm text-gray-500">Enter some text above to generate a QR code</p>
+      <p id="qr-error" class="text-sm text-red-400 hidden"></p>
+    </div>
+
+    <!-- Action buttons -->
+    <div id="action-buttons" class="flex flex-wrap items-center justify-center gap-3 hidden">
+      <button
+        id="btn-download-png"
+        class="px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer"
+      >
+        Download PNG
+      </button>
+      <button
+        id="btn-download-svg"
+        class="px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer"
+      >
+        Download SVG
+      </button>
+      <button
+        id="btn-copy-image"
+        class="px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer"
+      >
+        Copy to Clipboard
+      </button>
+    </div>
+
+  </main>
+
+  <script>
+    // --- Elements ---
+    const qrInput = document.getElementById('qr-input');
+    const qrCanvas = document.getElementById('qr-canvas');
+    const qrPreview = document.getElementById('qr-preview');
+    const qrEmpty = document.getElementById('qr-empty');
+    const qrError = document.getElementById('qr-error');
+    const sizeSelect = document.getElementById('qr-size');
+    const fgColor = document.getElementById('fg-color');
+    const bgColor = document.getElementById('bg-color');
+    const fgHex = document.getElementById('fg-hex');
+    const bgHex = document.getElementById('bg-hex');
+    const charCount = document.getElementById('char-count');
+    const capacityWarning = document.getElementById('capacity-warning');
+    const actionButtons = document.getElementById('action-buttons');
+    const btnDownloadPng = document.getElementById('btn-download-png');
+    const btnDownloadSvg = document.getElementById('btn-download-svg');
+    const btnCopyImage = document.getElementById('btn-copy-image');
+
+    // --- Capacity limits for byte mode by error correction level ---
+    // Maximum number of bytes for the largest QR version (40) per EC level
+    const CAPACITY = { L: 2953, M: 2331, Q: 1663, H: 1273 };
+    const WARN_THRESHOLD = 0.85; // show warning at 85% capacity
+
+    // --- State ---
+    let debounceTimer = null;
+    let currentText = '';
+
+    // --- Helpers ---
+    function getECLevel() {
+      const checked = document.querySelector('input[name="ec"]:checked');
+      return checked ? checked.value : 'M';
+    }
+
+    function getSize() {
+      return parseInt(sizeSelect.value, 10);
+    }
+
+    function getQROptions() {
+      return {
+        errorCorrectionLevel: getECLevel(),
+        width: getSize(),
+        margin: 2,
+        color: {
+          dark: fgColor.value,
+          light: bgColor.value,
+        },
+      };
+    }
+
+    function updateCharCount() {
+      const text = qrInput.value;
+      const byteLength = new TextEncoder().encode(text).length;
+      const charLen = text.length;
+      const suffix = charLen === 1 ? 'character' : 'characters';
+      charCount.textContent = byteLength !== charLen
+        ? `${charLen} ${suffix} (${byteLength} bytes)`
+        : `${charLen} ${suffix}`;
+
+      const ec = getECLevel();
+      const max = CAPACITY[ec];
+      if (byteLength === 0) {
+        capacityWarning.classList.add('hidden');
+      } else if (byteLength > max) {
+        capacityWarning.textContent = `Exceeds limit: ${byteLength} / ${max} bytes for EC level ${ec}`;
+        capacityWarning.classList.remove('hidden');
+        capacityWarning.classList.remove('text-yellow-400');
+        capacityWarning.classList.add('text-red-400');
+      } else if (byteLength / max >= WARN_THRESHOLD) {
+        const pct = Math.round((byteLength / max) * 100);
+        capacityWarning.textContent = `${pct}% of capacity (${byteLength} / ${max} bytes)`;
+        capacityWarning.classList.remove('hidden');
+        capacityWarning.classList.remove('text-red-400');
+        capacityWarning.classList.add('text-yellow-400');
+      } else {
+        capacityWarning.classList.add('hidden');
+      }
+    }
+
+    // --- Generate QR ---
+    function generateQR() {
+      const text = qrInput.value;
+      currentText = text;
+
+      updateCharCount();
+
+      if (!text) {
+        qrPreview.classList.add('hidden');
+        actionButtons.classList.add('hidden');
+        qrEmpty.classList.remove('hidden');
+        qrError.classList.add('hidden');
+        // Clear canvas
+        const ctx = qrCanvas.getContext('2d');
+        ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+        return;
+      }
+
+      const opts = getQROptions();
+
+      QRCode.toCanvas(qrCanvas, text, opts, function (err) {
+        if (err) {
+          qrPreview.classList.add('hidden');
+          actionButtons.classList.add('hidden');
+          qrEmpty.classList.add('hidden');
+          qrError.textContent = 'Error: ' + err.message;
+          qrError.classList.remove('hidden');
+          return;
+        }
+        qrPreview.classList.remove('hidden');
+        actionButtons.classList.remove('hidden');
+        qrEmpty.classList.add('hidden');
+        qrError.classList.add('hidden');
+      });
+    }
+
+    function debouncedGenerate() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(generateQR, 300);
+    }
+
+    // --- Download PNG ---
+    btnDownloadPng.addEventListener('click', function () {
+      const text = currentText;
+      if (!text) return;
+
+      const opts = getQROptions();
+      QRCode.toDataURL(text, opts, function (err, url) {
+        if (err) return;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'qrcode.png';
+        a.click();
+      });
+    });
+
+    // --- Download SVG ---
+    btnDownloadSvg.addEventListener('click', function () {
+      const text = currentText;
+      if (!text) return;
+
+      const opts = Object.assign({}, getQROptions(), { type: 'svg' });
+      QRCode.toString(text, opts, function (err, svgString) {
+        if (err) return;
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'qrcode.svg';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    });
+
+    // --- Copy to clipboard ---
+    btnCopyImage.addEventListener('click', async function () {
+      const text = currentText;
+      if (!text) return;
+
+      try {
+        // Use the canvas to get a PNG blob
+        const blob = await new Promise(function (resolve, reject) {
+          qrCanvas.toBlob(function (b) {
+            if (b) resolve(b);
+            else reject(new Error('Failed to create blob'));
+          }, 'image/png');
+        });
+
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+
+        const orig = btnCopyImage.textContent;
+        btnCopyImage.textContent = 'Copied!';
+        setTimeout(function () { btnCopyImage.textContent = orig; }, 1500);
+      } catch (e) {
+        // Fallback: copy as data URL
+        try {
+          const dataUrl = qrCanvas.toDataURL('image/png');
+          await navigator.clipboard.writeText(dataUrl);
+          const orig = btnCopyImage.textContent;
+          btnCopyImage.textContent = 'Copied URL!';
+          setTimeout(function () { btnCopyImage.textContent = orig; }, 1500);
+        } catch (e2) {
+          const orig = btnCopyImage.textContent;
+          btnCopyImage.textContent = 'Failed';
+          setTimeout(function () { btnCopyImage.textContent = orig; }, 1500);
+        }
+      }
+    });
+
+    // --- Event listeners ---
+    qrInput.addEventListener('input', debouncedGenerate);
+    sizeSelect.addEventListener('change', generateQR);
+    fgColor.addEventListener('input', function () {
+      fgHex.textContent = fgColor.value;
+      generateQR();
+    });
+    bgColor.addEventListener('input', function () {
+      bgHex.textContent = bgColor.value;
+      generateQR();
+    });
+    document.querySelectorAll('input[name="ec"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        updateCharCount();
+        generateQR();
+      });
+    });
+
+    // --- Initialize ---
+    qrPreview.classList.add('hidden');
+    generateQR();
+  </script>
+</body>
+</html>

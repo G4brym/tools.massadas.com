@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Formatter / Validator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-ok: #22c55e;
+    }
+  </style>
+  <style>
+    /* Syntax highlighting colors */
+    .json-key { color: #93c5fd; }
+    .json-string { color: #86efac; }
+    .json-number { color: #fde68a; }
+    .json-boolean { color: #c4b5fd; }
+    .json-null { color: #f87171; }
+    .json-brace { color: #94a3b8; }
+    .json-comma { color: #64748b; }
+
+    /* Scrollbars */
+    #output-pre::-webkit-scrollbar,
+    #json-input::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    #output-pre::-webkit-scrollbar-track,
+    #json-input::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    #output-pre::-webkit-scrollbar-thumb,
+    #json-input::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    /* Line numbers */
+    .line-number {
+      display: inline-block;
+      width: 3.5em;
+      text-align: right;
+      padding-right: 1em;
+      color: #475569;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .output-line {
+      display: flex;
+      line-height: 1.5;
+    }
+
+    .output-line:hover {
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .output-content {
+      white-space: pre;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Error highlight */
+    .error-line {
+      background: rgba(239, 68, 68, 0.1) !important;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">JSON Formatter / Validator</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <span id="status-badge" class="hidden text-xs font-medium px-2.5 py-0.5 rounded-full"></span>
+
+        <!-- Tab size selector -->
+        <label class="text-xs text-gray-400 flex items-center gap-1.5">
+          Tab
+          <select id="tab-size" class="bg-surface-lighter text-gray-200 text-xs rounded px-1.5 py-0.5 border border-surface-lighter focus:outline-none focus:border-brand cursor-pointer">
+            <option value="2">2</option>
+            <option value="4" selected>4</option>
+          </select>
+        </label>
+
+        <div class="w-px h-5 bg-surface-lighter"></div>
+
+        <button id="btn-format" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Format</button>
+        <button id="btn-minify" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Minify</button>
+        <button id="btn-copy" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Copy</button>
+        <button id="btn-yaml" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Export YAML</button>
+        <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="flex h-[calc(100vh-3rem)]">
+
+    <!-- Left panel: JSON input -->
+    <div class="w-1/2 flex flex-col border-r border-surface-lighter min-w-0">
+      <textarea
+        id="json-input"
+        class="flex-1 w-full bg-transparent text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none placeholder:text-gray-600"
+        placeholder="Paste your JSON here..."
+        spellcheck="false"
+      ></textarea>
+
+      <!-- Error panel -->
+      <div id="error-panel" class="hidden border-t border-surface-lighter bg-surface-light px-4 py-3">
+        <div class="flex items-start gap-2">
+          <span class="text-err flex-shrink-0 mt-0.5">&#x2715;</span>
+          <pre id="error-message" class="text-err text-xs font-mono whitespace-pre-wrap break-words"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: formatted output -->
+    <div class="w-1/2 flex flex-col min-w-0 bg-surface">
+      <div id="output-empty" class="flex-1 flex items-center justify-center text-gray-600 text-sm">
+        Formatted output will appear here
+      </div>
+      <pre id="output-pre" class="hidden flex-1 overflow-auto text-sm font-mono p-4 m-0 bg-transparent"></pre>
+    </div>
+
+  </div>
+
+  <script>
+    const input = document.getElementById('json-input');
+    const outputEmpty = document.getElementById('output-empty');
+    const outputPre = document.getElementById('output-pre');
+    const errorPanel = document.getElementById('error-panel');
+    const errorMessage = document.getElementById('error-message');
+    const statusBadge = document.getElementById('status-badge');
+    const tabSizeSelect = document.getElementById('tab-size');
+    const btnFormat = document.getElementById('btn-format');
+    const btnMinify = document.getElementById('btn-minify');
+    const btnCopy = document.getElementById('btn-copy');
+    const btnYaml = document.getElementById('btn-yaml');
+    const btnClear = document.getElementById('btn-clear');
+
+    let debounceTimer = null;
+    let lastParsed = null;
+
+    // --- Input handling with debounce ---
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => processJSON(input.value), 400);
+    });
+
+    // --- Tab size change ---
+    tabSizeSelect.addEventListener('change', () => {
+      if (lastParsed !== null) {
+        renderFormatted(lastParsed, parseInt(tabSizeSelect.value));
+      }
+    });
+
+    // --- Format ---
+    btnFormat.addEventListener('click', () => {
+      if (lastParsed !== null) {
+        const spaces = parseInt(tabSizeSelect.value);
+        input.value = JSON.stringify(lastParsed, null, spaces);
+        renderFormatted(lastParsed, spaces);
+      }
+    });
+
+    // --- Minify ---
+    btnMinify.addEventListener('click', () => {
+      if (lastParsed !== null) {
+        const minified = JSON.stringify(lastParsed);
+        input.value = minified;
+        renderFormatted(lastParsed, parseInt(tabSizeSelect.value));
+      }
+    });
+
+    // --- Copy ---
+    btnCopy.addEventListener('click', () => {
+      if (lastParsed !== null) {
+        const spaces = parseInt(tabSizeSelect.value);
+        const text = JSON.stringify(lastParsed, null, spaces);
+        navigator.clipboard.writeText(text).then(() => {
+          const orig = btnCopy.textContent;
+          btnCopy.textContent = 'Copied!';
+          btnCopy.classList.add('text-ok');
+          setTimeout(() => {
+            btnCopy.textContent = orig;
+            btnCopy.classList.remove('text-ok');
+          }, 1500);
+        });
+      }
+    });
+
+    // --- Export YAML ---
+    btnYaml.addEventListener('click', () => {
+      if (lastParsed !== null) {
+        const yaml = jsyaml.dump(lastParsed, {
+          indent: parseInt(tabSizeSelect.value),
+          lineWidth: 120,
+          noRefs: true,
+        });
+        const blob = new Blob([yaml], { type: 'text/yaml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'data.yaml';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    });
+
+    // --- Clear ---
+    btnClear.addEventListener('click', () => {
+      input.value = '';
+      lastParsed = null;
+      outputPre.classList.add('hidden');
+      outputPre.innerHTML = '';
+      outputEmpty.classList.remove('hidden');
+      errorPanel.classList.add('hidden');
+      statusBadge.classList.add('hidden');
+      btnClear.classList.add('hidden');
+    });
+
+    // --- Main processing ---
+    function processJSON(raw) {
+      raw = raw.trim();
+      if (!raw) {
+        lastParsed = null;
+        outputPre.classList.add('hidden');
+        outputPre.innerHTML = '';
+        outputEmpty.classList.remove('hidden');
+        errorPanel.classList.add('hidden');
+        statusBadge.classList.add('hidden');
+        btnClear.classList.add('hidden');
+        return;
+      }
+
+      btnClear.classList.remove('hidden');
+
+      try {
+        lastParsed = JSON.parse(raw);
+        errorPanel.classList.add('hidden');
+
+        // Show valid badge
+        statusBadge.classList.remove('hidden');
+        statusBadge.textContent = 'Valid JSON';
+        statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-ok/15 text-ok';
+
+        renderFormatted(lastParsed, parseInt(tabSizeSelect.value));
+      } catch (e) {
+        lastParsed = null;
+        showError(e, raw);
+      }
+    }
+
+    // --- Error display with line/position info ---
+    function showError(error, raw) {
+      errorPanel.classList.remove('hidden');
+      outputPre.classList.add('hidden');
+      outputEmpty.classList.remove('hidden');
+
+      // Show error badge
+      statusBadge.classList.remove('hidden');
+      statusBadge.textContent = 'Invalid';
+      statusBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-err/15 text-err';
+
+      // Parse position from error message
+      const msg = error.message;
+      let detail = msg;
+
+      // Try to extract position info - JSON.parse errors typically include "at position N"
+      const posMatch = msg.match(/position\s+(\d+)/i);
+      if (posMatch) {
+        const pos = parseInt(posMatch[1]);
+        const lineCol = getLineCol(raw, pos);
+        detail = `${msg}\n\nLine ${lineCol.line}, Column ${lineCol.col}`;
+
+        // Show context around the error
+        const lines = raw.split('\n');
+        const errLine = lineCol.line;
+        const start = Math.max(0, errLine - 3);
+        const end = Math.min(lines.length, errLine + 2);
+
+        detail += '\n\n';
+        for (let i = start; i < end; i++) {
+          const marker = i === errLine - 1 ? ' >> ' : '    ';
+          detail += `${marker}${(i + 1).toString().padStart(4)} | ${lines[i]}\n`;
+          if (i === errLine - 1) {
+            const pointer = ' '.repeat(lineCol.col + 9) + '^';
+            detail += pointer + '\n';
+          }
+        }
+      }
+
+      errorMessage.textContent = detail;
+    }
+
+    function getLineCol(str, pos) {
+      let line = 1;
+      let col = 1;
+      for (let i = 0; i < pos && i < str.length; i++) {
+        if (str[i] === '\n') {
+          line++;
+          col = 1;
+        } else {
+          col++;
+        }
+      }
+      return { line, col };
+    }
+
+    // --- Syntax-highlighted rendering ---
+    function renderFormatted(obj, spaces) {
+      const jsonStr = JSON.stringify(obj, null, spaces);
+      const highlighted = syntaxHighlight(jsonStr);
+      const lines = highlighted.split('\n');
+
+      let html = '';
+      for (let i = 0; i < lines.length; i++) {
+        html += `<div class="output-line"><span class="line-number">${i + 1}</span><span class="output-content">${lines[i]}</span></div>`;
+      }
+
+      outputPre.innerHTML = html;
+      outputEmpty.classList.add('hidden');
+      outputPre.classList.remove('hidden');
+    }
+
+    function syntaxHighlight(json) {
+      // Escape HTML first, then apply highlighting
+      const escaped = escapeHtml(json);
+
+      return escaped.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        (match) => {
+          let cls = 'json-number';
+          if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+              // Key
+              cls = 'json-key';
+              // Remove the colon, wrap the key, add colon back
+              const key = match.slice(0, -1);
+              return `<span class="${cls}">${key}</span>:`;
+            } else {
+              cls = 'json-string';
+            }
+          } else if (/true|false/.test(match)) {
+            cls = 'json-boolean';
+          } else if (/null/.test(match)) {
+            cls = 'json-null';
+          }
+          return `<span class="${cls}">${match}</span>`;
+        }
+      );
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>

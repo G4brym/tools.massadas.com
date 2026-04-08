@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EXIF Stripper — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exifreader@4/dist/exif-reader.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">EXIF Stripper</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-3xl mx-auto px-4 py-10">
+
+    <!-- Drop zone -->
+    <div id="drop-zone" class="relative border-2 border-dashed border-surface-lighter rounded-xl p-12 flex flex-col items-center gap-4 transition hover:border-brand/50 cursor-pointer">
+      <div id="drop-overlay" class="hidden absolute inset-0 z-10 bg-brand/10 border-2 border-dashed border-brand rounded-xl flex items-center justify-center pointer-events-none">
+        <span class="text-brand-light font-medium text-lg">Drop image here</span>
+      </div>
+      <div class="w-16 h-16 rounded-2xl bg-surface-light border border-surface-lighter flex items-center justify-center">
+        <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      </div>
+      <div class="text-center">
+        <p class="text-gray-300 font-medium">Drop an image here or click to select</p>
+        <p class="text-sm text-gray-500 mt-1">Supports JPEG, PNG, WebP, TIFF and other image formats</p>
+      </div>
+      <button id="btn-select" class="mt-2 px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+        Select image
+      </button>
+      <input id="file-input" type="file" accept="image/*" class="hidden" />
+    </div>
+
+    <!-- Results (hidden until image loaded) -->
+    <div id="results" class="hidden mt-8 space-y-6">
+
+      <!-- Preview & file info -->
+      <div class="flex flex-col sm:flex-row gap-6 items-start">
+        <div class="shrink-0">
+          <img id="preview" class="rounded-xl border border-surface-lighter max-w-[200px] max-h-[200px] object-contain bg-surface-light" />
+        </div>
+        <div class="flex-1 min-w-0 space-y-3">
+          <div>
+            <p id="file-name" class="text-gray-200 font-medium text-sm truncate"></p>
+            <p id="file-type" class="text-xs text-gray-500 mt-0.5"></p>
+          </div>
+          <div class="flex gap-6">
+            <div>
+              <p class="text-xs text-gray-500">Original size</p>
+              <p id="size-before" class="text-sm text-gray-300 font-medium"></p>
+            </div>
+            <div id="size-after-wrap" class="hidden">
+              <p class="text-xs text-gray-500">Stripped size</p>
+              <p id="size-after" class="text-sm text-ok font-medium"></p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3 pt-1">
+            <button id="btn-strip" class="px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+              Strip &amp; Download
+            </button>
+            <button id="btn-reset" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+              Load another
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 italic">Image is re-encoded which may slightly affect quality</p>
+        </div>
+      </div>
+
+      <!-- EXIF table -->
+      <div>
+        <h2 class="text-sm font-semibold text-gray-300 mb-3">EXIF Metadata</h2>
+        <div id="exif-empty" class="hidden rounded-xl bg-surface-light border border-surface-lighter p-6 text-center">
+          <p class="text-gray-500 text-sm">No EXIF data found</p>
+        </div>
+        <div id="exif-table-wrap" class="hidden rounded-xl bg-surface-light border border-surface-lighter overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-surface-lighter">
+                <th class="text-left text-xs font-medium text-gray-500 px-4 py-2.5 w-1/3">Field</th>
+                <th class="text-left text-xs font-medium text-gray-500 px-4 py-2.5">Value</th>
+              </tr>
+            </thead>
+            <tbody id="exif-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const dropOverlay = document.getElementById('drop-overlay');
+    const fileInput = document.getElementById('file-input');
+    const btnSelect = document.getElementById('btn-select');
+    const btnStrip = document.getElementById('btn-strip');
+    const btnReset = document.getElementById('btn-reset');
+    const results = document.getElementById('results');
+    const preview = document.getElementById('preview');
+    const fileNameEl = document.getElementById('file-name');
+    const fileTypeEl = document.getElementById('file-type');
+    const sizeBefore = document.getElementById('size-before');
+    const sizeAfter = document.getElementById('size-after');
+    const sizeAfterWrap = document.getElementById('size-after-wrap');
+    const exifEmpty = document.getElementById('exif-empty');
+    const exifTableWrap = document.getElementById('exif-table-wrap');
+    const exifTbody = document.getElementById('exif-tbody');
+
+    let currentFile = null;
+    let currentDataUrl = null;
+    let currentArrayBuffer = null;
+
+    // --- Helpers ---
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      const val = bytes / Math.pow(1024, i);
+      return val.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function getStrippedFilename(originalName) {
+      const dot = originalName.lastIndexOf('.');
+      if (dot === -1) return originalName + '_stripped';
+      return originalName.substring(0, dot) + '_stripped' + originalName.substring(dot);
+    }
+
+    // --- File selection ---
+    btnSelect.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        loadImage(fileInput.files[0]);
+      }
+      fileInput.value = '';
+    });
+
+    // --- Drag & Drop ---
+    let dragCounter = 0;
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files')) {
+        dropOverlay.classList.remove('hidden');
+      }
+    });
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) dropOverlay.classList.add('hidden');
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.add('hidden');
+      const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      if (files.length > 0) {
+        loadImage(files[0]);
+      }
+    });
+
+    // --- Load image ---
+    function loadImage(file) {
+      currentFile = file;
+      sizeAfterWrap.classList.add('hidden');
+      btnStrip.textContent = 'Strip & Download';
+      btnStrip.disabled = false;
+
+      // Read as ArrayBuffer for EXIF parsing
+      const bufReader = new FileReader();
+      bufReader.onload = () => {
+        currentArrayBuffer = bufReader.result;
+        parseExif(currentArrayBuffer);
+      };
+      bufReader.readAsArrayBuffer(file);
+
+      // Read as DataURL for preview
+      const urlReader = new FileReader();
+      urlReader.onload = () => {
+        currentDataUrl = urlReader.result;
+        preview.src = currentDataUrl;
+      };
+      urlReader.readAsDataURL(file);
+
+      // Update UI
+      fileNameEl.textContent = file.name;
+      fileTypeEl.textContent = file.type || 'Unknown type';
+      sizeBefore.textContent = formatBytes(file.size);
+      dropZone.classList.add('hidden');
+      results.classList.remove('hidden');
+    }
+
+    // --- Parse EXIF ---
+    function parseExif(arrayBuffer) {
+      exifTbody.innerHTML = '';
+      exifEmpty.classList.add('hidden');
+      exifTableWrap.classList.add('hidden');
+
+      let tags = {};
+      try {
+        const reader = window.ExifReader || (typeof ExifReader !== 'undefined' ? ExifReader : null);
+        if (reader) {
+          tags = reader.load(arrayBuffer);
+        }
+      } catch (e) {
+        // No EXIF data or parsing error
+      }
+
+      // Define the fields we want to display, in order
+      const fields = [
+        { key: 'Make', label: 'Camera make' },
+        { key: 'Model', label: 'Camera model' },
+        { key: 'DateTime', label: 'Date taken' },
+        { key: 'DateTimeOriginal', label: 'Date original' },
+        { key: 'GPSLatitude', label: 'GPS latitude', format: formatGps },
+        { key: 'GPSLongitude', label: 'GPS longitude', format: formatGps },
+        { key: 'GPSAltitude', label: 'GPS altitude' },
+        { key: 'ExposureTime', label: 'Exposure time' },
+        { key: 'FNumber', label: 'F-number' },
+        { key: 'ISOSpeedRatings', label: 'ISO' },
+        { key: 'FocalLength', label: 'Focal length' },
+        { key: 'LensModel', label: 'Lens model' },
+        { key: 'Flash', label: 'Flash' },
+        { key: 'WhiteBalance', label: 'White balance' },
+        { key: 'Orientation', label: 'Orientation' },
+        { key: 'Software', label: 'Software' },
+        { key: 'Copyright', label: 'Copyright' },
+        { key: 'Artist', label: 'Artist' },
+        { key: 'ImageWidth', label: 'Image width' },
+        { key: 'ImageHeight', label: 'Image height' },
+        { key: 'Image Width', label: 'Image width' },
+        { key: 'Image Height', label: 'Image height' },
+        { key: 'ColorSpace', label: 'Color space' },
+      ];
+
+      const rows = [];
+      const seen = new Set();
+
+      for (const field of fields) {
+        if (seen.has(field.label)) continue;
+        const tag = tags[field.key];
+        if (!tag) continue;
+
+        let value = '';
+        if (field.format) {
+          value = field.format(tag);
+        } else if (tag.description !== undefined && tag.description !== '') {
+          value = String(tag.description);
+        } else if (tag.value !== undefined) {
+          value = Array.isArray(tag.value) ? tag.value.join(', ') : String(tag.value);
+        }
+
+        if (value && value !== 'undefined') {
+          seen.add(field.label);
+          rows.push({ label: field.label, value });
+        }
+      }
+
+      // Also show any other interesting tags not in our list
+      const knownKeys = new Set(fields.map(f => f.key));
+      const skipKeys = new Set(['MakerNote', 'UserComment', 'Thumbnail', 'MPEntry', 'undefined']);
+      for (const [key, tag] of Object.entries(tags)) {
+        if (knownKeys.has(key) || skipKeys.has(key)) continue;
+        if (key.startsWith('Thumbnail') || key.startsWith('MakerNote')) continue;
+        if (!tag || tag.description === undefined) continue;
+        const desc = String(tag.description);
+        if (desc && desc !== 'undefined' && desc.length < 200) {
+          rows.push({ label: key, value: desc });
+        }
+      }
+
+      if (rows.length === 0) {
+        exifEmpty.classList.remove('hidden');
+        return;
+      }
+
+      exifTableWrap.classList.remove('hidden');
+      exifTbody.innerHTML = rows.map((row, i) =>
+        `<tr class="${i > 0 ? 'border-t border-surface-lighter' : ''}">
+          <td class="px-4 py-2 text-gray-400 text-xs font-medium align-top">${escapeHtml(row.label)}</td>
+          <td class="px-4 py-2 text-gray-200 text-xs break-all">${escapeHtml(row.value)}</td>
+        </tr>`
+      ).join('');
+    }
+
+    function formatGps(tag) {
+      if (tag.description !== undefined) return String(tag.description);
+      if (Array.isArray(tag.value)) return tag.value.join(', ');
+      return String(tag.value || '');
+    }
+
+    // --- Strip & Download ---
+    btnStrip.addEventListener('click', () => {
+      if (!currentFile || !currentDataUrl) return;
+
+      btnStrip.textContent = 'Processing...';
+      btnStrip.disabled = true;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        // Determine output type and quality
+        const isJpeg = currentFile.type === 'image/jpeg' || currentFile.type === 'image/jpg';
+        const mimeType = isJpeg ? 'image/jpeg' : (currentFile.type === 'image/png' ? 'image/png' : 'image/png');
+        const quality = isJpeg ? 0.95 : undefined;
+
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            btnStrip.textContent = 'Strip & Download';
+            btnStrip.disabled = false;
+            return;
+          }
+
+          // Show after size
+          sizeAfter.textContent = formatBytes(blob.size);
+          sizeAfterWrap.classList.remove('hidden');
+
+          // Trigger download
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = getStrippedFilename(currentFile.name);
+          a.click();
+          URL.revokeObjectURL(url);
+
+          btnStrip.textContent = 'Strip & Download';
+          btnStrip.disabled = false;
+        }, mimeType, quality);
+      };
+      img.onerror = () => {
+        btnStrip.textContent = 'Strip & Download';
+        btnStrip.disabled = false;
+      };
+      img.src = currentDataUrl;
+    });
+
+    // --- Reset ---
+    btnReset.addEventListener('click', () => {
+      currentFile = null;
+      currentDataUrl = null;
+      currentArrayBuffer = null;
+      results.classList.add('hidden');
+      dropZone.classList.remove('hidden');
+      sizeAfterWrap.classList.add('hidden');
+    });
+  </script>
+</body>
+</html>

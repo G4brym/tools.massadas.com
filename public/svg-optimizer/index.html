@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG Optimizer — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-ok: #22c55e;
+    }
+  </style>
+  <style>
+    /* Scrollbars */
+    #svg-input::-webkit-scrollbar,
+    #svg-output::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    #svg-input::-webkit-scrollbar-track,
+    #svg-output::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    #svg-input::-webkit-scrollbar-thumb,
+    #svg-output::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    /* Checkered background for SVG preview transparency */
+    .checkerboard {
+      background-color: #1e293b;
+      background-image:
+        linear-gradient(45deg, #334155 25%, transparent 25%),
+        linear-gradient(-45deg, #334155 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #334155 75%),
+        linear-gradient(-45deg, transparent 75%, #334155 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    }
+
+    /* Drag overlay */
+    #drop-overlay {
+      display: none;
+    }
+    #drop-overlay.active {
+      display: flex;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Drop overlay -->
+  <div id="drop-overlay" class="fixed inset-0 z-[60] bg-brand/10 border-2 border-dashed border-brand flex items-center justify-center pointer-events-none">
+    <span class="text-brand-light font-medium text-lg">Drop SVG file here</span>
+  </div>
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">SVG Optimizer</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <span id="stats-badge" class="hidden text-xs font-medium px-2.5 py-0.5 rounded-full"></span>
+        <div class="w-px h-5 bg-surface-lighter"></div>
+        <button id="btn-optimize" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Optimize</button>
+        <button id="btn-copy" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Copy</button>
+        <button id="btn-download" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Download</button>
+        <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="flex h-[calc(100vh-3rem)]">
+
+    <!-- Left panel: SVG input -->
+    <div class="w-1/2 flex flex-col border-r border-surface-lighter min-w-0">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-surface-lighter bg-surface-light/40">
+        <span class="text-xs font-medium text-gray-400">Input</span>
+        <span id="input-size" class="text-xs text-gray-500"></span>
+      </div>
+      <textarea
+        id="svg-input"
+        class="flex-1 w-full bg-transparent text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none placeholder:text-gray-600"
+        placeholder="Paste SVG markup here or drag & drop an .svg file..."
+        spellcheck="false"
+      ></textarea>
+    </div>
+
+    <!-- Right panel: output + preview -->
+    <div class="w-1/2 flex flex-col min-w-0">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-surface-lighter bg-surface-light/40">
+        <span class="text-xs font-medium text-gray-400">Optimized Output</span>
+        <span id="output-size" class="text-xs text-gray-500"></span>
+      </div>
+
+      <!-- Output textarea -->
+      <div class="flex-1 flex flex-col min-h-0">
+        <textarea
+          id="svg-output"
+          class="flex-1 w-full bg-transparent text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none placeholder:text-gray-600"
+          placeholder="Optimized SVG will appear here..."
+          readonly
+          spellcheck="false"
+        ></textarea>
+
+        <!-- Preview -->
+        <div class="border-t border-surface-lighter">
+          <div class="flex items-center justify-between px-4 py-2 bg-surface-light/40">
+            <span class="text-xs font-medium text-gray-400">Preview</span>
+          </div>
+          <div id="preview-container" class="checkerboard h-48 flex items-center justify-center overflow-hidden p-4">
+            <span id="preview-empty" class="text-gray-600 text-sm">SVG preview will appear here</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- Elements ---
+    const svgInput = document.getElementById('svg-input');
+    const svgOutput = document.getElementById('svg-output');
+    const inputSizeEl = document.getElementById('input-size');
+    const outputSizeEl = document.getElementById('output-size');
+    const statsBadge = document.getElementById('stats-badge');
+    const previewContainer = document.getElementById('preview-container');
+    const previewEmpty = document.getElementById('preview-empty');
+    const btnOptimize = document.getElementById('btn-optimize');
+    const btnCopy = document.getElementById('btn-copy');
+    const btnDownload = document.getElementById('btn-download');
+    const btnClear = document.getElementById('btn-clear');
+    const dropOverlay = document.getElementById('drop-overlay');
+
+    let debounceTimer = null;
+
+    // --- Formatting helpers ---
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      const val = bytes / Math.pow(1024, i);
+      return val.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+    }
+
+    // --- SVG Optimization using DOMParser ---
+    function optimizeSVG(svgString) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgString, 'image/svg+xml');
+
+      // Check for parse errors
+      const parseError = doc.querySelector('parsererror');
+      if (parseError) {
+        return { error: 'Invalid SVG: ' + parseError.textContent.substring(0, 200) };
+      }
+
+      const svgEl = doc.documentElement;
+
+      // Collect all id references used in the document before removing anything
+      const referencedIds = collectReferencedIds(svgEl);
+
+      // 1. Remove XML comments
+      removeComments(svgEl);
+
+      // 2. Remove <metadata>, <desc>, <title> elements
+      removeElements(svgEl, ['metadata', 'desc', 'title']);
+
+      // 3. Remove editor namespaces and their prefixed elements/attributes
+      removeEditorNamespaces(svgEl);
+
+      // 4. Remove empty <g> and <defs> elements (repeat until stable)
+      removeEmptyContainers(svgEl);
+
+      // 5. Remove unused id attributes
+      removeUnusedIds(svgEl, referencedIds);
+
+      // 6. Collapse whitespace in attribute values
+      collapseAttributeWhitespace(svgEl);
+
+      // 7. Remove default attribute values
+      removeDefaultAttributes(svgEl);
+
+      // Serialize back
+      const serializer = new XMLSerializer();
+      let result = serializer.serializeToString(doc);
+
+      // Clean up any xmlns declarations left over from removed namespaces
+      result = cleanupXmlns(result);
+
+      // Trim trailing whitespace on lines
+      result = result.replace(/[ \t]+$/gm, '');
+
+      return { result };
+    }
+
+    // --- Collect all referenced IDs ---
+    function collectReferencedIds(root) {
+      const ids = new Set();
+      const text = new XMLSerializer().serializeToString(root);
+
+      // Match url(#id) references
+      const urlRefs = text.matchAll(/url\(\s*#([^)]+)\s*\)/g);
+      for (const m of urlRefs) ids.add(m[1]);
+
+      // Match href="#id" and xlink:href="#id"
+      const hrefRefs = text.matchAll(/(?:xlink:)?href\s*=\s*["']#([^"']+)["']/g);
+      for (const m of hrefRefs) ids.add(m[1]);
+
+      // Match begin/end animation references like "id.event"
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      while (walker.nextNode()) {
+        const el = walker.currentNode;
+        for (const attr of ['begin', 'end']) {
+          const val = el.getAttribute(attr);
+          if (val) {
+            const parts = val.split(';');
+            for (const part of parts) {
+              const dotMatch = part.trim().match(/^([a-zA-Z][\w-]*)\./);
+              if (dotMatch) ids.add(dotMatch[1]);
+            }
+          }
+        }
+      }
+
+      return ids;
+    }
+
+    // --- 1. Remove XML comments ---
+    function removeComments(node) {
+      const walker = document.createTreeWalker(node.ownerDocument || node, NodeFilter.SHOW_COMMENT);
+      const comments = [];
+      while (walker.nextNode()) {
+        comments.push(walker.currentNode);
+      }
+      for (const c of comments) {
+        if (c.parentNode) c.parentNode.removeChild(c);
+      }
+    }
+
+    // --- 2. Remove specific elements ---
+    function removeElements(root, tagNames) {
+      for (const tag of tagNames) {
+        // Remove in all namespaces
+        const els = root.querySelectorAll(tag);
+        for (const el of els) {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        }
+        // Also try with SVG namespace
+        const nsEls = root.getElementsByTagNameNS('http://www.w3.org/2000/svg', tag);
+        while (nsEls.length > 0) {
+          nsEls[0].parentNode.removeChild(nsEls[0]);
+        }
+      }
+    }
+
+    // --- 3. Remove editor namespaces ---
+    function removeEditorNamespaces(root) {
+      const editorPrefixes = ['inkscape', 'sodipodi', 'sketch', 'illustrator', 'serif', 'vectornator', 'figma'];
+      const editorNamespaces = [
+        'http://www.inkscape.org/namespaces/inkscape',
+        'http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd',
+        'http://www.bohemiancoding.com/sketch/ns',
+        'http://ns.adobe.com/AdobeIllustrator/10.0/',
+        'http://www.serif.com/',
+        'http://vectornator.io',
+      ];
+
+      // Remove elements with editor namespace prefixes
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      const toRemove = [];
+      while (walker.nextNode()) {
+        const el = walker.currentNode;
+        const localName = el.localName || el.nodeName;
+        const prefix = el.prefix || '';
+        if (editorPrefixes.includes(prefix.toLowerCase())) {
+          toRemove.push(el);
+          continue;
+        }
+        // Check if the element's nodeName has a known editor prefix
+        const colonIdx = el.nodeName.indexOf(':');
+        if (colonIdx > 0) {
+          const p = el.nodeName.substring(0, colonIdx).toLowerCase();
+          if (editorPrefixes.includes(p)) {
+            toRemove.push(el);
+          }
+        }
+      }
+      for (const el of toRemove) {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }
+
+      // Remove attributes with editor prefixes from all remaining elements
+      const attrWalker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      const allElements = [root];
+      while (attrWalker.nextNode()) {
+        allElements.push(attrWalker.currentNode);
+      }
+
+      for (const el of allElements) {
+        const attrsToRemove = [];
+        for (let i = 0; i < el.attributes.length; i++) {
+          const attr = el.attributes[i];
+          const attrPrefix = attr.prefix || '';
+          const attrName = attr.name || '';
+
+          // Check for editor-prefixed attributes
+          if (editorPrefixes.some(p => attrName.startsWith(p + ':') || attrPrefix.toLowerCase() === p)) {
+            attrsToRemove.push(attr.name);
+            continue;
+          }
+
+          // Check for editor namespace declarations
+          if (attrName.startsWith('xmlns:')) {
+            const nsPrefix = attrName.substring(6).toLowerCase();
+            if (editorPrefixes.includes(nsPrefix)) {
+              attrsToRemove.push(attr.name);
+              continue;
+            }
+            // Also check by namespace URI value
+            if (editorNamespaces.some(ns => attr.value.toLowerCase().includes(ns.toLowerCase()))) {
+              attrsToRemove.push(attr.name);
+            }
+          }
+        }
+        for (const name of attrsToRemove) {
+          el.removeAttribute(name);
+        }
+      }
+    }
+
+    // --- 4. Remove empty <g> and <defs> ---
+    function removeEmptyContainers(root) {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const containers = root.querySelectorAll('g, defs');
+        for (const el of containers) {
+          // Check if it has no child elements and no meaningful text content
+          if (el.children.length === 0 && el.textContent.trim() === '') {
+            if (el.parentNode) {
+              el.parentNode.removeChild(el);
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+
+    // --- 5. Remove unused id attributes ---
+    function removeUnusedIds(root, referencedIds) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      const allEls = [root];
+      while (walker.nextNode()) {
+        allEls.push(walker.currentNode);
+      }
+
+      for (const el of allEls) {
+        const id = el.getAttribute('id');
+        if (id && !referencedIds.has(id)) {
+          el.removeAttribute('id');
+        }
+      }
+    }
+
+    // --- 6. Collapse whitespace in attribute values ---
+    function collapseAttributeWhitespace(root) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      const allEls = [root];
+      while (walker.nextNode()) {
+        allEls.push(walker.currentNode);
+      }
+
+      for (const el of allEls) {
+        for (let i = 0; i < el.attributes.length; i++) {
+          const attr = el.attributes[i];
+          const collapsed = attr.value.replace(/\s+/g, ' ').trim();
+          if (collapsed !== attr.value) {
+            el.setAttribute(attr.name, collapsed);
+          }
+        }
+      }
+    }
+
+    // --- 7. Remove default attribute values ---
+    function removeDefaultAttributes(root) {
+      const defaults = {
+        'fill-opacity': '1',
+        'stroke-opacity': '1',
+        'opacity': '1',
+        'stroke-dashoffset': '0',
+        'stroke-miterlimit': '4',
+        'fill-rule': 'nonzero',
+        'clip-rule': 'nonzero',
+        'font-style': 'normal',
+        'font-variant': 'normal',
+        'font-weight': 'normal',
+        'text-decoration': 'none',
+        'visibility': 'visible',
+        'display': 'inline',
+        'overflow': 'visible',
+        'color-interpolation': 'sRGB',
+        'writing-mode': 'lr-tb',
+        'alignment-baseline': 'auto',
+        'baseline-shift': '0',
+        'dominant-baseline': 'auto',
+        'text-anchor': 'start',
+        'clip-path': 'none',
+        'mask': 'none',
+        'filter': 'none',
+        'flood-opacity': '1',
+        'lighting-color': 'white',
+        'stop-opacity': '1',
+        'color-interpolation-filters': 'linearRGB',
+      };
+
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      const allEls = [root];
+      while (walker.nextNode()) {
+        allEls.push(walker.currentNode);
+      }
+
+      for (const el of allEls) {
+        for (const [attr, defVal] of Object.entries(defaults)) {
+          if (el.getAttribute(attr) === defVal) {
+            el.removeAttribute(attr);
+          }
+        }
+      }
+    }
+
+    // --- Clean up leftover xmlns declarations in serialized output ---
+    function cleanupXmlns(svgString) {
+      const editorPrefixes = ['inkscape', 'sodipodi', 'sketch', 'illustrator', 'serif', 'vectornator', 'figma'];
+      for (const prefix of editorPrefixes) {
+        const re = new RegExp(`\\s+xmlns:${prefix}="[^"]*"`, 'gi');
+        svgString = svgString.replace(re, '');
+      }
+      // Remove any xmlns:ns\d+ that XMLSerializer may add
+      svgString = svgString.replace(/\s+xmlns:ns\d+=""/g, '');
+      // Remove empty ns prefixes on attributes like ns1:
+      svgString = svgString.replace(/\s+ns\d+:[a-zA-Z-]+="[^"]*"/g, '');
+      return svgString;
+    }
+
+    // --- Process and display ---
+    function process() {
+      const raw = svgInput.value;
+
+      if (!raw.trim()) {
+        svgOutput.value = '';
+        inputSizeEl.textContent = '';
+        outputSizeEl.textContent = '';
+        statsBadge.classList.add('hidden');
+        btnClear.classList.add('hidden');
+        previewEmpty.classList.remove('hidden');
+        // Clear preview
+        const existing = previewContainer.querySelector('svg, img');
+        if (existing) existing.remove();
+        return;
+      }
+
+      btnClear.classList.remove('hidden');
+
+      const inputBytes = new TextEncoder().encode(raw).length;
+      inputSizeEl.textContent = formatBytes(inputBytes);
+
+      const optimized = optimizeSVG(raw);
+
+      if (optimized.error) {
+        svgOutput.value = optimized.error;
+        outputSizeEl.textContent = '';
+        statsBadge.classList.remove('hidden');
+        statsBadge.textContent = 'Invalid SVG';
+        statsBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-red-500/15 text-red-400';
+        previewEmpty.classList.remove('hidden');
+        const existing = previewContainer.querySelector('svg, img');
+        if (existing) existing.remove();
+        return;
+      }
+
+      const result = optimized.result;
+      svgOutput.value = result;
+
+      const outputBytes = new TextEncoder().encode(result).length;
+      outputSizeEl.textContent = formatBytes(outputBytes);
+
+      // Stats badge
+      const savedBytes = inputBytes - outputBytes;
+      const savedPct = inputBytes > 0 ? ((savedBytes / inputBytes) * 100).toFixed(1) : 0;
+
+      statsBadge.classList.remove('hidden');
+      if (savedBytes > 0) {
+        statsBadge.textContent = `-${formatBytes(savedBytes)} (${savedPct}% saved)`;
+        statsBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-ok/15 text-ok';
+      } else {
+        statsBadge.textContent = 'Already optimized';
+        statsBadge.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-ok/15 text-ok';
+      }
+
+      // Update preview
+      updatePreview(result);
+    }
+
+    function updatePreview(svgString) {
+      // Remove old preview
+      const existing = previewContainer.querySelector('svg, img, div.preview-svg');
+      if (existing) existing.remove();
+      previewEmpty.classList.add('hidden');
+
+      // Create a container for the SVG
+      const wrapper = document.createElement('div');
+      wrapper.className = 'preview-svg flex items-center justify-center w-full h-full';
+
+      // Safely render the SVG using a blob URL in an img tag
+      const blob = new Blob([svgString], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '100%';
+      img.style.objectFit = 'contain';
+      img.onload = () => URL.revokeObjectURL(url);
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        wrapper.remove();
+        previewEmpty.textContent = 'Could not render SVG preview';
+        previewEmpty.classList.remove('hidden');
+      };
+
+      wrapper.appendChild(img);
+      previewContainer.appendChild(wrapper);
+    }
+
+    // --- Input handling with debounce ---
+    svgInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(process, 500);
+    });
+
+    // --- Button handlers ---
+    btnOptimize.addEventListener('click', () => {
+      process();
+    });
+
+    btnCopy.addEventListener('click', () => {
+      const text = svgOutput.value;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btnCopy.textContent;
+        btnCopy.textContent = 'Copied!';
+        btnCopy.classList.add('text-ok');
+        setTimeout(() => {
+          btnCopy.textContent = orig;
+          btnCopy.classList.remove('text-ok');
+        }, 1500);
+      });
+    });
+
+    btnDownload.addEventListener('click', () => {
+      const text = svgOutput.value;
+      if (!text) return;
+      const blob = new Blob([text], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'optimized.svg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    btnClear.addEventListener('click', () => {
+      svgInput.value = '';
+      svgOutput.value = '';
+      inputSizeEl.textContent = '';
+      outputSizeEl.textContent = '';
+      statsBadge.classList.add('hidden');
+      btnClear.classList.add('hidden');
+      previewEmpty.textContent = 'SVG preview will appear here';
+      previewEmpty.classList.remove('hidden');
+      const existing = previewContainer.querySelector('svg, img, div.preview-svg');
+      if (existing) existing.remove();
+    });
+
+    // --- Drag & Drop ---
+    let dragCounter = 0;
+
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files')) {
+        dropOverlay.classList.add('active');
+      }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) {
+        dropOverlay.classList.remove('active');
+      }
+    });
+
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.remove('active');
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        if (file.name.toLowerCase().endsWith('.svg') || file.type === 'image/svg+xml') {
+          const reader = new FileReader();
+          reader.onload = () => {
+            svgInput.value = reader.result;
+            process();
+          };
+          reader.readAsText(file);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

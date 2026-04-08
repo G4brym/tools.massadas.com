@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base64 Encode / Decode — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Base64 Encode / Decode</h1>
+      <div class="ml-auto flex items-center gap-2">
+        <!-- Mode toggle: Encode / Decode -->
+        <div class="flex rounded-md border border-surface-lighter overflow-hidden text-xs">
+          <button id="btn-encode" class="px-3 py-1 font-medium bg-brand text-white transition cursor-pointer">Encode</button>
+          <button id="btn-decode" class="px-3 py-1 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer">Decode</button>
+        </div>
+        <!-- Input type toggle: Text / File -->
+        <div class="flex rounded-md border border-surface-lighter overflow-hidden text-xs">
+          <button id="btn-text" class="px-3 py-1 font-medium bg-brand text-white transition cursor-pointer">Text</button>
+          <button id="btn-file" class="px-3 py-1 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer">File</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main two-panel layout -->
+  <div class="flex h-[calc(100vh-3rem)]">
+
+    <!-- Left panel: Input -->
+    <div class="flex-1 flex flex-col border-r border-surface-lighter min-w-0">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-surface-lighter bg-surface-light/40">
+        <span id="input-label" class="text-xs font-medium text-gray-400">Input (text)</span>
+        <span id="input-size" class="text-xs text-gray-500"></span>
+      </div>
+
+      <!-- Text input area -->
+      <div id="input-text-area" class="flex-1 relative">
+        <textarea id="input-text" class="w-full h-full bg-transparent text-sm text-gray-200 p-4 resize-none outline-none font-mono placeholder-gray-600" placeholder="Paste text here..."></textarea>
+      </div>
+
+      <!-- File input area (hidden by default) -->
+      <div id="input-file-area" class="flex-1 hidden flex-col items-center justify-center gap-4">
+        <div id="drop-zone" class="w-full h-full flex flex-col items-center justify-center gap-4 p-8">
+          <div id="drop-overlay" class="hidden fixed inset-0 z-40 bg-brand/10 border-2 border-dashed border-brand flex items-center justify-center pointer-events-none">
+            <span class="text-brand-light font-medium text-lg">Drop file here</span>
+          </div>
+          <div id="file-empty-state" class="flex flex-col items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl bg-surface-light border border-surface-lighter flex items-center justify-center text-3xl text-gray-500">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            </div>
+            <div class="text-center">
+              <p class="text-gray-300 font-medium">Drop a file here or click to select</p>
+              <p class="text-sm text-gray-500 mt-1">Any file type supported</p>
+            </div>
+            <button id="btn-select-file" class="mt-2 px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+              Select file
+            </button>
+          </div>
+          <div id="file-selected-state" class="hidden flex flex-col items-center gap-3">
+            <div class="w-16 h-16 rounded-2xl bg-surface-light border border-surface-lighter flex items-center justify-center text-3xl text-gray-500">
+              <svg class="w-8 h-8 text-brand-light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <p id="file-name" class="text-gray-300 font-medium text-sm"></p>
+            <p id="file-size-display" class="text-xs text-gray-500"></p>
+            <button id="btn-change-file" class="mt-1 px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+              Change file
+            </button>
+          </div>
+        </div>
+        <input id="file-input" type="file" class="hidden" />
+      </div>
+    </div>
+
+    <!-- Right panel: Output -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-surface-lighter bg-surface-light/40">
+        <span id="output-label" class="text-xs font-medium text-gray-400">Output (base64)</span>
+        <div class="flex items-center gap-3">
+          <span id="output-size" class="text-xs text-gray-500"></span>
+          <button id="btn-copy" class="text-xs font-medium px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-light transition cursor-pointer hidden">Copy</button>
+          <button id="btn-download" class="text-xs font-medium px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-light transition cursor-pointer hidden">Download</button>
+        </div>
+      </div>
+      <div class="flex-1 relative">
+        <textarea id="output-text" class="w-full h-full bg-transparent text-sm text-gray-200 p-4 resize-none outline-none font-mono placeholder-gray-600" placeholder="Output will appear here..." readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Elements ---
+    const btnEncode = document.getElementById('btn-encode');
+    const btnDecode = document.getElementById('btn-decode');
+    const btnText = document.getElementById('btn-text');
+    const btnFile = document.getElementById('btn-file');
+    const inputLabel = document.getElementById('input-label');
+    const inputSize = document.getElementById('input-size');
+    const outputLabel = document.getElementById('output-label');
+    const outputSize = document.getElementById('output-size');
+    const inputTextArea = document.getElementById('input-text-area');
+    const inputFileArea = document.getElementById('input-file-area');
+    const inputText = document.getElementById('input-text');
+    const outputText = document.getElementById('output-text');
+    const btnCopy = document.getElementById('btn-copy');
+    const btnDownload = document.getElementById('btn-download');
+    const fileInput = document.getElementById('file-input');
+    const btnSelectFile = document.getElementById('btn-select-file');
+    const btnChangeFile = document.getElementById('btn-change-file');
+    const dropZone = document.getElementById('drop-zone');
+    const dropOverlay = document.getElementById('drop-overlay');
+    const fileEmptyState = document.getElementById('file-empty-state');
+    const fileSelectedState = document.getElementById('file-selected-state');
+    const fileNameEl = document.getElementById('file-name');
+    const fileSizeDisplay = document.getElementById('file-size-display');
+
+    let mode = 'encode'; // 'encode' | 'decode'
+    let inputType = 'text'; // 'text' | 'file'
+    let currentFile = null;
+    let currentFileBytes = null;
+    let autoDetectEnabled = true;
+
+    // --- Formatting helpers ---
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      const val = bytes / Math.pow(1024, i);
+      return val.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+    }
+
+    // --- Base64 helpers (UTF-8 safe) ---
+    function textToBase64(text) {
+      const bytes = new TextEncoder().encode(text);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCodePoint(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    function base64ToText(b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new TextDecoder().decode(bytes);
+    }
+
+    function bytesToBase64(uint8arr) {
+      let binary = '';
+      for (let i = 0; i < uint8arr.length; i++) {
+        binary += String.fromCharCode(uint8arr[i]);
+      }
+      return btoa(binary);
+    }
+
+    function base64ToBytes(b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    // --- Auto-detect base64 ---
+    function looksLikeBase64(str) {
+      if (str.length < 4) return false;
+      // Trimmed, check if it matches base64 pattern
+      const trimmed = str.trim();
+      if (trimmed.length === 0) return false;
+      // Base64 uses A-Z, a-z, 0-9, +, /, and = for padding
+      // Must be at least a reasonable length and well-formed
+      if (trimmed.length < 16) return false;
+      const b64Regex = /^[A-Za-z0-9+/\n\r]+={0,2}$/;
+      // Remove all whitespace for the check
+      const clean = trimmed.replace(/\s/g, '');
+      if (!b64Regex.test(clean)) return false;
+      // Check length is valid (multiple of 4)
+      if (clean.length % 4 !== 0) return false;
+      // Try actually decoding it
+      try {
+        atob(clean);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // --- Mode switching ---
+    function setMode(newMode) {
+      mode = newMode;
+      if (mode === 'encode') {
+        btnEncode.className = 'px-3 py-1 font-medium bg-brand text-white transition cursor-pointer';
+        btnDecode.className = 'px-3 py-1 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+      } else {
+        btnDecode.className = 'px-3 py-1 font-medium bg-brand text-white transition cursor-pointer';
+        btnEncode.className = 'px-3 py-1 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+      }
+      updateLabels();
+      processInput();
+    }
+
+    function setInputType(newType) {
+      inputType = newType;
+      if (inputType === 'text') {
+        btnText.className = 'px-3 py-1 font-medium bg-brand text-white transition cursor-pointer';
+        btnFile.className = 'px-3 py-1 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+        inputTextArea.classList.remove('hidden');
+        inputFileArea.classList.add('hidden');
+        inputFileArea.classList.remove('flex');
+      } else {
+        btnFile.className = 'px-3 py-1 font-medium bg-brand text-white transition cursor-pointer';
+        btnText.className = 'px-3 py-1 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+        inputTextArea.classList.add('hidden');
+        inputFileArea.classList.remove('hidden');
+        inputFileArea.classList.add('flex');
+      }
+      updateLabels();
+      processInput();
+    }
+
+    function updateLabels() {
+      if (mode === 'encode') {
+        if (inputType === 'text') {
+          inputLabel.textContent = 'Input (text)';
+          outputLabel.textContent = 'Output (base64)';
+          inputText.placeholder = 'Paste text here...';
+        } else {
+          inputLabel.textContent = 'Input (file)';
+          outputLabel.textContent = 'Output (base64)';
+        }
+        btnDownload.classList.add('hidden');
+      } else {
+        if (inputType === 'text') {
+          inputLabel.textContent = 'Input (base64)';
+          outputLabel.textContent = 'Output (text)';
+          inputText.placeholder = 'Paste base64 here...';
+        } else {
+          inputLabel.textContent = 'Input (base64 text)';
+          outputLabel.textContent = 'Output (decoded file)';
+          inputText.placeholder = 'Paste base64 here...';
+        }
+      }
+    }
+
+    // --- Processing ---
+    function processInput() {
+      if (inputType === 'text') {
+        processTextInput();
+      } else {
+        if (mode === 'encode') {
+          processFileEncode();
+        } else {
+          processFileDecode();
+        }
+      }
+    }
+
+    function processTextInput() {
+      const text = inputText.value;
+      const inputBytes = new TextEncoder().encode(text).length;
+      inputSize.textContent = text.length > 0 ? formatBytes(inputBytes) : '';
+
+      if (text.length === 0) {
+        outputText.value = '';
+        outputSize.textContent = '';
+        btnCopy.classList.add('hidden');
+        btnDownload.classList.add('hidden');
+        return;
+      }
+
+      try {
+        let result;
+        if (mode === 'encode') {
+          result = textToBase64(text);
+        } else {
+          // Strip whitespace from base64 input
+          const clean = text.replace(/\s/g, '');
+          result = base64ToText(clean);
+        }
+        outputText.value = result;
+        const outputBytes = new TextEncoder().encode(result).length;
+        outputSize.textContent = formatBytes(outputBytes);
+        btnCopy.classList.remove('hidden');
+        btnDownload.classList.add('hidden');
+      } catch (e) {
+        outputText.value = 'Error: Invalid input. ' + e.message;
+        outputSize.textContent = '';
+        btnCopy.classList.add('hidden');
+        btnDownload.classList.add('hidden');
+      }
+    }
+
+    function processFileEncode() {
+      if (!currentFileBytes) {
+        outputText.value = '';
+        outputSize.textContent = '';
+        btnCopy.classList.add('hidden');
+        btnDownload.classList.add('hidden');
+        return;
+      }
+
+      const b64 = bytesToBase64(currentFileBytes);
+      outputText.value = b64;
+      const outputBytes = new TextEncoder().encode(b64).length;
+      outputSize.textContent = formatBytes(outputBytes);
+      btnCopy.classList.remove('hidden');
+      btnDownload.classList.add('hidden');
+    }
+
+    function processFileDecode() {
+      // In file+decode mode, we show the text input for pasting base64
+      // and offer a download button for the decoded file
+      const text = inputText.value.trim();
+      const inputBytes = new TextEncoder().encode(text).length;
+      inputSize.textContent = text.length > 0 ? formatBytes(inputBytes) : '';
+
+      if (text.length === 0) {
+        outputText.value = '';
+        outputSize.textContent = '';
+        btnCopy.classList.add('hidden');
+        btnDownload.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const clean = text.replace(/\s/g, '');
+        const bytes = base64ToBytes(clean);
+        outputText.value = `Decoded: ${formatBytes(bytes.length)} of binary data.\nClick "Download" to save the file.`;
+        outputSize.textContent = formatBytes(bytes.length);
+        btnCopy.classList.add('hidden');
+        btnDownload.classList.remove('hidden');
+      } catch (e) {
+        outputText.value = 'Error: Invalid base64 input. ' + e.message;
+        outputSize.textContent = '';
+        btnCopy.classList.add('hidden');
+        btnDownload.classList.add('hidden');
+      }
+    }
+
+    // --- In file+decode mode, show text input instead of file picker ---
+    function updateFileDecodeUI() {
+      if (inputType === 'file' && mode === 'decode') {
+        // Show text input for pasting base64
+        inputTextArea.classList.remove('hidden');
+        inputFileArea.classList.add('hidden');
+        inputFileArea.classList.remove('flex');
+        inputText.placeholder = 'Paste base64 here to decode and download as file...';
+      } else if (inputType === 'file' && mode === 'encode') {
+        inputTextArea.classList.add('hidden');
+        inputFileArea.classList.remove('hidden');
+        inputFileArea.classList.add('flex');
+      }
+    }
+
+    // --- Event listeners ---
+    btnEncode.addEventListener('click', () => {
+      autoDetectEnabled = false;
+      setMode('encode');
+      updateFileDecodeUI();
+    });
+    btnDecode.addEventListener('click', () => {
+      autoDetectEnabled = false;
+      setMode('decode');
+      updateFileDecodeUI();
+    });
+    btnText.addEventListener('click', () => {
+      setInputType('text');
+      updateFileDecodeUI();
+    });
+    btnFile.addEventListener('click', () => {
+      setInputType('file');
+      updateFileDecodeUI();
+    });
+
+    // Text input handling
+    inputText.addEventListener('input', () => {
+      // Auto-detect base64 on first paste if still in default state
+      if (autoDetectEnabled && mode === 'encode' && inputType === 'text') {
+        const val = inputText.value;
+        if (looksLikeBase64(val)) {
+          setMode('decode');
+          return; // setMode calls processInput
+        }
+      }
+      processInput();
+    });
+
+    // Copy button
+    btnCopy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(outputText.value);
+        const orig = btnCopy.textContent;
+        btnCopy.textContent = 'Copied!';
+        setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+      } catch {
+        // Fallback
+        outputText.select();
+        document.execCommand('copy');
+      }
+    });
+
+    // Download button (for file decode)
+    btnDownload.addEventListener('click', () => {
+      try {
+        const text = inputText.value.trim().replace(/\s/g, '');
+        const bytes = base64ToBytes(text);
+        const blob = new Blob([bytes], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'decoded-file';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        outputText.value = 'Error downloading: ' + e.message;
+      }
+    });
+
+    // File selection
+    btnSelectFile.addEventListener('click', () => fileInput.click());
+    btnChangeFile.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) {
+        loadFile(fileInput.files[0]);
+      }
+      fileInput.value = '';
+    });
+
+    // File drag & drop
+    let dragCounter = 0;
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files') && inputType === 'file' && mode === 'encode') {
+        dropOverlay.classList.remove('hidden');
+      }
+    });
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) dropOverlay.classList.add('hidden');
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.add('hidden');
+      if (e.dataTransfer.files.length && inputType === 'file' && mode === 'encode') {
+        loadFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function loadFile(file) {
+      currentFile = file;
+      const reader = new FileReader();
+      reader.onload = () => {
+        currentFileBytes = new Uint8Array(reader.result);
+        fileEmptyState.classList.add('hidden');
+        fileSelectedState.classList.remove('hidden');
+        fileNameEl.textContent = file.name;
+        fileSizeDisplay.textContent = formatBytes(file.size);
+        inputSize.textContent = formatBytes(file.size);
+        processInput();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // Initialize
+    updateLabels();
+  </script>
+</body>
+</html>

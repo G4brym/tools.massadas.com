@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hash Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-md5@0.8/build/md5.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Hash Generator</h1>
+    </div>
+  </header>
+
+  <div class="max-w-3xl mx-auto px-6 py-8">
+
+    <!-- Input mode tabs -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-300 mb-2">Input Mode</label>
+      <div class="flex flex-wrap gap-2" id="mode-tabs">
+        <button data-mode="text" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-brand text-white">Text</button>
+        <button data-mode="file" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light">File</button>
+      </div>
+    </div>
+
+    <!-- Text input -->
+    <div id="text-input" class="mb-6">
+      <label for="text-area" class="block text-sm font-medium text-gray-300 mb-2">Text</label>
+      <textarea
+        id="text-area"
+        class="w-full bg-surface-light border border-surface-lighter rounded-lg text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none focus:border-brand h-40"
+        placeholder="Type or paste text to hash..."
+        spellcheck="false"
+      ></textarea>
+    </div>
+
+    <!-- File input -->
+    <div id="file-input" class="mb-6 hidden">
+      <label class="block text-sm font-medium text-gray-300 mb-2">File</label>
+      <div
+        id="drop-zone"
+        class="w-full border-2 border-dashed border-surface-lighter rounded-lg p-8 text-center cursor-pointer transition hover:border-brand hover:bg-surface-light/50"
+      >
+        <div id="drop-zone-content">
+          <svg class="mx-auto mb-3 w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p class="text-sm text-gray-400">Drop a file here or <span class="text-brand-light underline">browse</span></p>
+        </div>
+        <div id="file-info" class="hidden">
+          <p class="text-sm text-gray-200 font-medium" id="file-name"></p>
+          <p class="text-xs text-gray-400 mt-1" id="file-size"></p>
+        </div>
+        <input type="file" id="file-picker" class="hidden" />
+      </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="loading" class="hidden mb-6 flex items-center gap-3">
+      <svg class="animate-spin h-5 w-5 text-brand-light" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <span class="text-sm text-gray-400">Hashing...</span>
+    </div>
+
+    <!-- Hash results -->
+    <div id="results" class="space-y-3">
+      <div class="hash-row" data-algo="MD5">
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-surface-light border border-surface-lighter px-4 py-3">
+          <div class="shrink-0">
+            <span class="text-sm font-medium text-gray-300">MD5</span>
+            <span class="text-xs text-gray-500 ml-1">(not for security)</span>
+          </div>
+          <code class="hash-value text-xs font-mono text-gray-400 break-all flex-1 text-right min-w-0 select-all">—</code>
+          <button class="copy-btn shrink-0 px-3 py-1.5 rounded-md bg-surface-lighter text-xs text-gray-300 hover:bg-brand hover:text-white transition cursor-pointer" data-algo="MD5">Copy</button>
+        </div>
+      </div>
+      <div class="hash-row" data-algo="SHA-1">
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-surface-light border border-surface-lighter px-4 py-3">
+          <div class="shrink-0">
+            <span class="text-sm font-medium text-gray-300">SHA-1</span>
+          </div>
+          <code class="hash-value text-xs font-mono text-gray-400 break-all flex-1 text-right min-w-0 select-all">—</code>
+          <button class="copy-btn shrink-0 px-3 py-1.5 rounded-md bg-surface-lighter text-xs text-gray-300 hover:bg-brand hover:text-white transition cursor-pointer" data-algo="SHA-1">Copy</button>
+        </div>
+      </div>
+      <div class="hash-row" data-algo="SHA-256">
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-surface-light border border-surface-lighter px-4 py-3">
+          <div class="shrink-0">
+            <span class="text-sm font-medium text-gray-300">SHA-256</span>
+          </div>
+          <code class="hash-value text-xs font-mono text-gray-400 break-all flex-1 text-right min-w-0 select-all">—</code>
+          <button class="copy-btn shrink-0 px-3 py-1.5 rounded-md bg-surface-lighter text-xs text-gray-300 hover:bg-brand hover:text-white transition cursor-pointer" data-algo="SHA-256">Copy</button>
+        </div>
+      </div>
+      <div class="hash-row" data-algo="SHA-384">
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-surface-light border border-surface-lighter px-4 py-3">
+          <div class="shrink-0">
+            <span class="text-sm font-medium text-gray-300">SHA-384</span>
+          </div>
+          <code class="hash-value text-xs font-mono text-gray-400 break-all flex-1 text-right min-w-0 select-all">—</code>
+          <button class="copy-btn shrink-0 px-3 py-1.5 rounded-md bg-surface-lighter text-xs text-gray-300 hover:bg-brand hover:text-white transition cursor-pointer" data-algo="SHA-384">Copy</button>
+        </div>
+      </div>
+      <div class="hash-row" data-algo="SHA-512">
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-surface-light border border-surface-lighter px-4 py-3">
+          <div class="shrink-0">
+            <span class="text-sm font-medium text-gray-300">SHA-512</span>
+          </div>
+          <code class="hash-value text-xs font-mono text-gray-400 break-all flex-1 text-right min-w-0 select-all">—</code>
+          <button class="copy-btn shrink-0 px-3 py-1.5 rounded-md bg-surface-lighter text-xs text-gray-300 hover:bg-brand hover:text-white transition cursor-pointer" data-algo="SHA-512">Copy</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const modeTabs = document.getElementById('mode-tabs');
+    const textInputSection = document.getElementById('text-input');
+    const fileInputSection = document.getElementById('file-input');
+    const textArea = document.getElementById('text-area');
+    const dropZone = document.getElementById('drop-zone');
+    const dropZoneContent = document.getElementById('drop-zone-content');
+    const fileInfoEl = document.getElementById('file-info');
+    const fileNameEl = document.getElementById('file-name');
+    const fileSizeEl = document.getElementById('file-size');
+    const filePicker = document.getElementById('file-picker');
+    const loading = document.getElementById('loading');
+    const hashRows = document.querySelectorAll('.hash-row');
+
+    let currentMode = 'text';
+    let currentFileBuffer = null;
+    let debounceTimer = null;
+
+    // --- Tab switching ---
+    modeTabs.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      currentMode = btn.dataset.mode;
+      modeTabs.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = 'tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light';
+      });
+      btn.className = 'tab-btn px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer bg-brand text-white';
+
+      if (currentMode === 'text') {
+        textInputSection.classList.remove('hidden');
+        fileInputSection.classList.add('hidden');
+      } else {
+        textInputSection.classList.add('hidden');
+        fileInputSection.classList.remove('hidden');
+      }
+    });
+
+    // --- Text input with debounce ---
+    textArea.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (currentMode === 'text') {
+          const data = new TextEncoder().encode(textArea.value);
+          computeAllHashes(data);
+        }
+      }, 400);
+    });
+
+    // --- Drop zone ---
+    dropZone.addEventListener('click', () => {
+      filePicker.click();
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-brand', 'bg-surface-light/50');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand', 'bg-surface-light/50');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand', 'bg-surface-light/50');
+      if (e.dataTransfer.files.length > 0) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    filePicker.addEventListener('change', () => {
+      if (filePicker.files.length > 0) {
+        handleFile(filePicker.files[0]);
+      }
+    });
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    function handleFile(file) {
+      fileNameEl.textContent = file.name;
+      fileSizeEl.textContent = formatFileSize(file.size);
+      dropZoneContent.classList.add('hidden');
+      fileInfoEl.classList.remove('hidden');
+
+      loading.classList.remove('hidden');
+      resetHashes();
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        currentFileBuffer = reader.result;
+        const data = new Uint8Array(currentFileBuffer);
+        computeAllHashes(data);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // --- Hashing ---
+    function bufToHex(buf) {
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function resetHashes() {
+      hashRows.forEach(row => {
+        row.querySelector('.hash-value').textContent = '\u2014';
+      });
+    }
+
+    async function computeAllHashes(data) {
+      loading.classList.remove('hidden');
+      resetHashes();
+
+      try {
+        // MD5 via js-md5 library
+        const md5Hash = md5(data);
+        setHashValue('MD5', md5Hash);
+
+        // SHA family via crypto.subtle
+        const shaAlgos = ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'];
+        const promises = shaAlgos.map(async (algo) => {
+          const hashBuf = await crypto.subtle.digest(algo, data);
+          return { algo, hash: bufToHex(hashBuf) };
+        });
+
+        const results = await Promise.all(promises);
+        results.forEach(({ algo, hash }) => {
+          setHashValue(algo, hash);
+        });
+      } catch (err) {
+        console.error('Hashing error:', err);
+      } finally {
+        loading.classList.add('hidden');
+      }
+    }
+
+    function setHashValue(algo, hash) {
+      const row = document.querySelector(`.hash-row[data-algo="${algo}"]`);
+      if (row) {
+        row.querySelector('.hash-value').textContent = hash;
+      }
+    }
+
+    // --- Copy buttons ---
+    document.getElementById('results').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.copy-btn');
+      if (!btn) return;
+      const algo = btn.dataset.algo;
+      const row = document.querySelector(`.hash-row[data-algo="${algo}"]`);
+      const value = row.querySelector('.hash-value').textContent;
+      if (!value || value === '\u2014') return;
+
+      await navigator.clipboard.writeText(value);
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regex Tester — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-ok: #22c55e;
+      --color-warn: #f59e0b;
+    }
+  </style>
+  <style>
+    /* Scrollbars */
+    #test-string::-webkit-scrollbar,
+    #highlighted-result::-webkit-scrollbar,
+    #match-details::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    #test-string::-webkit-scrollbar-track,
+    #highlighted-result::-webkit-scrollbar-track,
+    #match-details::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    #test-string::-webkit-scrollbar-thumb,
+    #highlighted-result::-webkit-scrollbar-thumb,
+    #match-details::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    /* Match highlight colors */
+    .match-0 { background: rgba(99, 102, 241, 0.35); border-bottom: 2px solid #6366f1; }
+    .match-1 { background: rgba(236, 72, 153, 0.35); border-bottom: 2px solid #ec4899; }
+    .match-2 { background: rgba(34, 197, 94, 0.35); border-bottom: 2px solid #22c55e; }
+    .match-3 { background: rgba(245, 158, 11, 0.35); border-bottom: 2px solid #f59e0b; }
+    .match-4 { background: rgba(6, 182, 212, 0.35); border-bottom: 2px solid #06b6d4; }
+    .match-5 { background: rgba(168, 85, 247, 0.35); border-bottom: 2px solid #a855f7; }
+
+    .group-0 { color: #818cf8; }
+    .group-1 { color: #f472b6; }
+    .group-2 { color: #4ade80; }
+    .group-3 { color: #fbbf24; }
+    .group-4 { color: #22d3ee; }
+    .group-5 { color: #c084fc; }
+
+    /* Keep whitespace and line breaks in highlighted output */
+    #highlighted-result {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Regex Tester</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <div class="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
+
+    <!-- Pattern input section -->
+    <section>
+      <label class="block text-xs font-medium text-gray-400 mb-2">Pattern</label>
+      <div class="flex items-center gap-0 bg-surface-light border border-surface-lighter rounded-lg overflow-hidden focus-within:border-brand transition">
+        <span class="text-brand-light text-lg font-mono pl-3 select-none">/</span>
+        <input
+          id="regex-input"
+          type="text"
+          class="flex-1 bg-transparent text-sm text-gray-100 font-mono px-1 py-2.5 focus:outline-none placeholder:text-gray-600"
+          placeholder="Enter regex pattern..."
+          spellcheck="false"
+          autocomplete="off"
+        >
+        <span class="text-brand-light text-lg font-mono pr-1 select-none">/</span>
+        <span id="flags-display" class="text-brand-light text-sm font-mono pr-3 select-none min-w-[2ch]"></span>
+      </div>
+      <!-- Regex error -->
+      <div id="regex-error" class="hidden mt-2 flex items-start gap-2 px-1">
+        <span class="text-err flex-shrink-0 text-xs mt-px">&#x2715;</span>
+        <span id="regex-error-msg" class="text-err text-xs font-mono"></span>
+      </div>
+      <!-- Slow warning -->
+      <div id="slow-warning" class="hidden mt-2 flex items-start gap-2 px-1">
+        <span class="text-warn flex-shrink-0 text-xs mt-px">&#x26A0;</span>
+        <span class="text-warn text-xs font-mono">Pattern is too slow</span>
+      </div>
+    </section>
+
+    <!-- Flags -->
+    <section>
+      <label class="block text-xs font-medium text-gray-400 mb-2">Flags</label>
+      <div class="flex flex-wrap gap-2" id="flags-container">
+        <button data-flag="g" class="flag-btn active px-3 py-1.5 text-xs font-mono rounded-md border transition cursor-pointer"
+          title="Global — find all matches">g</button>
+        <button data-flag="i" class="flag-btn px-3 py-1.5 text-xs font-mono rounded-md border transition cursor-pointer"
+          title="Case-insensitive">i</button>
+        <button data-flag="m" class="flag-btn px-3 py-1.5 text-xs font-mono rounded-md border transition cursor-pointer"
+          title="Multiline — ^ and $ match line boundaries">m</button>
+        <button data-flag="s" class="flag-btn px-3 py-1.5 text-xs font-mono rounded-md border transition cursor-pointer"
+          title="DotAll — . matches newlines">s</button>
+        <button data-flag="u" class="flag-btn px-3 py-1.5 text-xs font-mono rounded-md border transition cursor-pointer"
+          title="Unicode — enable Unicode features">u</button>
+      </div>
+    </section>
+
+    <!-- Test string -->
+    <section>
+      <label class="block text-xs font-medium text-gray-400 mb-2">Test String</label>
+      <textarea
+        id="test-string"
+        class="w-full bg-surface-light border border-surface-lighter rounded-lg text-sm text-gray-200 font-mono p-3 resize-y focus:outline-none focus:border-brand transition placeholder:text-gray-600"
+        rows="8"
+        placeholder="Enter test string..."
+        spellcheck="false"
+      ></textarea>
+    </section>
+
+    <!-- Results -->
+    <section id="results-section" class="hidden">
+      <!-- Match count -->
+      <div class="flex items-center gap-3 mb-4">
+        <span id="match-count" class="text-sm font-medium"></span>
+      </div>
+
+      <!-- Highlighted result -->
+      <div class="mb-6">
+        <label class="block text-xs font-medium text-gray-400 mb-2">Matches</label>
+        <div
+          id="highlighted-result"
+          class="bg-surface-light border border-surface-lighter rounded-lg text-sm font-mono p-3 min-h-[4rem] max-h-[24rem] overflow-auto"
+        ></div>
+      </div>
+
+      <!-- Match details table -->
+      <div id="match-details-wrapper" class="hidden">
+        <label class="block text-xs font-medium text-gray-400 mb-2">Match Details</label>
+        <div id="match-details" class="bg-surface-light border border-surface-lighter rounded-lg overflow-auto max-h-[24rem]">
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick reference (collapsible) -->
+    <section class="border border-surface-lighter rounded-lg overflow-hidden">
+      <button
+        id="ref-toggle"
+        class="w-full flex items-center justify-between px-4 py-3 bg-surface-light text-sm text-gray-300 hover:text-gray-100 transition cursor-pointer"
+      >
+        <span class="font-medium">Quick Reference</span>
+        <svg id="ref-chevron" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div id="ref-content" class="hidden">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-surface-lighter">
+          <div class="bg-surface p-4">
+            <h3 class="text-xs font-semibold text-brand-light mb-2">Characters</h3>
+            <table class="text-xs w-full">
+              <tbody class="text-gray-300">
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">.</td><td>Any character (except newline)</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">\d</td><td>Digit [0-9]</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">\D</td><td>Non-digit</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">\w</td><td>Word char [A-Za-z0-9_]</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">\W</td><td>Non-word char</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">\s</td><td>Whitespace</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">\S</td><td>Non-whitespace</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">\b</td><td>Word boundary</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-surface p-4">
+            <h3 class="text-xs font-semibold text-brand-light mb-2">Quantifiers</h3>
+            <table class="text-xs w-full">
+              <tbody class="text-gray-300">
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">*</td><td>0 or more</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">+</td><td>1 or more</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">?</td><td>0 or 1</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">{n}</td><td>Exactly n</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">{n,}</td><td>n or more</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">{n,m}</td><td>Between n and m</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">*?</td><td>Lazy (non-greedy)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-surface p-4">
+            <h3 class="text-xs font-semibold text-brand-light mb-2">Groups &amp; Anchors</h3>
+            <table class="text-xs w-full">
+              <tbody class="text-gray-300">
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">(abc)</td><td>Capture group</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">(?&lt;name&gt;abc)</td><td>Named capture group</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">(?:abc)</td><td>Non-capturing group</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">a|b</td><td>Alternation</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">^</td><td>Start of string/line</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">$</td><td>End of string/line</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">(?=abc)</td><td>Positive lookahead</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">(?!abc)</td><td>Negative lookahead</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-surface p-4">
+            <h3 class="text-xs font-semibold text-brand-light mb-2">Character Classes</h3>
+            <table class="text-xs w-full">
+              <tbody class="text-gray-300">
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">[abc]</td><td>Any of a, b, or c</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">[^abc]</td><td>Not a, b, or c</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">[a-z]</td><td>Range a to z</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">[A-Z]</td><td>Range A to Z</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">[0-9]</td><td>Range 0 to 9</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-surface p-4">
+            <h3 class="text-xs font-semibold text-brand-light mb-2">Common Patterns</h3>
+            <table class="text-xs w-full">
+              <tbody class="text-gray-300">
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap text-[10px]">\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z]{2,}\b</td><td>Email</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap text-[10px]">https?://[^\s]+</td><td>URL</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap text-[10px]">\b\d{1,3}(\.\d{1,3}){3}\b</td><td>IPv4</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap text-[10px]">#?[0-9a-fA-F]{6}\b</td><td>Hex color</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-surface p-4">
+            <h3 class="text-xs font-semibold text-brand-light mb-2">Flags</h3>
+            <table class="text-xs w-full">
+              <tbody class="text-gray-300">
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">g</td><td>Global (find all matches)</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">i</td><td>Case-insensitive</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">m</td><td>Multiline (^ $ match lines)</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">s</td><td>DotAll (. matches \n)</td></tr>
+                <tr><td class="font-mono text-gray-100 pr-3 py-0.5 align-top whitespace-nowrap">u</td><td>Unicode</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    const regexInput = document.getElementById('regex-input');
+    const testString = document.getElementById('test-string');
+    const flagsContainer = document.getElementById('flags-container');
+    const flagsDisplay = document.getElementById('flags-display');
+    const regexError = document.getElementById('regex-error');
+    const regexErrorMsg = document.getElementById('regex-error-msg');
+    const slowWarning = document.getElementById('slow-warning');
+    const resultsSection = document.getElementById('results-section');
+    const matchCount = document.getElementById('match-count');
+    const highlightedResult = document.getElementById('highlighted-result');
+    const matchDetailsWrapper = document.getElementById('match-details-wrapper');
+    const matchDetails = document.getElementById('match-details');
+    const refToggle = document.getElementById('ref-toggle');
+    const refContent = document.getElementById('ref-content');
+    const refChevron = document.getElementById('ref-chevron');
+
+    const MATCH_COLORS = 6;
+    const TIMEOUT_MS = 500;
+
+    let debounceTimer = null;
+
+    // --- Flag buttons ---
+    const flagBtns = flagsContainer.querySelectorAll('.flag-btn');
+
+    function updateFlagStyles() {
+      flagBtns.forEach(btn => {
+        if (btn.classList.contains('active')) {
+          btn.style.cssText = 'background: rgba(99,102,241,0.2); border-color: #6366f1; color: #818cf8;';
+        } else {
+          btn.style.cssText = 'background: transparent; border-color: #334155; color: #64748b;';
+        }
+      });
+      flagsDisplay.textContent = getFlags();
+    }
+
+    function getFlags() {
+      let flags = '';
+      flagBtns.forEach(btn => {
+        if (btn.classList.contains('active')) {
+          flags += btn.dataset.flag;
+        }
+      });
+      return flags;
+    }
+
+    flagBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        updateFlagStyles();
+        scheduleUpdate();
+      });
+    });
+
+    updateFlagStyles();
+
+    // --- Quick reference toggle ---
+    refToggle.addEventListener('click', () => {
+      const isHidden = refContent.classList.contains('hidden');
+      refContent.classList.toggle('hidden');
+      refChevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+    });
+
+    // --- Debounced input ---
+    regexInput.addEventListener('input', scheduleUpdate);
+    testString.addEventListener('input', scheduleUpdate);
+
+    function scheduleUpdate() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(runMatch, 300);
+    }
+
+    // --- Escape HTML ---
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // --- Main matching logic ---
+    function runMatch() {
+      const pattern = regexInput.value;
+      const text = testString.value;
+
+      // Reset state
+      regexError.classList.add('hidden');
+      slowWarning.classList.add('hidden');
+
+      // Nothing to do
+      if (!pattern || !text) {
+        resultsSection.classList.add('hidden');
+        return;
+      }
+
+      // Try to build regex
+      let regex;
+      const flags = getFlags();
+      try {
+        regex = new RegExp(pattern, flags);
+      } catch (e) {
+        regexError.classList.remove('hidden');
+        regexErrorMsg.textContent = e.message;
+        resultsSection.classList.add('hidden');
+        return;
+      }
+
+      // Run matching with timeout guard
+      const t0 = performance.now();
+      let matches = [];
+      let timedOut = false;
+
+      try {
+        if (flags.includes('g')) {
+          let m;
+          while ((m = regex.exec(text)) !== null) {
+            matches.push(m);
+            // Guard: prevent infinite loops on zero-length matches
+            if (m[0].length === 0) {
+              regex.lastIndex++;
+            }
+            // Timeout check
+            if (performance.now() - t0 > TIMEOUT_MS) {
+              timedOut = true;
+              break;
+            }
+          }
+        } else {
+          const m = regex.exec(text);
+          if (m) {
+            matches.push(m);
+          }
+          if (performance.now() - t0 > TIMEOUT_MS) {
+            timedOut = true;
+          }
+        }
+      } catch (e) {
+        regexError.classList.remove('hidden');
+        regexErrorMsg.textContent = e.message;
+        resultsSection.classList.add('hidden');
+        return;
+      }
+
+      if (timedOut) {
+        slowWarning.classList.remove('hidden');
+        resultsSection.classList.add('hidden');
+        return;
+      }
+
+      // Show results
+      resultsSection.classList.remove('hidden');
+
+      // Match count
+      const count = matches.length;
+      if (count === 0) {
+        matchCount.innerHTML = '<span class="text-gray-400">No matches found</span>';
+      } else {
+        matchCount.innerHTML = '<span class="text-ok">' + count + ' match' + (count !== 1 ? 'es' : '') + ' found</span>';
+      }
+
+      // Build highlighted string
+      renderHighlighted(text, matches);
+
+      // Build match details
+      renderDetails(matches);
+    }
+
+    // --- Highlighted result ---
+    function renderHighlighted(text, matches) {
+      if (matches.length === 0) {
+        highlightedResult.innerHTML = escapeHtml(text);
+        return;
+      }
+
+      // Build segments: interleave non-matched text with matched spans
+      let html = '';
+      let lastIndex = 0;
+
+      for (let i = 0; i < matches.length; i++) {
+        const m = matches[i];
+        const start = m.index;
+        const end = start + m[0].length;
+        const colorIdx = i % MATCH_COLORS;
+
+        // Text before this match
+        if (start > lastIndex) {
+          html += escapeHtml(text.slice(lastIndex, start));
+        }
+
+        // The match itself
+        if (m[0].length > 0) {
+          html += '<span class="match-' + colorIdx + ' rounded-sm px-px">' + escapeHtml(m[0]) + '</span>';
+        }
+
+        lastIndex = end;
+      }
+
+      // Remaining text after last match
+      if (lastIndex < text.length) {
+        html += escapeHtml(text.slice(lastIndex));
+      }
+
+      highlightedResult.innerHTML = html;
+    }
+
+    // --- Match details table ---
+    function renderDetails(matches) {
+      if (matches.length === 0) {
+        matchDetailsWrapper.classList.add('hidden');
+        return;
+      }
+
+      matchDetailsWrapper.classList.remove('hidden');
+
+      // Check if any match has capture groups
+      let hasGroups = false;
+      let hasNamedGroups = false;
+      let maxGroups = 0;
+
+      for (const m of matches) {
+        if (m.length > 1) {
+          hasGroups = true;
+          maxGroups = Math.max(maxGroups, m.length - 1);
+        }
+        if (m.groups && Object.keys(m.groups).length > 0) {
+          hasNamedGroups = true;
+        }
+      }
+
+      let html = '<table class="w-full text-xs">';
+      html += '<thead class="sticky top-0 bg-surface-light">';
+      html += '<tr class="text-left text-gray-400 border-b border-surface-lighter">';
+      html += '<th class="px-3 py-2 font-medium">#</th>';
+      html += '<th class="px-3 py-2 font-medium">Match</th>';
+      html += '<th class="px-3 py-2 font-medium">Index</th>';
+
+      if (hasGroups) {
+        for (let g = 1; g <= maxGroups; g++) {
+          html += '<th class="px-3 py-2 font-medium">Group ' + g + '</th>';
+        }
+      }
+      if (hasNamedGroups) {
+        html += '<th class="px-3 py-2 font-medium">Named Groups</th>';
+      }
+
+      html += '</tr></thead><tbody>';
+
+      for (let i = 0; i < matches.length; i++) {
+        const m = matches[i];
+        const colorIdx = i % MATCH_COLORS;
+        html += '<tr class="border-b border-surface-lighter/50 hover:bg-surface-lighter/20">';
+        html += '<td class="px-3 py-2 text-gray-500 tabular-nums">' + (i + 1) + '</td>';
+        html += '<td class="px-3 py-2 font-mono group-' + colorIdx + '">' + escapeHtml(m[0]) + '</td>';
+        html += '<td class="px-3 py-2 text-gray-400 tabular-nums">' + m.index + '</td>';
+
+        if (hasGroups) {
+          for (let g = 1; g <= maxGroups; g++) {
+            const val = m[g];
+            if (val !== undefined) {
+              html += '<td class="px-3 py-2 font-mono text-gray-300">' + escapeHtml(val) + '</td>';
+            } else {
+              html += '<td class="px-3 py-2 text-gray-600">-</td>';
+            }
+          }
+        }
+
+        if (hasNamedGroups) {
+          if (m.groups && Object.keys(m.groups).length > 0) {
+            const parts = [];
+            for (const [name, val] of Object.entries(m.groups)) {
+              if (val !== undefined) {
+                parts.push('<span class="text-gray-400">' + escapeHtml(name) + ':</span> <span class="text-gray-200">' + escapeHtml(val) + '</span>');
+              }
+            }
+            html += '<td class="px-3 py-2 font-mono text-xs">' + parts.join(', ') + '</td>';
+          } else {
+            html += '<td class="px-3 py-2 text-gray-600">-</td>';
+          }
+        }
+
+        html += '</tr>';
+      }
+
+      html += '</tbody></table>';
+      matchDetails.innerHTML = html;
+    }
+  </script>
+</body>
+</html>

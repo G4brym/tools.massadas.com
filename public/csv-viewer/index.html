@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV Viewer — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-ok: #22c55e;
+    }
+  </style>
+  <style>
+    /* Scrollbars */
+    .table-wrap::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .table-wrap::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .table-wrap::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    /* Drop zone active */
+    .drop-active {
+      border-color: #6366f1 !important;
+      background: rgba(99, 102, 241, 0.08) !important;
+    }
+
+    /* Sortable header cursor */
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sortable:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">CSV Viewer</h1>
+    </div>
+  </header>
+
+  <!-- Input view -->
+  <div id="input-view" class="max-w-4xl mx-auto px-4 py-12">
+    <div
+      id="drop-zone"
+      class="border-2 border-dashed border-surface-lighter rounded-xl p-12 text-center transition-colors"
+    >
+      <div class="text-gray-400 mb-4">
+        <svg class="w-12 h-12 mx-auto mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        <p class="text-lg font-medium text-gray-300 mb-1">Drop a .csv file here</p>
+        <p class="text-sm">or paste CSV data below</p>
+      </div>
+      <input type="file" id="file-input" accept=".csv,.tsv,.txt" class="hidden">
+      <button
+        id="btn-browse"
+        class="mt-2 px-4 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-light transition cursor-pointer"
+      >Browse file</button>
+    </div>
+
+    <textarea
+      id="csv-input"
+      class="mt-6 w-full h-64 bg-surface-light border border-surface-lighter rounded-xl text-sm text-gray-200 font-mono p-4 resize-y focus:outline-none focus:border-brand placeholder:text-gray-600"
+      placeholder="Paste CSV data here..."
+      spellcheck="false"
+    ></textarea>
+
+    <div class="mt-4 flex justify-end">
+      <button
+        id="btn-parse"
+        class="px-5 py-2 bg-brand text-white text-sm font-medium rounded-lg hover:bg-brand-light transition cursor-pointer"
+      >View CSV</button>
+    </div>
+  </div>
+
+  <!-- Table view (hidden initially) -->
+  <div id="table-view" class="hidden flex flex-col h-[calc(100vh-3rem)]">
+
+    <!-- Toolbar -->
+    <div class="flex items-center gap-4 px-4 py-2 border-b border-surface-lighter bg-surface-light flex-shrink-0 flex-wrap">
+      <button
+        id="btn-back"
+        class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer"
+      >&larr; Back</button>
+      <div class="w-px h-5 bg-surface-lighter"></div>
+      <span id="info-rows" class="text-xs text-gray-400"></span>
+      <span id="info-cols" class="text-xs text-gray-400"></span>
+      <span id="info-filtered" class="text-xs text-brand-light hidden"></span>
+      <div class="ml-auto">
+        <input
+          id="global-search"
+          type="text"
+          placeholder="Search all columns..."
+          class="bg-surface border border-surface-lighter rounded px-3 py-1 text-xs text-gray-200 w-56 focus:outline-none focus:border-brand placeholder:text-gray-600"
+        >
+      </div>
+    </div>
+
+    <!-- Error bar -->
+    <div id="error-bar" class="hidden px-4 py-2 bg-err/10 border-b border-err/30 flex-shrink-0">
+      <p id="error-text" class="text-err text-xs font-mono"></p>
+    </div>
+
+    <!-- Table container -->
+    <div class="flex-1 overflow-auto table-wrap">
+      <table id="csv-table" class="w-full text-sm border-collapse">
+        <thead id="csv-thead" class="sticky top-0 z-10"></thead>
+        <tbody id="csv-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" class="flex items-center justify-center gap-3 px-4 py-2 border-t border-surface-lighter bg-surface-light flex-shrink-0">
+      <button id="btn-prev" class="px-3 py-1 text-xs bg-surface-lighter text-gray-300 rounded hover:bg-brand transition cursor-pointer disabled:opacity-40 disabled:cursor-default">Prev</button>
+      <span id="page-info" class="text-xs text-gray-400"></span>
+      <button id="btn-next" class="px-3 py-1 text-xs bg-surface-lighter text-gray-300 rounded hover:bg-brand transition cursor-pointer disabled:opacity-40 disabled:cursor-default">Next</button>
+    </div>
+  </div>
+
+  <script>
+    // --- State ---
+    let headers = [];
+    let allRows = [];
+    let filteredRows = [];
+    let sortCol = -1;
+    let sortDir = 'asc';
+    let columnFilters = {};
+    let globalFilter = '';
+    let currentPage = 0;
+    const PAGE_SIZE = 50;
+
+    // --- DOM refs ---
+    const inputView = document.getElementById('input-view');
+    const tableView = document.getElementById('table-view');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const csvInput = document.getElementById('csv-input');
+    const btnParse = document.getElementById('btn-parse');
+    const btnBrowse = document.getElementById('btn-browse');
+    const btnBack = document.getElementById('btn-back');
+    const globalSearch = document.getElementById('global-search');
+    const infoRows = document.getElementById('info-rows');
+    const infoCols = document.getElementById('info-cols');
+    const infoFiltered = document.getElementById('info-filtered');
+    const errorBar = document.getElementById('error-bar');
+    const errorText = document.getElementById('error-text');
+    const csvThead = document.getElementById('csv-thead');
+    const csvTbody = document.getElementById('csv-tbody');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+    const pageInfo = document.getElementById('page-info');
+
+    // --- File browse ---
+    btnBrowse.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) readFile(file);
+    });
+
+    // --- Drag & drop ---
+    ['dragenter', 'dragover'].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('drop-active');
+      });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('drop-active');
+      });
+    });
+    dropZone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file) readFile(file);
+    });
+
+    function readFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        csvInput.value = e.target.result;
+        parseAndDisplay(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+
+    // --- Parse button ---
+    btnParse.addEventListener('click', () => {
+      const text = csvInput.value.trim();
+      if (text) parseAndDisplay(text);
+    });
+
+    // --- Back button ---
+    btnBack.addEventListener('click', () => {
+      tableView.classList.add('hidden');
+      inputView.classList.remove('hidden');
+    });
+
+    // --- Global search ---
+    let searchDebounce = null;
+    globalSearch.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        globalFilter = globalSearch.value.trim().toLowerCase();
+        applyFilters();
+      }, 200);
+    });
+
+    // --- Parse & display ---
+    function parseAndDisplay(text) {
+      const result = Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true
+      });
+
+      headers = result.meta.fields || [];
+      allRows = result.data || [];
+      sortCol = -1;
+      sortDir = 'asc';
+      columnFilters = {};
+      globalFilter = '';
+      currentPage = 0;
+      globalSearch.value = '';
+
+      // Show errors if any
+      if (result.errors && result.errors.length > 0) {
+        const msgs = result.errors.slice(0, 5).map(e => `Row ${e.row}: ${e.message}`).join('\n');
+        const extra = result.errors.length > 5 ? `\n...and ${result.errors.length - 5} more errors` : '';
+        errorText.textContent = msgs + extra;
+        errorBar.classList.remove('hidden');
+      } else {
+        errorBar.classList.add('hidden');
+      }
+
+      // Update info
+      infoRows.textContent = `${allRows.length} rows`;
+      infoCols.textContent = `${headers.length} columns`;
+
+      // Build header
+      buildTableHeader();
+
+      // Filter & render
+      filteredRows = [...allRows];
+      renderTable();
+
+      // Switch view
+      inputView.classList.add('hidden');
+      tableView.classList.remove('hidden');
+    }
+
+    // --- Build table header ---
+    function buildTableHeader() {
+      let html = '<tr>';
+      headers.forEach((h, i) => {
+        const arrow = sortCol === i ? (sortDir === 'asc' ? ' &#9650;' : ' &#9660;') : '';
+        html += `<th class="sortable bg-surface-lighter text-gray-300 text-left px-3 py-2 border-b border-surface-lighter font-medium text-xs whitespace-nowrap" data-col="${i}">${escapeHtml(String(h))}${arrow}</th>`;
+      });
+      html += '</tr>';
+
+      // Filter row
+      html += '<tr>';
+      headers.forEach((h, i) => {
+        const val = columnFilters[i] || '';
+        html += `<th class="bg-surface-lighter px-3 py-1 border-b border-surface-lighter"><input type="text" data-filter-col="${i}" value="${escapeHtml(val)}" placeholder="Filter..." class="w-full bg-surface border border-surface-lighter rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-brand placeholder:text-gray-600" style="min-width:60px"></th>`;
+      });
+      html += '</tr>';
+
+      csvThead.innerHTML = html;
+
+      // Attach sort listeners
+      csvThead.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+          const col = parseInt(th.dataset.col);
+          if (sortCol === col) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            sortCol = col;
+            sortDir = 'asc';
+          }
+          applyFilters();
+          buildTableHeader();
+        });
+      });
+
+      // Attach filter listeners
+      let filterDebounce = null;
+      csvThead.querySelectorAll('input[data-filter-col]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          clearTimeout(filterDebounce);
+          filterDebounce = setTimeout(() => {
+            const col = parseInt(inp.dataset.filterCol);
+            columnFilters[col] = inp.value.trim().toLowerCase();
+            applyFilters();
+          }, 200);
+        });
+      });
+    }
+
+    // --- Apply filters & sort ---
+    function applyFilters() {
+      filteredRows = allRows.filter(row => {
+        // Global filter
+        if (globalFilter) {
+          const match = headers.some(h => {
+            const val = row[h];
+            return val !== null && val !== undefined && String(val).toLowerCase().includes(globalFilter);
+          });
+          if (!match) return false;
+        }
+
+        // Column filters
+        for (const colIdx in columnFilters) {
+          const term = columnFilters[colIdx];
+          if (!term) continue;
+          const h = headers[parseInt(colIdx)];
+          const val = row[h];
+          if (val === null || val === undefined || !String(val).toLowerCase().includes(term)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Sort
+      if (sortCol >= 0) {
+        const key = headers[sortCol];
+        filteredRows.sort((a, b) => {
+          let va = a[key];
+          let vb = b[key];
+
+          // Handle nulls
+          if (va === null || va === undefined) va = '';
+          if (vb === null || vb === undefined) vb = '';
+
+          // Numeric comparison
+          if (typeof va === 'number' && typeof vb === 'number') {
+            return sortDir === 'asc' ? va - vb : vb - va;
+          }
+
+          // String comparison
+          va = String(va).toLowerCase();
+          vb = String(vb).toLowerCase();
+          if (va < vb) return sortDir === 'asc' ? -1 : 1;
+          if (va > vb) return sortDir === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      currentPage = 0;
+
+      // Show filtered count if different
+      if (filteredRows.length !== allRows.length) {
+        infoFiltered.textContent = `(${filteredRows.length} shown)`;
+        infoFiltered.classList.remove('hidden');
+      } else {
+        infoFiltered.classList.add('hidden');
+      }
+
+      renderTable();
+    }
+
+    // --- Render table body ---
+    function renderTable() {
+      const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+      if (currentPage >= totalPages) currentPage = totalPages - 1;
+
+      const start = currentPage * PAGE_SIZE;
+      const end = Math.min(start + PAGE_SIZE, filteredRows.length);
+      const pageRows = filteredRows.slice(start, end);
+
+      let html = '';
+      pageRows.forEach((row, i) => {
+        const stripe = (start + i) % 2 === 0 ? 'bg-surface' : 'bg-surface-light';
+        html += `<tr class="${stripe} hover:bg-surface-lighter/50 transition-colors">`;
+        headers.forEach(h => {
+          const val = row[h];
+          const display = val === null || val === undefined ? '' : escapeHtml(String(val));
+          html += `<td class="px-3 py-1.5 border-b border-surface-lighter text-xs text-gray-300 whitespace-nowrap">${display}</td>`;
+        });
+        html += '</tr>';
+      });
+
+      csvTbody.innerHTML = html;
+
+      // Pagination
+      pageInfo.textContent = `Page ${currentPage + 1} of ${totalPages}`;
+      btnPrev.disabled = currentPage === 0;
+      btnNext.disabled = currentPage >= totalPages - 1;
+    }
+
+    // --- Pagination ---
+    btnPrev.addEventListener('click', () => {
+      if (currentPage > 0) {
+        currentPage--;
+        renderTable();
+        buildTableHeader();
+      }
+    });
+
+    btnNext.addEventListener('click', () => {
+      const totalPages = Math.ceil(filteredRows.length / PAGE_SIZE);
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        renderTable();
+        buildTableHeader();
+      }
+    });
+
+    // --- Utility ---
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>

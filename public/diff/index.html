@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diff Viewer — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/diff@7/dist/diff.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-ok: #22c55e;
+    }
+  </style>
+  <style>
+    /* Diff row colors */
+    .diff-row-added {
+      background: rgba(34, 197, 94, 0.12);
+    }
+    .diff-row-added .diff-line-num {
+      background: rgba(34, 197, 94, 0.18);
+      color: #86efac;
+    }
+    .diff-row-removed {
+      background: rgba(239, 68, 68, 0.12);
+    }
+    .diff-row-removed .diff-line-num {
+      background: rgba(239, 68, 68, 0.18);
+      color: #fca5a5;
+    }
+    .diff-row-unchanged {
+      background: transparent;
+    }
+    .diff-row-unchanged .diff-line-num {
+      color: #475569;
+    }
+
+    .diff-line-num {
+      display: inline-block;
+      width: 3.5em;
+      text-align: right;
+      padding-right: 0.75em;
+      user-select: none;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .diff-gutter {
+      width: 1.5em;
+      text-align: center;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .diff-row-added .diff-gutter {
+      color: #22c55e;
+    }
+    .diff-row-removed .diff-gutter {
+      color: #ef4444;
+    }
+    .diff-row-unchanged .diff-gutter {
+      color: #334155;
+    }
+
+    .diff-content {
+      white-space: pre;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .diff-row {
+      display: flex;
+      line-height: 1.6;
+    }
+
+    .diff-row:hover {
+      filter: brightness(1.15);
+    }
+
+    /* Scrollbars */
+    #original-input::-webkit-scrollbar,
+    #modified-input::-webkit-scrollbar,
+    #diff-output::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    #original-input::-webkit-scrollbar-track,
+    #modified-input::-webkit-scrollbar-track,
+    #diff-output::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    #original-input::-webkit-scrollbar-thumb,
+    #modified-input::-webkit-scrollbar-thumb,
+    #diff-output::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Diff Viewer</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <span id="stats-badge" class="hidden text-xs text-gray-400"></span>
+        <div class="w-px h-5 bg-surface-lighter"></div>
+        <button id="btn-compare" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Compare</button>
+        <button id="btn-swap" class="text-xs text-gray-400 hover:text-brand-light transition cursor-pointer">Swap</button>
+        <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer">Clear</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="flex flex-col h-[calc(100vh-3rem)]">
+
+    <!-- Top: side-by-side textareas -->
+    <div class="flex flex-1 min-h-0 border-b border-surface-lighter">
+
+      <!-- Original panel -->
+      <div class="w-1/2 flex flex-col border-r border-surface-lighter min-w-0">
+        <div class="px-4 py-1.5 border-b border-surface-lighter bg-surface-light/50">
+          <span class="text-xs font-medium text-gray-400">Original</span>
+        </div>
+        <textarea
+          id="original-input"
+          class="flex-1 w-full bg-transparent text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none placeholder:text-gray-600"
+          placeholder="Paste original text here..."
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <!-- Modified panel -->
+      <div class="w-1/2 flex flex-col min-w-0">
+        <div class="px-4 py-1.5 border-b border-surface-lighter bg-surface-light/50">
+          <span class="text-xs font-medium text-gray-400">Modified</span>
+        </div>
+        <textarea
+          id="modified-input"
+          class="flex-1 w-full bg-transparent text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none placeholder:text-gray-600"
+          placeholder="Paste modified text here..."
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+    </div>
+
+    <!-- Bottom: diff output -->
+    <div class="flex-1 flex flex-col min-h-0">
+      <div id="diff-empty" class="flex-1 flex items-center justify-center text-gray-600 text-sm">
+        Diff output will appear here
+      </div>
+      <div id="diff-output" class="hidden flex-1 overflow-auto text-sm font-mono m-0 bg-surface"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const originalInput = document.getElementById('original-input');
+    const modifiedInput = document.getElementById('modified-input');
+    const diffEmpty = document.getElementById('diff-empty');
+    const diffOutput = document.getElementById('diff-output');
+    const statsBadge = document.getElementById('stats-badge');
+    const btnCompare = document.getElementById('btn-compare');
+    const btnSwap = document.getElementById('btn-swap');
+    const btnClear = document.getElementById('btn-clear');
+
+    let debounceTimer = null;
+
+    // --- Auto-compare on input with debounce ---
+    originalInput.addEventListener('input', scheduleCompare);
+    modifiedInput.addEventListener('input', scheduleCompare);
+
+    function scheduleCompare() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(runCompare, 500);
+    }
+
+    // --- Compare button ---
+    btnCompare.addEventListener('click', runCompare);
+
+    // --- Swap button ---
+    btnSwap.addEventListener('click', () => {
+      const tmp = originalInput.value;
+      originalInput.value = modifiedInput.value;
+      modifiedInput.value = tmp;
+      runCompare();
+    });
+
+    // --- Clear button ---
+    btnClear.addEventListener('click', () => {
+      originalInput.value = '';
+      modifiedInput.value = '';
+      diffOutput.classList.add('hidden');
+      diffOutput.innerHTML = '';
+      diffEmpty.classList.remove('hidden');
+      statsBadge.classList.add('hidden');
+    });
+
+    // --- Main diff ---
+    function runCompare() {
+      const original = originalInput.value;
+      const modified = modifiedInput.value;
+
+      if (!original && !modified) {
+        diffOutput.classList.add('hidden');
+        diffOutput.innerHTML = '';
+        diffEmpty.classList.remove('hidden');
+        statsBadge.classList.add('hidden');
+        return;
+      }
+
+      const changes = Diff.diffLines(original, modified);
+
+      let html = '';
+      let leftLine = 1;
+      let rightLine = 1;
+      let additions = 0;
+      let deletions = 0;
+      let unchanged = 0;
+
+      for (const part of changes) {
+        const lines = part.value.replace(/\n$/, '').split('\n');
+
+        // Handle empty diff part (e.g. both inputs empty but not truly empty)
+        if (part.value === '') continue;
+
+        for (const line of lines) {
+          const escaped = escapeHtml(line);
+
+          if (part.added) {
+            additions++;
+            html += `<div class="diff-row diff-row-added">`;
+            html += `<span class="diff-line-num"></span>`;
+            html += `<span class="diff-line-num">${rightLine}</span>`;
+            html += `<span class="diff-gutter">+</span>`;
+            html += `<span class="diff-content">${escaped}</span>`;
+            html += `</div>`;
+            rightLine++;
+          } else if (part.removed) {
+            deletions++;
+            html += `<div class="diff-row diff-row-removed">`;
+            html += `<span class="diff-line-num">${leftLine}</span>`;
+            html += `<span class="diff-line-num"></span>`;
+            html += `<span class="diff-gutter">-</span>`;
+            html += `<span class="diff-content">${escaped}</span>`;
+            html += `</div>`;
+            leftLine++;
+          } else {
+            unchanged++;
+            html += `<div class="diff-row diff-row-unchanged">`;
+            html += `<span class="diff-line-num">${leftLine}</span>`;
+            html += `<span class="diff-line-num">${rightLine}</span>`;
+            html += `<span class="diff-gutter"> </span>`;
+            html += `<span class="diff-content">${escaped}</span>`;
+            html += `</div>`;
+            leftLine++;
+            rightLine++;
+          }
+        }
+      }
+
+      if (!html) {
+        html = '<div class="flex items-center justify-center h-full text-gray-500 text-sm">No differences found</div>';
+      }
+
+      diffOutput.innerHTML = html;
+      diffEmpty.classList.add('hidden');
+      diffOutput.classList.remove('hidden');
+
+      // Stats
+      statsBadge.classList.remove('hidden');
+      statsBadge.innerHTML =
+        `<span class="text-ok">+${additions}</span>` +
+        `<span class="text-gray-500 mx-1">/</span>` +
+        `<span class="text-err">-${deletions}</span>` +
+        `<span class="text-gray-500 mx-1">/</span>` +
+        `<span class="text-gray-400">${unchanged} unchanged</span>`;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+  </script>
+</body>
+</html>
