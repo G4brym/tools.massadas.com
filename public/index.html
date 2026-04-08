@@ -16,19 +16,19 @@
   </style>
 </head>
 <body class="bg-surface text-gray-100 min-h-screen antialiased">
-  <div class="max-w-5xl mx-auto px-6 py-16">
-    <header class="mb-16 text-center">
-      <h1 class="text-5xl font-bold tracking-tight bg-gradient-to-r from-brand-light to-indigo-300 bg-clip-text text-transparent">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+    <header class="mb-10 sm:mb-16 text-center">
+      <h1 class="text-3xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-brand-light to-indigo-300 bg-clip-text text-transparent">
         tools.massadas.com
       </h1>
-      <p class="mt-4 text-lg text-gray-400 max-w-2xl mx-auto">
+      <p class="mt-3 sm:mt-4 text-base sm:text-lg text-gray-400 max-w-2xl mx-auto">
         Browser-only tools that run 100% locally. No data is ever sent anywhere.
       </p>
     </header>
 
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" id="tools">
 
-      <a href="/swagger/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/swagger/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             { }
@@ -40,7 +40,7 @@
         </p>
       </a>
 
-      <a href="/image-to-pdf/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/image-to-pdf/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             PDF
@@ -52,7 +52,7 @@
         </p>
       </a>
 
-      <a href="/json-formatter/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/json-formatter/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             {}
@@ -64,7 +64,7 @@
         </p>
       </a>
 
-      <a href="/file-to-markdown/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/file-to-markdown/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             MD
@@ -76,7 +76,7 @@
         </p>
       </a>
 
-      <a href="/base64/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/base64/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             B64
@@ -88,7 +88,7 @@
         </p>
       </a>
 
-      <a href="/jwt-decoder/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/jwt-decoder/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             JWT
@@ -100,7 +100,7 @@
         </p>
       </a>
 
-      <a href="/diff/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/diff/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             &plusmn;
@@ -112,7 +112,7 @@
         </p>
       </a>
 
-      <a href="/regex/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/regex/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             .*
@@ -124,7 +124,7 @@
         </p>
       </a>
 
-      <a href="/csv-viewer/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/csv-viewer/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             CSV
@@ -136,7 +136,7 @@
         </p>
       </a>
 
-      <a href="/uuid-generator/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/uuid-generator/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             ID
@@ -148,7 +148,7 @@
         </p>
       </a>
 
-      <a href="/cron-parser/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/cron-parser/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             * *
@@ -160,7 +160,7 @@
         </p>
       </a>
 
-      <a href="/color-converter/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/color-converter/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             &#127912;
@@ -172,7 +172,7 @@
         </p>
       </a>
 
-      <a href="/hash-generator/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/hash-generator/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             #
@@ -184,7 +184,7 @@
         </p>
       </a>
 
-      <a href="/image-compressor/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/image-compressor/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             &#128247;
@@ -196,7 +196,7 @@
         </p>
       </a>
 
-      <a href="/svg-optimizer/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/svg-optimizer/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl font-mono">
             SVG
@@ -208,7 +208,7 @@
         </p>
       </a>
 
-      <a href="/qr-code/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/qr-code/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             &#9641;
@@ -220,7 +220,7 @@
         </p>
       </a>
 
-      <a href="/password-generator/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/password-generator/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             &#128274;
@@ -232,7 +232,7 @@
         </p>
       </a>
 
-      <a href="/exif-stripper/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
+      <a href="/exif-stripper/" class="group block rounded-2xl bg-surface-light border border-surface-lighter p-4 sm:p-6 transition hover:border-brand hover:shadow-lg hover:shadow-brand/10">
         <div class="flex items-center gap-3 mb-3">
           <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl">
             &#128065;

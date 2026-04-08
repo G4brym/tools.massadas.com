@@ -106,10 +106,10 @@
   </header>
 
   <!-- Main layout -->
-  <div class="flex h-[calc(100vh-3rem)]">
+  <div class="flex flex-col md:flex-row h-auto md:h-[calc(100vh-3rem)]">
 
     <!-- Left panel: JSON input -->
-    <div class="w-1/2 flex flex-col border-r border-surface-lighter min-w-0">
+    <div class="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-surface-lighter min-w-0 h-[40vh] md:h-auto">
       <textarea
         id="json-input"
         class="flex-1 w-full bg-transparent text-sm text-gray-200 font-mono p-4 resize-none focus:outline-none placeholder:text-gray-600"
@@ -127,7 +127,7 @@
     </div>
 
     <!-- Right panel: formatted output -->
-    <div class="w-1/2 flex flex-col min-w-0 bg-surface">
+    <div class="w-full md:w-1/2 flex flex-col min-w-0 bg-surface h-[50vh] md:h-auto">
       <div id="output-empty" class="flex-1 flex items-center justify-center text-gray-600 text-sm">
         Formatted output will appear here
       </div>

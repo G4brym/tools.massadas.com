@@ -77,10 +77,10 @@
   </header>
 
   <!-- Main layout -->
-  <div class="flex h-[calc(100vh-3rem)]">
+  <div class="flex flex-col md:flex-row h-auto md:h-[calc(100vh-3rem)]">
 
     <!-- Left panel: SVG input -->
-    <div class="w-1/2 flex flex-col border-r border-surface-lighter min-w-0">
+    <div class="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-surface-lighter min-w-0 h-[40vh] md:h-auto">
       <div class="flex items-center justify-between px-4 py-2 border-b border-surface-lighter bg-surface-light/40">
         <span class="text-xs font-medium text-gray-400">Input</span>
         <span id="input-size" class="text-xs text-gray-500"></span>
@@ -94,7 +94,7 @@
     </div>
 
     <!-- Right panel: output + preview -->
-    <div class="w-1/2 flex flex-col min-w-0">
+    <div class="w-full md:w-1/2 flex flex-col min-w-0 h-[60vh] md:h-auto">
       <div class="flex items-center justify-between px-4 py-2 border-b border-surface-lighter bg-surface-light/40">
         <span class="text-xs font-medium text-gray-400">Optimized Output</span>
         <span id="output-size" class="text-xs text-gray-500"></span>

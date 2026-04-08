@@ -120,13 +120,13 @@
   </header>
 
   <!-- Main layout -->
-  <div class="flex flex-col h-[calc(100vh-3rem)]">
+  <div class="flex flex-col h-auto md:h-[calc(100vh-3rem)]">
 
     <!-- Top: side-by-side textareas -->
-    <div class="flex flex-1 min-h-0 border-b border-surface-lighter">
+    <div class="flex flex-col md:flex-row flex-1 min-h-0 border-b border-surface-lighter">
 
       <!-- Original panel -->
-      <div class="w-1/2 flex flex-col border-r border-surface-lighter min-w-0">
+      <div class="w-full md:w-1/2 flex flex-col border-b md:border-b-0 md:border-r border-surface-lighter min-w-0 min-h-[30vh] md:min-h-0">
         <div class="px-4 py-1.5 border-b border-surface-lighter bg-surface-light/50">
           <span class="text-xs font-medium text-gray-400">Original</span>
         </div>
@@ -139,7 +139,7 @@
       </div>
 
       <!-- Modified panel -->
-      <div class="w-1/2 flex flex-col min-w-0">
+      <div class="w-full md:w-1/2 flex flex-col min-w-0 min-h-[30vh] md:min-h-0">
         <div class="px-4 py-1.5 border-b border-surface-lighter bg-surface-light/50">
           <span class="text-xs font-medium text-gray-400">Modified</span>
         </div>
