@@ -10,6 +10,7 @@ Deployed as a Cloudflare Workers static asset site.
 
 - **[Swagger Playground](/swagger/)** — Paste or drag & drop an OpenAPI schema (JSON/YAML) to preview it with Swagger UI and see validation diagnostics.
 - **[Image to PDF](/image-to-pdf/)** — Drop or select images, reorder by dragging, and download as a single PDF.
+- **[PDF to Booklet](/pdf-booklet/)** — Upload a PDF and rearrange it into a foldable saddle-stitch booklet (2 pages per sheet) to print double-sided, fold, and staple.
 - **[File to Markdown](/file-to-markdown/)** — Convert PDF, DOCX, PPTX, and other documents to Markdown using Cloudflare Workers AI.
 - **[JSON Formatter](/json-formatter/)** — Format, validate, and syntax-highlight JSON. Minify, copy, or export as YAML.
 - **[Base64 Encode/Decode](/base64/)** — Encode text or files to Base64, or decode Base64 back. Full UTF-8 support.

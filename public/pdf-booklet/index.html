@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF to Booklet — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1/dist/pdf-lib.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">PDF to Booklet</h1>
+      <div class="ml-auto flex items-center gap-3">
+        <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear</button>
+        <button id="btn-generate" class="text-xs font-medium px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-light transition cursor-pointer hidden">Generate booklet</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="drop-overlay" class="hidden fixed inset-0 z-40 bg-brand/10 border-2 border-dashed border-brand flex items-center justify-center pointer-events-none">
+    <span class="text-brand-light font-medium text-lg">Drop a PDF here</span>
+  </div>
+
+  <!-- Empty state -->
+  <div id="empty-state" class="flex flex-col items-center justify-center min-h-[calc(100vh-3rem)]">
+    <div class="flex flex-col items-center gap-4 py-20">
+      <div class="w-16 h-16 rounded-2xl bg-surface-light border border-surface-lighter flex items-center justify-center text-3xl text-gray-500">
+        📖
+      </div>
+      <div class="text-center max-w-md px-4">
+        <p class="text-gray-300 font-medium">Drop a PDF here or click to select</p>
+        <p class="text-sm text-gray-500 mt-1">Rearranges pages into a foldable saddle-stitch booklet — 2 pages per sheet, ready to print double-sided, fold, and staple. Runs 100% in your browser.</p>
+      </div>
+      <button id="btn-select" class="mt-2 px-4 py-2 text-sm font-medium rounded-lg bg-surface-light border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+        Select PDF
+      </button>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" class="hidden" />
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div id="editor" class="hidden max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+
+    <!-- File info -->
+    <div class="rounded-2xl bg-surface-light border border-surface-lighter p-5">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-brand/15 text-brand-light text-xl shrink-0">📄</div>
+        <div class="min-w-0">
+          <p id="file-name" class="text-sm font-medium text-gray-200 truncate"></p>
+          <p id="file-meta" class="text-xs text-gray-500 mt-0.5"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="rounded-2xl bg-surface-light border border-surface-lighter p-5 space-y-5">
+      <h2 class="text-sm font-semibold text-gray-300">Options</h2>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <label class="block">
+          <span class="text-xs font-medium text-gray-400">Output paper size</span>
+          <select id="opt-paper" class="mt-1.5 w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-brand focus:outline-none cursor-pointer">
+            <option value="auto">Auto (detect from PDF)</option>
+            <option value="A3">A3</option>
+            <option value="A4">A4</option>
+            <option value="A5">A5</option>
+            <option value="Letter">Letter</option>
+            <option value="Legal">Legal</option>
+          </select>
+          <span class="text-[11px] text-gray-500 mt-1 block">Each sheet is landscape and holds 2 source pages side by side.</span>
+        </label>
+
+        <label class="block">
+          <span class="text-xs font-medium text-gray-400">Margin around each page (mm)</span>
+          <input id="opt-margin" type="number" min="0" max="40" step="1" value="0"
+                 class="mt-1.5 w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-brand focus:outline-none" />
+          <span class="text-[11px] text-gray-500 mt-1 block">Adds breathing room / fold &amp; binding space.</span>
+        </label>
+      </div>
+
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input id="opt-rtl" type="checkbox" class="mt-0.5 accent-brand cursor-pointer" />
+        <span class="text-xs text-gray-400">
+          Right-to-left binding
+          <span class="text-gray-500">(mirror page order for languages bound on the right, e.g. Arabic, Hebrew, Japanese)</span>
+        </span>
+      </label>
+    </div>
+
+    <!-- Summary -->
+    <div class="rounded-2xl bg-surface-light border border-surface-lighter p-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-3">Booklet plan</h2>
+      <div id="summary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"></div>
+      <p id="order-preview" class="text-[11px] text-gray-500 mt-4 font-mono break-words"></p>
+      <div class="mt-4 rounded-lg bg-surface border border-surface-lighter p-3 text-xs text-gray-400 leading-relaxed">
+        <span class="font-medium text-gray-300">How to print:</span> Print double-sided with <span class="text-gray-300">"flip on short edge"</span>. Then fold the whole stack in half and staple along the fold. Pages will read in order.
+      </div>
+    </div>
+
+    <button id="btn-generate-main" class="w-full py-3 rounded-xl bg-brand text-white text-sm font-medium hover:bg-brand-light transition cursor-pointer">
+      Generate booklet PDF
+    </button>
+
+    <p id="status" class="text-center text-sm text-gray-500 hidden"></p>
+  </div>
+
+  <script>
+    const { PDFDocument } = PDFLib;
+
+    // Standard paper sizes in points (portrait: [short, long]). 1pt = 1/72in.
+    const PAPER = {
+      A3:     [842, 1191],
+      A4:     [595, 842],
+      A5:     [420, 595],
+      Letter: [612, 792],
+      Legal:  [612, 1008],
+    };
+    const MM_TO_PT = 72 / 25.4;
+
+    const emptyState   = document.getElementById('empty-state');
+    const editor       = document.getElementById('editor');
+    const dropOverlay  = document.getElementById('drop-overlay');
+    const fileInput    = document.getElementById('file-input');
+    const btnSelect    = document.getElementById('btn-select');
+    const btnClear     = document.getElementById('btn-clear');
+    const btnGenerate  = document.getElementById('btn-generate');
+    const btnGenMain   = document.getElementById('btn-generate-main');
+    const fileNameEl   = document.getElementById('file-name');
+    const fileMetaEl   = document.getElementById('file-meta');
+    const summaryEl    = document.getElementById('summary');
+    const orderPreview = document.getElementById('order-preview');
+    const statusEl     = document.getElementById('status');
+    const optPaper     = document.getElementById('opt-paper');
+    const optMargin    = document.getElementById('opt-margin');
+    const optRtl       = document.getElementById('opt-rtl');
+
+    let pdfBytes = null;     // ArrayBuffer of the loaded source PDF
+    let fileName = '';
+    let pageCount = 0;
+    let detected = null;     // detected paper key or null
+    let firstSize = null;    // {width, height} of first page
+
+    // --- File selection ---
+    btnSelect.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) loadFile(fileInput.files[0]);
+      fileInput.value = '';
+    });
+
+    // --- Drag & drop ---
+    let dragCounter = 0;
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer.types.includes('Files')) dropOverlay.classList.remove('hidden');
+    });
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      if (--dragCounter === 0) dropOverlay.classList.add('hidden');
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropOverlay.classList.add('hidden');
+      const f = [...e.dataTransfer.files].find(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+      if (f) loadFile(f);
+    });
+
+    // --- Load & inspect PDF ---
+    async function loadFile(file) {
+      setStatus('');
+      try {
+        const bytes = await file.arrayBuffer();
+        const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+        pdfBytes = bytes;
+        fileName = file.name;
+        pageCount = doc.getPageCount();
+        const p0 = doc.getPage(0).getSize();
+        firstSize = { width: p0.width, height: p0.height };
+        detected = detectPaper(p0.width, p0.height);
+
+        showEditor(file.size);
+      } catch (err) {
+        console.error('Failed to load PDF:', err);
+        alert('Could not read that PDF. It may be corrupted or password-protected.');
+      }
+    }
+
+    function detectPaper(w, h) {
+      const lo = Math.min(w, h), hi = Math.max(w, h);
+      let best = null, bestDelta = 12; // tolerance in points
+      for (const [key, [s, l]] of Object.entries(PAPER)) {
+        const d = Math.abs(lo - s) + Math.abs(hi - l);
+        if (d < bestDelta) { bestDelta = d; best = key; }
+      }
+      return best;
+    }
+
+    function showEditor(byteSize) {
+      emptyState.classList.add('hidden');
+      editor.classList.remove('hidden');
+      btnClear.classList.remove('hidden');
+      btnGenerate.classList.remove('hidden');
+
+      fileNameEl.textContent = fileName;
+      const dim = `${Math.round(firstSize.width)}×${Math.round(firstSize.height)}pt`;
+      const detText = detected ? `${detected} (detected)` : 'non-standard size';
+      fileMetaEl.textContent = `${pageCount} page${pageCount !== 1 ? 's' : ''} · ${dim} · ${detText} · ${formatBytes(byteSize)}`;
+
+      // default the dropdown to detected size on first load
+      optPaper.value = detected || 'auto';
+      updateSummary();
+    }
+
+    optPaper.addEventListener('change', updateSummary);
+    optRtl.addEventListener('change', updateSummary);
+
+    function updateSummary() {
+      const padded = Math.ceil(pageCount / 4) * 4;
+      const blanks = padded - pageCount;
+      const sheets = padded / 4;
+      const outputPages = padded / 2;
+      const paperKey = optPaper.value === 'auto' ? (detected || 'A4') : optPaper.value;
+
+      summaryEl.innerHTML = [
+        ['Source pages', pageCount],
+        ['Blank pages added', blanks],
+        ['Physical sheets', sheets],
+        ['Output paper', `${paperKey} landscape`],
+      ].map(([label, val]) => `
+        <div class="rounded-lg bg-surface border border-surface-lighter py-3 px-2">
+          <div class="text-lg font-semibold text-gray-200">${val}</div>
+          <div class="text-[11px] text-gray-500 mt-0.5">${label}</div>
+        </div>`).join('');
+
+      const order = bookletOrder(padded, optRtl.checked);
+      const labels = [];
+      for (let i = 0; i < order.length; i += 2) {
+        const side = i % 4 === 0 ? 'front' : 'back';
+        labels.push(`sheet ${Math.floor(i / 4) + 1} ${side}: [${fmtPage(order[i])} | ${fmtPage(order[i + 1])}]`);
+      }
+      orderPreview.textContent = 'Page order — ' + labels.join('   ·   ');
+
+      function fmtPage(n) { return n > pageCount ? '∅' : n; }
+    }
+
+    // Saddle-stitch imposition order for `total` pages (multiple of 4).
+    // Returns a flat array of 1-based page numbers, two per output page.
+    function bookletOrder(total, rtl) {
+      const order = [];
+      let left = total, right = 1;
+      while (right < left) {
+        // front of sheet
+        order.push(left, right);
+        left--; right++;
+        // back of sheet
+        order.push(right, left);
+        left--; right++;
+      }
+      if (rtl) {
+        // swap the two halves of every output page (left<->right)
+        for (let i = 0; i < order.length; i += 2) {
+          [order[i], order[i + 1]] = [order[i + 1], order[i]];
+        }
+      }
+      return order;
+    }
+
+    // --- Clear ---
+    btnClear.addEventListener('click', () => {
+      pdfBytes = null;
+      editor.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      btnClear.classList.add('hidden');
+      btnGenerate.classList.add('hidden');
+      setStatus('');
+    });
+
+    // --- Generate ---
+    btnGenerate.addEventListener('click', generate);
+    btnGenMain.addEventListener('click', generate);
+
+    async function generate() {
+      if (!pdfBytes) return;
+      setBusy(true);
+      setStatus('Building booklet…');
+      try {
+        const src = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+        const out = await PDFDocument.create();
+
+        const total = Math.ceil(pageCount / 4) * 4;
+        const order = bookletOrder(total, optRtl.checked);
+
+        // Embed every source page once into the output document.
+        const embedded = await out.embedPages(src.getPages());
+
+        const paperKey = optPaper.value === 'auto' ? (detected || 'A4') : optPaper.value;
+        const [shortSide, longSide] = PAPER[paperKey];
+        const paperW = longSide, paperH = shortSide; // landscape
+        const cellW = paperW / 2, cellH = paperH;
+        const margin = Math.max(0, parseFloat(optMargin.value) || 0) * MM_TO_PT;
+
+        for (let i = 0; i < order.length; i += 2) {
+          const page = out.addPage([paperW, paperH]);
+          placeInCell(page, embedded, order[i], 0, cellW, cellH, margin);          // left half
+          placeInCell(page, embedded, order[i + 1], cellW, cellW, cellH, margin);   // right half
+        }
+
+        const bytes = await out.save();
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName.replace(/\.pdf$/i, '') + '-booklet.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus(`Done — ${order.length / 2} output pages. Print double-sided (flip on short edge), fold, and staple.`);
+      } catch (err) {
+        console.error('Booklet generation failed:', err);
+        setStatus('Something went wrong. See the console for details.');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function placeInCell(page, embedded, pageNum, xOffset, cellW, cellH, margin) {
+      if (pageNum > pageCount) return; // padded blank — leave empty
+      const emb = embedded[pageNum - 1];
+      const availW = cellW - 2 * margin;
+      const availH = cellH - 2 * margin;
+      const scale = Math.min(availW / emb.width, availH / emb.height);
+      const w = emb.width * scale, h = emb.height * scale;
+      const x = xOffset + margin + (availW - w) / 2;
+      const y = margin + (availH - h) / 2;
+      page.drawPage(emb, { x, y, width: w, height: h });
+    }
+
+    // --- Helpers ---
+    function setBusy(b) {
+      btnGenMain.disabled = b;
+      btnGenerate.disabled = b;
+      btnGenMain.textContent = b ? 'Generating…' : 'Generate booklet PDF';
+    }
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+      statusEl.classList.toggle('hidden', !msg);
+    }
+    function formatBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1024 / 1024).toFixed(1) + ' MB';
+    }
+  </script>
+</body>
+</html>

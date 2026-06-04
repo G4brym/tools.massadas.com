@@ -8,6 +8,7 @@ Deployed as a Cloudflare Workers static asset site.
 
 - [Swagger Playground](https://tools.massadas.com/swagger/): Paste or drag & drop an OpenAPI schema (JSON/YAML) to preview it with Swagger UI and see validation diagnostics.
 - [Image to PDF](https://tools.massadas.com/image-to-pdf/): Drop or select images, reorder by dragging, and download as a single PDF.
+- [PDF to Booklet](https://tools.massadas.com/pdf-booklet/): Upload a PDF and rearrange it into a foldable saddle-stitch booklet (2 pages per sheet) to print double-sided, fold, and staple.
 - [File to Markdown](https://tools.massadas.com/file-to-markdown/): Convert PDF, DOCX, PPTX, and other documents to Markdown using Cloudflare Workers AI.
 - [JSON Formatter](https://tools.massadas.com/json-formatter/): Format, validate, and syntax-highlight JSON. Minify, copy, or export as YAML.
 - [Base64 Encode/Decode](https://tools.massadas.com/base64/): Encode text or files to Base64, or decode Base64 back. Full UTF-8 support.
