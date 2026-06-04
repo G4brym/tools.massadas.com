@@ -244,9 +244,9 @@
           </div>
 
           <!-- Invoice preview area (white paper) -->
-          <div id="print-area">
+          <div id="print-area" class="overflow-x-auto">
             <div id="invoice-preview"
-              style="background:white; color:#111; font-family: Georgia, 'Times New Roman', serif; padding:40px; border-radius:4px; font-size:13px; line-height:1.5; min-height:600px;">
+              style="background:white; color:#111; font-family: Georgia, 'Times New Roman', serif; padding:clamp(16px,5vw,40px); border-radius:4px; font-size:13px; line-height:1.5; min-height:600px;">
               <!-- dynamically updated -->
             </div>
           </div>
@@ -465,7 +465,7 @@
           </div>
         </div>
 
-        <div style="display:flex; gap:24px; margin-bottom:28px;">
+        <div style="display:flex; flex-wrap:wrap; gap:24px; margin-bottom:28px;">
           <div style="background:#f9fafb; border-radius:6px; padding:14px 16px; flex:1;">
             <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280; margin-bottom:4px; font-family:sans-serif;">Bill To</div>
             <div style="font-weight:600; font-size:14px;">${esc(toName) || '<span style="color:#aaa;font-style:italic">Client Name</span>'}</div>
