@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Editor — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+  <style>
+    /* Editor textarea */
+    #md-input {
+      resize: none;
+      tab-size: 2;
+      field-sizing: content;
+      min-height: 100%;
+    }
+
+    /* Print: show only preview */
+    @media print {
+      body > * { display: none !important; }
+      #print-area {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 1cm !important;
+        color: #000 !important;
+        background: #fff !important;
+      }
+      #print-area * {
+        color: inherit !important;
+        background: transparent !important;
+        border-color: #ccc !important;
+      }
+      #print-area pre, #print-area code {
+        background: #f5f5f5 !important;
+        border: 1px solid #ddd !important;
+      }
+    }
+
+    #print-area {
+      display: none;
+    }
+
+    /* Prose styles for the preview */
+    .prose-preview {
+      color: #e2e8f0;
+      line-height: 1.7;
+      font-size: 0.9375rem;
+    }
+    .prose-preview h1,
+    .prose-preview h2,
+    .prose-preview h3,
+    .prose-preview h4,
+    .prose-preview h5,
+    .prose-preview h6 {
+      color: #f1f5f9;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+    }
+    .prose-preview h1 { font-size: 1.875rem; padding-bottom: 0.3em; border-bottom: 1px solid #334155; }
+    .prose-preview h2 { font-size: 1.5rem; padding-bottom: 0.3em; border-bottom: 1px solid #334155; }
+    .prose-preview h3 { font-size: 1.25rem; }
+    .prose-preview h4 { font-size: 1.1rem; }
+    .prose-preview h5 { font-size: 1rem; }
+    .prose-preview h6 { font-size: 0.9rem; color: #94a3b8; }
+    .prose-preview p { margin-bottom: 1em; }
+    .prose-preview a { color: #818cf8; text-decoration: underline; }
+    .prose-preview a:hover { color: #a5b4fc; }
+    .prose-preview ul { list-style-type: disc; padding-left: 1.75em; margin-bottom: 1em; }
+    .prose-preview ol { list-style-type: decimal; padding-left: 1.75em; margin-bottom: 1em; }
+    .prose-preview li { margin-bottom: 0.25em; }
+    .prose-preview li > ul,
+    .prose-preview li > ol { margin-top: 0.25em; margin-bottom: 0.25em; }
+    .prose-preview blockquote {
+      border-left: 4px solid #6366f1;
+      padding: 0.5em 1em;
+      margin: 1em 0;
+      color: #94a3b8;
+      background: #1e293b;
+      border-radius: 0 0.375rem 0.375rem 0;
+    }
+    .prose-preview blockquote p { margin-bottom: 0; }
+    .prose-preview code {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 0.25rem;
+      padding: 0.125em 0.375em;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 0.875em;
+      color: #c4b5fd;
+    }
+    .prose-preview pre {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      padding: 1em 1.25em;
+      overflow-x: auto;
+      margin-bottom: 1em;
+    }
+    .prose-preview pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #e2e8f0;
+      font-size: 0.875rem;
+    }
+    .prose-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1em;
+      font-size: 0.9em;
+    }
+    .prose-preview th {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 0.5em 0.75em;
+      text-align: left;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .prose-preview td {
+      border: 1px solid #334155;
+      padding: 0.5em 0.75em;
+    }
+    .prose-preview tr:nth-child(even) td { background: #1e293b; }
+    .prose-preview hr {
+      border: none;
+      border-top: 1px solid #334155;
+      margin: 1.5em 0;
+    }
+    .prose-preview img {
+      max-width: 100%;
+      border-radius: 0.375rem;
+    }
+    .prose-preview strong { color: #f1f5f9; font-weight: 700; }
+    .prose-preview em { font-style: italic; }
+    .prose-preview del { text-decoration: line-through; color: #94a3b8; }
+    /* task list checkboxes */
+    .prose-preview input[type="checkbox"] {
+      margin-right: 0.4em;
+      accent-color: #6366f1;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased flex flex-col">
+
+  <!-- Sticky top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Markdown Editor</h1>
+      <div class="ml-auto flex items-center gap-2 text-xs text-gray-500">
+        <span id="word-count">0 words</span>
+        <span class="text-gray-700">&bull;</span>
+        <span id="char-count">0 chars</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="border-b border-surface-lighter bg-surface-light px-3 py-2 flex items-center gap-1 flex-wrap sticky top-12 z-40">
+    <!-- Format buttons -->
+    <button title="Bold (Ctrl+B)" data-action="bold"
+      class="toolbar-btn px-2.5 py-1 text-xs font-bold rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono">
+      B
+    </button>
+    <button title="Italic (Ctrl+I)" data-action="italic"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono italic">
+      I
+    </button>
+    <button title="Strikethrough" data-action="strikethrough"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono line-through">
+      S
+    </button>
+    <div class="w-px h-5 bg-surface-lighter mx-1"></div>
+    <button title="Heading 1" data-action="h1"
+      class="toolbar-btn px-2.5 py-1 text-xs font-bold rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono">
+      H1
+    </button>
+    <button title="Heading 2" data-action="h2"
+      class="toolbar-btn px-2.5 py-1 text-xs font-bold rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono">
+      H2
+    </button>
+    <button title="Heading 3" data-action="h3"
+      class="toolbar-btn px-2.5 py-1 text-xs font-bold rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono">
+      H3
+    </button>
+    <div class="w-px h-5 bg-surface-lighter mx-1"></div>
+    <button title="Inline code" data-action="code"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono">
+      &lt;/&gt;
+    </button>
+    <button title="Code block" data-action="codeblock"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer font-mono">
+      ```
+    </button>
+    <div class="w-px h-5 bg-surface-lighter mx-1"></div>
+    <button title="Link" data-action="link"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      &#128279;
+    </button>
+    <button title="Image" data-action="image"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      &#128247;
+    </button>
+    <div class="w-px h-5 bg-surface-lighter mx-1"></div>
+    <button title="Unordered list" data-action="ul"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      &#8226; List
+    </button>
+    <button title="Ordered list" data-action="ol"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      1. List
+    </button>
+    <button title="Task list" data-action="task"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      &#9744; Task
+    </button>
+    <button title="Blockquote" data-action="quote"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      &ldquo; Quote
+    </button>
+    <button title="Horizontal rule" data-action="hr"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      &mdash;&mdash;
+    </button>
+    <button title="Table" data-action="table"
+      class="toolbar-btn px-2.5 py-1 text-xs rounded text-gray-300 hover:bg-surface-lighter hover:text-white transition cursor-pointer">
+      &#9783; Table
+    </button>
+
+    <!-- Spacer -->
+    <div class="flex-1"></div>
+
+    <!-- Mobile toggle -->
+    <div class="flex sm:hidden rounded-md border border-surface-lighter overflow-hidden text-xs">
+      <button id="btn-edit-tab"
+        class="px-3 py-1 bg-brand text-white transition cursor-pointer">Edit</button>
+      <button id="btn-preview-tab"
+        class="px-3 py-1 bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer">Preview</button>
+    </div>
+  </div>
+
+  <!-- Split pane -->
+  <div class="flex flex-1 overflow-hidden" style="height: calc(100vh - 96px);">
+
+    <!-- Left: Editor -->
+    <div id="editor-pane" class="flex-1 flex flex-col overflow-hidden border-r border-surface-lighter">
+      <textarea
+        id="md-input"
+        spellcheck="false"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        class="flex-1 w-full p-4 font-mono text-sm text-gray-200 bg-surface placeholder-gray-600 focus:outline-none resize-none leading-relaxed"
+        placeholder="Start typing Markdown here…"
+      ></textarea>
+    </div>
+
+    <!-- Right: Preview -->
+    <div id="preview-pane" class="flex-1 flex flex-col overflow-hidden bg-surface-light/40">
+      <div id="md-preview" class="prose-preview flex-1 overflow-y-auto p-5 sm:p-6"></div>
+    </div>
+
+  </div>
+
+  <!-- Bottom action bar -->
+  <div class="border-t border-surface-lighter bg-surface-light px-3 py-2 flex items-center gap-2 flex-wrap">
+    <button id="btn-copy-md"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+      Copy Markdown
+    </button>
+    <button id="btn-copy-html"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+      Copy HTML
+    </button>
+    <button id="btn-dl-md"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+      Download .md
+    </button>
+    <button id="btn-dl-html"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+      Download .html
+    </button>
+    <button id="btn-print"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+      Print / Save as PDF
+    </button>
+    <div id="copy-feedback" class="text-xs text-ok ml-1 opacity-0 transition-opacity duration-300">Copied!</div>
+  </div>
+
+  <!-- Hidden print area -->
+  <div id="print-area"></div>
+
+  <script>
+    // ── Sample document ───────────────────────────────────────────────────────
+    const SAMPLE = `# Welcome to Markdown Editor
+
+A **live** markdown editor that runs 100% in your browser. Your work is auto-saved in \`localStorage\`.
+
+## Features
+
+- **Live preview** — see rendered output as you type
+- **Toolbar** — one-click formatting for bold, italic, headings, links, lists, and more
+- **Export** — copy Markdown / HTML, download files, or print to PDF
+- **Auto-save** — never lose your work on refresh
+
+## Formatting Examples
+
+### Text Styles
+
+**Bold text**, *italic text*, ~~strikethrough~~, and \`inline code\`.
+
+### Blockquote
+
+> "The best tool is the one you actually use."
+
+### Code Block
+
+\`\`\`javascript
+function greet(name) {
+  return \`Hello, \${name}!\`;
+}
+\`\`\`
+
+### Table
+
+| Feature        | Status  |
+|---------------|---------|
+| Live preview  | ✅ Done  |
+| Toolbar       | ✅ Done  |
+| Export        | ✅ Done  |
+| Auto-save     | ✅ Done  |
+
+### Task List
+
+- [x] Build the editor
+- [x] Add live preview
+- [ ] Take over the world
+
+---
+
+Start editing to see your changes instantly on the right →
+`;
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    const STORAGE_KEY = 'md-editor-content';
+    const textarea = document.getElementById('md-input');
+    const preview = document.getElementById('md-preview');
+    const printArea = document.getElementById('print-area');
+    const wordCountEl = document.getElementById('word-count');
+    const charCountEl = document.getElementById('char-count');
+    const copyFeedback = document.getElementById('copy-feedback');
+
+    let feedbackTimer = null;
+
+    // ── marked configuration ──────────────────────────────────────────────────
+    marked.setOptions({
+      gfm: true,
+      breaks: false,
+    });
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function render() {
+      const md = textarea.value;
+      const rawHtml = marked.parse(md);
+      const clean = DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
+      preview.innerHTML = clean;
+      printArea.innerHTML = clean;
+      updateStats(md);
+      save(md);
+    }
+
+    function updateStats(md) {
+      const chars = md.length;
+      const words = md.trim() === '' ? 0 : md.trim().split(/\s+/).length;
+      charCountEl.textContent = chars.toLocaleString() + ' chars';
+      wordCountEl.textContent = words.toLocaleString() + ' words';
+    }
+
+    // ── Persistence ───────────────────────────────────────────────────────────
+    function save(content) {
+      try { localStorage.setItem(STORAGE_KEY, content); } catch {}
+    }
+
+    function load() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved !== null ? saved : SAMPLE;
+      } catch { return SAMPLE; }
+    }
+
+    // ── Toolbar actions ───────────────────────────────────────────────────────
+    const ACTIONS = {
+      bold:        { wrap: ['**', '**'],         placeholder: 'bold text' },
+      italic:      { wrap: ['*', '*'],            placeholder: 'italic text' },
+      strikethrough:{ wrap: ['~~', '~~'],         placeholder: 'strikethrough' },
+      code:        { wrap: ['`', '`'],            placeholder: 'code' },
+      link:        { wrap: ['[', '](url)'],       placeholder: 'link text' },
+      image:       { wrap: ['![', '](url)'],      placeholder: 'alt text' },
+    };
+
+    const LINE_ACTIONS = {
+      h1:       line => '# ' + line.replace(/^#{1,6}\s*/, ''),
+      h2:       line => '## ' + line.replace(/^#{1,6}\s*/, ''),
+      h3:       line => '### ' + line.replace(/^#{1,6}\s*/, ''),
+      ul:       line => '- ' + line.replace(/^[-*+]\s+/, ''),
+      ol:       line => '1. ' + line.replace(/^\d+\.\s+/, ''),
+      task:     line => '- [ ] ' + line.replace(/^[-*+]\s+(\[[ x]\]\s+)?/, ''),
+      quote:    line => '> ' + line.replace(/^>\s*/, ''),
+    };
+
+    const INSERT_ACTIONS = {
+      hr:       '\n---\n',
+      codeblock: '```\ncode here\n```',
+      table:    '| Column 1 | Column 2 | Column 3 |\n|----------|----------|----------|\n| Cell     | Cell     | Cell     |',
+    };
+
+    function applyToolbarAction(action) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const val = textarea.value;
+      let newVal, newStart, newEnd;
+
+      if (ACTIONS[action]) {
+        const { wrap, placeholder } = ACTIONS[action];
+        const [before, after] = wrap;
+        const sel = val.slice(start, end) || placeholder;
+        newVal = val.slice(0, start) + before + sel + after + val.slice(end);
+        newStart = start + before.length;
+        newEnd = newStart + sel.length;
+      } else if (LINE_ACTIONS[action]) {
+        const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+        const lineEnd = val.indexOf('\n', start);
+        const line = val.slice(lineStart, lineEnd === -1 ? val.length : lineEnd);
+        const newLine = LINE_ACTIONS[action](line);
+        newVal = val.slice(0, lineStart) + newLine + (lineEnd === -1 ? '' : val.slice(lineEnd));
+        newStart = lineStart + newLine.length;
+        newEnd = newStart;
+      } else if (INSERT_ACTIONS[action]) {
+        const ins = INSERT_ACTIONS[action];
+        const prefix = start > 0 && val[start - 1] !== '\n' ? '\n' : '';
+        newVal = val.slice(0, start) + prefix + ins + '\n' + val.slice(end);
+        newStart = start + prefix.length + ins.length + 1;
+        newEnd = newStart;
+      } else {
+        return;
+      }
+
+      textarea.value = newVal;
+      textarea.selectionStart = newStart;
+      textarea.selectionEnd = newEnd;
+      textarea.focus();
+      render();
+    }
+
+    // ── Toolbar click handler ─────────────────────────────────────────────────
+    document.querySelectorAll('.toolbar-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        applyToolbarAction(btn.dataset.action);
+      });
+    });
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    textarea.addEventListener('keydown', e => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key === 'b') { e.preventDefault(); applyToolbarAction('bold'); }
+      if (ctrl && e.key === 'i') { e.preventDefault(); applyToolbarAction('italic'); }
+      if (ctrl && e.key === 'k') { e.preventDefault(); applyToolbarAction('link'); }
+
+      // Tab key: insert two spaces instead of focus-out
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const val = textarea.value;
+        textarea.value = val.slice(0, start) + '  ' + val.slice(end);
+        textarea.selectionStart = textarea.selectionEnd = start + 2;
+        render();
+      }
+    });
+
+    // ── Mobile pane toggle ────────────────────────────────────────────────────
+    const editorPane = document.getElementById('editor-pane');
+    const previewPane = document.getElementById('preview-pane');
+    const btnEditTab = document.getElementById('btn-edit-tab');
+    const btnPreviewTab = document.getElementById('btn-preview-tab');
+    let mobileTab = 'edit'; // 'edit' | 'preview'
+
+    function applyMobileTab() {
+      if (window.innerWidth >= 640) {
+        // sm breakpoint: always show both
+        editorPane.style.display = '';
+        previewPane.style.display = '';
+        return;
+      }
+      if (mobileTab === 'edit') {
+        editorPane.style.display = '';
+        previewPane.style.display = 'none';
+        btnEditTab.className = 'px-3 py-1 bg-brand text-white transition cursor-pointer';
+        btnPreviewTab.className = 'px-3 py-1 bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+      } else {
+        editorPane.style.display = 'none';
+        previewPane.style.display = '';
+        btnEditTab.className = 'px-3 py-1 bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+        btnPreviewTab.className = 'px-3 py-1 bg-brand text-white transition cursor-pointer';
+      }
+    }
+
+    btnEditTab.addEventListener('click', () => { mobileTab = 'edit'; applyMobileTab(); });
+    btnPreviewTab.addEventListener('click', () => { mobileTab = 'preview'; applyMobileTab(); });
+    window.addEventListener('resize', applyMobileTab);
+
+    // ── Clipboard helper ──────────────────────────────────────────────────────
+    function showCopyFeedback(label) {
+      copyFeedback.textContent = label || 'Copied!';
+      copyFeedback.style.opacity = '1';
+      if (feedbackTimer) clearTimeout(feedbackTimer);
+      feedbackTimer = setTimeout(() => { copyFeedback.style.opacity = '0'; }, 1800);
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    }
+
+    // ── Download helper ───────────────────────────────────────────────────────
+    function downloadFile(content, filename, mime) {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+
+    // ── Button actions ────────────────────────────────────────────────────────
+    document.getElementById('btn-copy-md').addEventListener('click', async () => {
+      await copyText(textarea.value);
+      showCopyFeedback('Markdown copied!');
+    });
+
+    document.getElementById('btn-copy-html').addEventListener('click', async () => {
+      const rawHtml = marked.parse(textarea.value);
+      const clean = DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
+      await copyText(clean);
+      showCopyFeedback('HTML copied!');
+    });
+
+    document.getElementById('btn-dl-md').addEventListener('click', () => {
+      downloadFile(textarea.value, 'document.md', 'text/markdown;charset=utf-8');
+    });
+
+    document.getElementById('btn-dl-html').addEventListener('click', () => {
+      const rawHtml = marked.parse(textarea.value);
+      const clean = DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
+      const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.7; color: #1e293b; }
+    h1,h2,h3,h4,h5,h6 { line-height: 1.3; margin-top: 1.5em; }
+    h1,h2 { padding-bottom: 0.3em; border-bottom: 1px solid #e2e8f0; }
+    pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1em; overflow-x: auto; }
+    code { background: #f1f5f9; border-radius: 4px; padding: 0.125em 0.375em; font-size: 0.875em; }
+    pre code { background: none; padding: 0; }
+    blockquote { border-left: 4px solid #6366f1; margin: 1em 0; padding: 0.5em 1em; color: #64748b; background: #f8fafc; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
+    th, td { border: 1px solid #e2e8f0; padding: 0.5em 0.75em; text-align: left; }
+    th { background: #f1f5f9; }
+    a { color: #6366f1; }
+    img { max-width: 100%; }
+  </style>
+</head>
+<body>
+${clean}
+</body>
+</html>`;
+      downloadFile(fullHtml, 'document.html', 'text/html;charset=utf-8');
+    });
+
+    document.getElementById('btn-print').addEventListener('click', () => {
+      window.print();
+    });
+
+    // ── Live rendering ────────────────────────────────────────────────────────
+    let renderTimer = null;
+    textarea.addEventListener('input', () => {
+      if (renderTimer) clearTimeout(renderTimer);
+      renderTimer = setTimeout(render, 80);
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    textarea.value = load();
+    render();
+    applyMobileTab();
+  </script>
+</body>
+</html>

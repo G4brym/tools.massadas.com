@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Converter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    textarea {
+      resize: none;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Data Converter</h1>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-4">
+
+    <!-- Controls bar -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-4">
+      <div class="flex flex-wrap items-center gap-3">
+
+        <!-- Input format -->
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap">Input</label>
+          <select id="input-format" class="bg-surface border border-surface-lighter rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:border-brand focus:outline-none cursor-pointer">
+            <option value="auto">Auto-detect</option>
+            <option value="json">JSON</option>
+            <option value="yaml">YAML</option>
+            <option value="toml">TOML</option>
+          </select>
+        </div>
+
+        <!-- Swap button -->
+        <button id="btn-swap" title="Swap input ↔ output" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" aria-label="Swap input and output">
+          ⇄
+        </button>
+
+        <!-- Output format -->
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap">Output</label>
+          <select id="output-format" class="bg-surface border border-surface-lighter rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:border-brand focus:outline-none cursor-pointer">
+            <option value="json">JSON</option>
+            <option value="yaml">YAML</option>
+            <option value="toml">TOML</option>
+          </select>
+        </div>
+
+        <!-- JSON Minify toggle (shown only when output=json) -->
+        <label id="minify-wrapper" class="flex items-center gap-1.5 cursor-pointer ml-1">
+          <input type="checkbox" id="json-minify" class="w-4 h-4 rounded border-surface-lighter accent-brand cursor-pointer">
+          <span class="text-sm text-gray-300">Minify</span>
+        </label>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Copy output -->
+        <button id="btn-copy" class="px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          Copy output
+        </button>
+
+        <!-- Download output -->
+        <button id="btn-download" class="px-4 py-1.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+          Download
+        </button>
+      </div>
+    </div>
+
+    <!-- Error banner (hidden by default) -->
+    <div id="error-banner" class="hidden bg-err/10 border border-err/40 rounded-xl px-4 py-3 text-sm text-err flex items-start gap-2">
+      <span class="mt-0.5 shrink-0">&#9888;</span>
+      <span id="error-message"></span>
+    </div>
+
+    <!-- Detected format badge -->
+    <div id="detect-banner" class="hidden bg-brand/10 border border-brand/30 rounded-lg px-3 py-2 text-xs text-brand-light">
+      Auto-detected: <span id="detected-format" class="font-semibold uppercase"></span>
+    </div>
+
+    <!-- Two-pane editor area -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      <!-- Input pane -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Input</span>
+          <button id="btn-clear" class="text-xs text-gray-500 hover:text-gray-300 transition cursor-pointer">Clear</button>
+        </div>
+        <textarea
+          id="input-area"
+          spellcheck="false"
+          autocomplete="off"
+          class="flex-1 w-full min-h-[420px] font-mono text-sm bg-surface border border-surface-lighter rounded-xl px-4 py-3 text-gray-100 focus:border-brand focus:outline-none placeholder-gray-600 leading-relaxed"
+          placeholder="Paste or type your JSON, YAML, or TOML here…"
+        ></textarea>
+      </div>
+
+      <!-- Output pane -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Output</span>
+          <span id="output-lines" class="text-xs text-gray-600"></span>
+        </div>
+        <textarea
+          id="output-area"
+          spellcheck="false"
+          readonly
+          class="flex-1 w-full min-h-[420px] font-mono text-sm bg-surface border border-surface-lighter rounded-xl px-4 py-3 text-gray-300 focus:border-brand focus:outline-none leading-relaxed"
+          placeholder="Converted output will appear here…"
+        ></textarea>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- js-yaml (traditional script) -->
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
+
+  <!-- smol-toml (ESM) -->
+  <script type="module">
+    import * as TOML from 'https://cdn.jsdelivr.net/npm/smol-toml@1/+esm';
+    window.__TOML__ = TOML;
+    document.dispatchEvent(new Event('toml-ready'));
+  </script>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let tomlLib = null;
+    let debounceTimer = null;
+    const DEBOUNCE_MS = 350;
+
+    // ── Sample seed ───────────────────────────────────────────────────────────
+    const SAMPLE_JSON = `{
+  "project": "my-app",
+  "version": "1.0.0",
+  "settings": {
+    "debug": false,
+    "maxRetries": 3,
+    "tags": ["web", "api", "v1"]
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "mydb"
+  }
+}`;
+
+    // ── Elements ───────────────────────────────────────────────────────────────
+    const inputArea     = document.getElementById('input-area');
+    const outputArea    = document.getElementById('output-area');
+    const inputFormat   = document.getElementById('input-format');
+    const outputFormat  = document.getElementById('output-format');
+    const jsonMinify    = document.getElementById('json-minify');
+    const minifyWrapper = document.getElementById('minify-wrapper');
+    const errorBanner   = document.getElementById('error-banner');
+    const errorMessage  = document.getElementById('error-message');
+    const detectBanner  = document.getElementById('detect-banner');
+    const detectedFmt   = document.getElementById('detected-format');
+    const outputLines   = document.getElementById('output-lines');
+    const btnCopy       = document.getElementById('btn-copy');
+    const btnDownload   = document.getElementById('btn-download');
+    const btnSwap       = document.getElementById('btn-swap');
+    const btnClear      = document.getElementById('btn-clear');
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function clearError() {
+      errorBanner.classList.add('hidden');
+    }
+
+    function showDetected(fmt) {
+      detectedFmt.textContent = fmt;
+      detectBanner.classList.remove('hidden');
+    }
+
+    function hideDetected() {
+      detectBanner.classList.add('hidden');
+    }
+
+    // ── Auto-detect format ─────────────────────────────────────────────────────
+    function detectFormat(text) {
+      const t = text.trim();
+      if (!t) return null;
+
+      // JSON: starts with { or [
+      if (t.startsWith('{') || t.startsWith('[')) {
+        try { JSON.parse(t); return 'json'; } catch {}
+      }
+
+      // TOML: contains = at start of line (key = value pattern) but no leading { or [key] with colons
+      // Simple heuristic: has lines matching key = value and no "---" marker
+      const tomlLike = /^[a-zA-Z_"'\[]/m.test(t) && /^\s*[a-zA-Z_"'\[].+=.+/m.test(t);
+      const yamlLike = /:\s/.test(t) || t.startsWith('---') || /^- /m.test(t);
+
+      // Try YAML first (more common)
+      if (yamlLike && window.jsyaml) {
+        try {
+          const res = window.jsyaml.load(t);
+          if (res !== null && typeof res === 'object') return 'yaml';
+        } catch {}
+      }
+
+      // Try TOML
+      if (tomlLike && tomlLib) {
+        try {
+          const res = tomlLib.parse(t);
+          if (res !== null && typeof res === 'object') return 'toml';
+        } catch {}
+      }
+
+      // Fallback: try YAML again without the object check
+      if (window.jsyaml) {
+        try { window.jsyaml.load(t); return 'yaml'; } catch {}
+      }
+
+      return null;
+    }
+
+    // ── Parse input ────────────────────────────────────────────────────────────
+    function parseInput(text, fmt) {
+      const t = text.trim();
+      if (!t) return { ok: true, value: null };
+
+      switch (fmt) {
+        case 'json':
+          try { return { ok: true, value: JSON.parse(t) }; }
+          catch (e) { return { ok: false, error: 'JSON parse error: ' + e.message }; }
+
+        case 'yaml':
+          if (!window.jsyaml) return { ok: false, error: 'YAML library not loaded yet.' };
+          try { return { ok: true, value: window.jsyaml.load(t) }; }
+          catch (e) { return { ok: false, error: 'YAML parse error: ' + e.message }; }
+
+        case 'toml':
+          if (!tomlLib) return { ok: false, error: 'TOML library not loaded yet.' };
+          try { return { ok: true, value: tomlLib.parse(t) }; }
+          catch (e) { return { ok: false, error: 'TOML parse error: ' + e.message }; }
+
+        default:
+          return { ok: false, error: 'Unknown input format.' };
+      }
+    }
+
+    // ── Stringify output ───────────────────────────────────────────────────────
+    function stringifyOutput(value, fmt) {
+      switch (fmt) {
+        case 'json': {
+          const indent = jsonMinify.checked ? 0 : 2;
+          try { return { ok: true, value: JSON.stringify(value, null, indent) }; }
+          catch (e) { return { ok: false, error: 'JSON stringify error: ' + e.message }; }
+        }
+        case 'yaml':
+          if (!window.jsyaml) return { ok: false, error: 'YAML library not loaded yet.' };
+          try { return { ok: true, value: window.jsyaml.dump(value, { indent: 2, lineWidth: -1 }) }; }
+          catch (e) { return { ok: false, error: 'YAML stringify error: ' + e.message }; }
+
+        case 'toml':
+          if (!tomlLib) return { ok: false, error: 'TOML library not loaded yet.' };
+          try { return { ok: true, value: tomlLib.stringify(value) }; }
+          catch (e) { return { ok: false, error: 'TOML stringify error: ' + e.message }; }
+
+        default:
+          return { ok: false, error: 'Unknown output format.' };
+      }
+    }
+
+    // ── Main convert logic ─────────────────────────────────────────────────────
+    function convert() {
+      clearError();
+
+      const raw = inputArea.value;
+      if (!raw.trim()) {
+        outputArea.value = '';
+        outputLines.textContent = '';
+        hideDetected();
+        return;
+      }
+
+      // Resolve input format
+      let inFmt = inputFormat.value;
+      if (inFmt === 'auto') {
+        const detected = detectFormat(raw);
+        if (detected) {
+          inFmt = detected;
+          showDetected(detected);
+        } else {
+          hideDetected();
+          showError('Could not auto-detect format. Please select the input format manually.');
+          outputArea.value = '';
+          outputLines.textContent = '';
+          return;
+        }
+      } else {
+        hideDetected();
+      }
+
+      // Parse
+      const parsed = parseInput(raw, inFmt);
+      if (!parsed.ok) {
+        showError(parsed.error);
+        outputArea.value = '';
+        outputLines.textContent = '';
+        return;
+      }
+
+      if (parsed.value === null || parsed.value === undefined) {
+        outputArea.value = '';
+        outputLines.textContent = '';
+        return;
+      }
+
+      // Stringify
+      const outFmt = outputFormat.value;
+      const stringified = stringifyOutput(parsed.value, outFmt);
+      if (!stringified.ok) {
+        showError(stringified.error);
+        outputArea.value = '';
+        outputLines.textContent = '';
+        return;
+      }
+
+      outputArea.value = stringified.value;
+      const lines = stringified.value.split('\n').length;
+      outputLines.textContent = lines + ' line' + (lines !== 1 ? 's' : '');
+    }
+
+    // ── Debounced convert ──────────────────────────────────────────────────────
+    function scheduleConvert() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(convert, DEBOUNCE_MS);
+    }
+
+    // ── Minify toggle visibility ───────────────────────────────────────────────
+    function syncMinifyVisibility() {
+      if (outputFormat.value === 'json') {
+        minifyWrapper.classList.remove('hidden');
+      } else {
+        minifyWrapper.classList.add('hidden');
+      }
+    }
+
+    // ── File extension helper ──────────────────────────────────────────────────
+    function getExtAndMime(fmt) {
+      switch (fmt) {
+        case 'json': return { ext: 'json', mime: 'application/json' };
+        case 'yaml': return { ext: 'yaml', mime: 'text/yaml' };
+        case 'toml': return { ext: 'toml', mime: 'application/toml' };
+        default:     return { ext: 'txt',  mime: 'text/plain' };
+      }
+    }
+
+    // ── Event listeners ────────────────────────────────────────────────────────
+    inputArea.addEventListener('input', scheduleConvert);
+
+    inputFormat.addEventListener('change', () => {
+      scheduleConvert();
+    });
+
+    outputFormat.addEventListener('change', () => {
+      syncMinifyVisibility();
+      scheduleConvert();
+    });
+
+    jsonMinify.addEventListener('change', scheduleConvert);
+
+    btnClear.addEventListener('click', () => {
+      inputArea.value = '';
+      outputArea.value = '';
+      clearError();
+      hideDetected();
+      outputLines.textContent = '';
+    });
+
+    btnSwap.addEventListener('click', () => {
+      const outText = outputArea.value;
+      if (!outText) return;
+
+      // The current output format becomes the new input format
+      const newInputFmt = outputFormat.value;
+
+      // Set input format selector to match (not auto)
+      inputFormat.value = newInputFmt;
+
+      // Move output → input
+      inputArea.value = outText;
+
+      // Trigger conversion
+      scheduleConvert();
+    });
+
+    btnCopy.addEventListener('click', async () => {
+      const text = outputArea.value;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopy.textContent;
+      btnCopy.textContent = 'Copied!';
+      setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+    });
+
+    btnDownload.addEventListener('click', () => {
+      const text = outputArea.value;
+      if (!text) return;
+      const { ext, mime } = getExtAndMime(outputFormat.value);
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'output.' + ext;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ── TOML ready callback ────────────────────────────────────────────────────
+    document.addEventListener('toml-ready', () => {
+      tomlLib = window.__TOML__;
+      // Re-run conversion in case it was queued
+      convert();
+    });
+
+    // ── Initialise ─────────────────────────────────────────────────────────────
+    syncMinifyVisibility();
+
+    // Seed with sample
+    inputArea.value = SAMPLE_JSON;
+    outputFormat.value = 'yaml';
+    syncMinifyVisibility();
+
+    // Wait briefly for js-yaml to be available, then convert
+    function tryInitialConvert(attempts) {
+      if (window.jsyaml) {
+        convert();
+      } else if (attempts < 20) {
+        setTimeout(() => tryInitialConvert(attempts + 1), 50);
+      }
+    }
+    tryInitialConvert(0);
+  </script>
+</body>
+</html>

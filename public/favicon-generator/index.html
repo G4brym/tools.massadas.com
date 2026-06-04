@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Favicon Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    .drop-zone-active {
+      border-color: var(--color-brand) !important;
+      background-color: rgba(99, 102, 241, 0.08);
+    }
+    .size-preview-canvas {
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Favicon Generator</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Error banner -->
+    <div id="error-banner" class="hidden bg-err/10 border border-err/40 rounded-xl p-4 text-sm text-err flex items-start gap-3">
+      <span class="shrink-0 mt-0.5">&#9888;</span>
+      <span id="error-msg"></span>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-6 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold text-gray-300">Source Image</h2>
+
+      <div id="drop-zone"
+        class="border-2 border-dashed border-surface-lighter rounded-xl p-8 text-center cursor-pointer transition flex flex-col items-center gap-3 hover:border-brand/50"
+        role="button" tabindex="0" aria-label="Drop or select an image">
+        <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center text-2xl text-brand-light">&#128247;</div>
+        <div>
+          <p class="text-sm font-medium text-gray-300">Drag &amp; drop an image here</p>
+          <p class="text-xs text-gray-500 mt-1">PNG, SVG, JPEG, WebP &mdash; ideally square</p>
+        </div>
+        <button id="browse-btn"
+          class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          Browse file
+        </button>
+        <input type="file" id="file-input" accept="image/*" class="hidden">
+      </div>
+
+      <!-- Source preview -->
+      <div id="source-preview" class="hidden flex-col items-center gap-3">
+        <div class="relative">
+          <img id="source-img" class="max-w-[200px] max-h-[200px] rounded-lg border border-surface-lighter object-contain" alt="Source preview">
+        </div>
+        <p id="file-info" class="text-xs text-gray-500"></p>
+        <button id="clear-btn"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-err/50 hover:text-err transition cursor-pointer">
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <!-- Options card -->
+    <div id="options-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+      <h2 class="text-sm font-semibold text-gray-300">Options</h2>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <!-- Background mode -->
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-medium text-gray-400">Background</label>
+          <div class="flex rounded-lg border border-surface-lighter overflow-hidden text-xs">
+            <button id="bg-transparent" class="flex-1 px-3 py-2 font-medium bg-brand text-white transition cursor-pointer text-center">Transparent</button>
+            <button id="bg-color" class="flex-1 px-3 py-2 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center">Color fill</button>
+          </div>
+        </div>
+
+        <!-- Background color picker (hidden by default) -->
+        <div id="color-picker-wrap" class="hidden flex-col gap-2">
+          <label class="text-xs font-medium text-gray-400">Fill color</label>
+          <div class="flex items-center gap-3">
+            <input type="color" id="bg-color-input" value="#ffffff"
+              class="w-10 h-10 rounded-lg border border-surface-lighter bg-surface cursor-pointer p-1">
+            <span id="bg-color-hex" class="text-sm font-mono text-gray-300">#ffffff</span>
+          </div>
+        </div>
+
+        <!-- Padding slider -->
+        <div class="flex flex-col gap-2 sm:col-span-2">
+          <div class="flex items-center justify-between">
+            <label for="padding-range" class="text-xs font-medium text-gray-400">Padding</label>
+            <span id="padding-value" class="text-xs font-mono text-brand-light">0%</span>
+          </div>
+          <input type="range" id="padding-range" min="0" max="40" value="0" class="w-full">
+        </div>
+      </div>
+
+      <!-- Generate button -->
+      <button id="generate-btn"
+        class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer w-full sm:w-auto">
+        Generate Favicons
+      </button>
+    </div>
+
+    <!-- Spinner -->
+    <div id="spinner" class="hidden flex items-center justify-center gap-3 py-8">
+      <svg class="animate-spin h-6 w-6 text-brand" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <span class="text-sm text-gray-400">Generating favicons&hellip;</span>
+    </div>
+
+    <!-- Preview grid -->
+    <div id="preview-section" class="hidden flex flex-col gap-5">
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <h2 class="text-sm font-semibold text-gray-300">Preview</h2>
+        <div id="preview-grid" class="flex flex-wrap gap-4 items-end"></div>
+      </div>
+
+      <!-- Download & snippet -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 class="text-sm font-semibold text-gray-300 flex-1">Download</h2>
+          <button id="download-zip-btn"
+            class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+            Download ZIP
+          </button>
+        </div>
+        <p class="text-xs text-gray-500">
+          Includes <code class="text-gray-400 font-mono">favicon.ico</code> (16/32/48 px),
+          <code class="text-gray-400 font-mono">apple-touch-icon.png</code> (180 px),
+          <code class="text-gray-400 font-mono">android-chrome-192x192.png</code>,
+          <code class="text-gray-400 font-mono">android-chrome-512x512.png</code>,
+          <code class="text-gray-400 font-mono">site.webmanifest</code>, and all individual PNGs.
+        </p>
+      </div>
+
+      <!-- HTML snippet -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-sm font-semibold text-gray-300">HTML &lt;head&gt; Snippet</h2>
+          <button id="copy-snippet-btn"
+            class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+            Copy
+          </button>
+        </div>
+        <pre id="html-snippet"
+          class="text-xs font-mono text-gray-300 bg-surface border border-surface-lighter rounded-lg p-4 overflow-x-auto leading-relaxed whitespace-pre"></pre>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ─── State ───────────────────────────────────────────────────────────────
+    let sourceImage = null;  // HTMLImageElement
+    let generatedBlobs = {}; // { filename: Uint8Array | string }
+    let bgMode = 'transparent';
+    let bgColorHex = '#ffffff';
+    let padding = 0;
+
+    const SIZES = [16, 32, 48, 64, 96, 128, 180, 192, 256, 512];
+    const ICO_SIZES = [16, 32, 48];
+
+    // ─── DOM refs ────────────────────────────────────────────────────────────
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const browseBtn = document.getElementById('browse-btn');
+    const sourcePreview = document.getElementById('source-preview');
+    const sourceImg = document.getElementById('source-img');
+    const fileInfo = document.getElementById('file-info');
+    const clearBtn = document.getElementById('clear-btn');
+    const optionsCard = document.getElementById('options-card');
+    const generateBtn = document.getElementById('generate-btn');
+    const spinner = document.getElementById('spinner');
+    const previewSection = document.getElementById('preview-section');
+    const previewGrid = document.getElementById('preview-grid');
+    const downloadZipBtn = document.getElementById('download-zip-btn');
+    const copySnippetBtn = document.getElementById('copy-snippet-btn');
+    const htmlSnippet = document.getElementById('html-snippet');
+    const errorBanner = document.getElementById('error-banner');
+    const errorMsg = document.getElementById('error-msg');
+    const bgTransparentBtn = document.getElementById('bg-transparent');
+    const bgColorBtn = document.getElementById('bg-color');
+    const colorPickerWrap = document.getElementById('color-picker-wrap');
+    const bgColorInput = document.getElementById('bg-color-input');
+    const bgColorHexSpan = document.getElementById('bg-color-hex');
+    const paddingRange = document.getElementById('padding-range');
+    const paddingValue = document.getElementById('padding-value');
+
+    // ─── Error helpers ───────────────────────────────────────────────────────
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+    function clearError() {
+      errorBanner.classList.add('hidden');
+    }
+
+    // ─── File handling ───────────────────────────────────────────────────────
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function loadFile(file) {
+      clearError();
+      if (!file || !file.type.startsWith('image/')) {
+        showError('Please select a valid image file (PNG, SVG, JPEG, or WebP).');
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        showError('File is too large (max 20 MB).');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          sourceImage = img;
+          sourceImg.src = e.target.result;
+          fileInfo.textContent = `${file.name} — ${img.naturalWidth}×${img.naturalHeight}px · ${formatSize(file.size)}`;
+          sourcePreview.classList.remove('hidden');
+          sourcePreview.classList.add('flex');
+          dropZone.classList.add('hidden');
+          optionsCard.classList.remove('hidden');
+          previewSection.classList.add('hidden');
+          previewGrid.innerHTML = '';
+          generatedBlobs = {};
+        };
+        img.onerror = () => showError('Could not decode image. Please try a different file.');
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Drop zone events
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drop-zone-active');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone-active'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drop-zone-active');
+      loadFile(e.dataTransfer.files[0]);
+    });
+    browseBtn.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); fileInput.value = ''; });
+
+    clearBtn.addEventListener('click', () => {
+      sourceImage = null;
+      generatedBlobs = {};
+      sourcePreview.classList.add('hidden');
+      sourcePreview.classList.remove('flex');
+      dropZone.classList.remove('hidden');
+      optionsCard.classList.add('hidden');
+      previewSection.classList.add('hidden');
+      clearError();
+    });
+
+    // ─── Options ─────────────────────────────────────────────────────────────
+    bgTransparentBtn.addEventListener('click', () => {
+      bgMode = 'transparent';
+      bgTransparentBtn.className = 'flex-1 px-3 py-2 font-medium bg-brand text-white transition cursor-pointer text-center text-xs';
+      bgColorBtn.className = 'flex-1 px-3 py-2 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center text-xs';
+      colorPickerWrap.classList.add('hidden');
+    });
+    bgColorBtn.addEventListener('click', () => {
+      bgMode = 'color';
+      bgColorBtn.className = 'flex-1 px-3 py-2 font-medium bg-brand text-white transition cursor-pointer text-center text-xs';
+      bgTransparentBtn.className = 'flex-1 px-3 py-2 font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center text-xs';
+      colorPickerWrap.classList.remove('hidden');
+      colorPickerWrap.classList.add('flex');
+    });
+    bgColorInput.addEventListener('input', () => {
+      bgColorHex = bgColorInput.value;
+      bgColorHexSpan.textContent = bgColorHex;
+    });
+    paddingRange.addEventListener('input', () => {
+      padding = parseInt(paddingRange.value, 10);
+      paddingValue.textContent = padding + '%';
+    });
+
+    // ─── Canvas renderer ─────────────────────────────────────────────────────
+    function renderToCanvas(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      if (bgMode === 'color') {
+        ctx.fillStyle = bgColorHex;
+        ctx.fillRect(0, 0, size, size);
+      }
+      // else transparent (default)
+
+      const pad = Math.round(size * padding / 100);
+      const drawSize = size - pad * 2;
+      if (drawSize <= 0) return canvas;
+
+      // Maintain aspect ratio within padded square
+      const srcW = sourceImage.naturalWidth;
+      const srcH = sourceImage.naturalHeight;
+      const ratio = Math.min(drawSize / srcW, drawSize / srcH);
+      const dw = srcW * ratio;
+      const dh = srcH * ratio;
+      const dx = pad + (drawSize - dw) / 2;
+      const dy = pad + (drawSize - dh) / 2;
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(sourceImage, dx, dy, dw, dh);
+      return canvas;
+    }
+
+    function canvasToPngBytes(canvas) {
+      const dataURL = canvas.toDataURL('image/png');
+      const b64 = dataURL.split(',')[1];
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    // ─── Minimal ICO encoder ─────────────────────────────────────────────────
+    // ICO format: ICONDIR (6 bytes) + ICONDIRENTRY per image (16 bytes each) + PNG data
+    function buildIco(pngBytesArray, sizes) {
+      const count = pngBytesArray.length;
+      const headerSize = 6 + count * 16;
+
+      let totalDataSize = 0;
+      const offsets = [];
+      for (let i = 0; i < count; i++) {
+        offsets.push(headerSize + totalDataSize);
+        totalDataSize += pngBytesArray[i].length;
+      }
+
+      const buf = new Uint8Array(headerSize + totalDataSize);
+      const view = new DataView(buf.buffer);
+
+      // ICONDIR
+      view.setUint16(0, 0, true);       // reserved
+      view.setUint16(2, 1, true);       // type: 1 = ICO
+      view.setUint16(4, count, true);   // number of images
+
+      // ICONDIRENTRY for each image
+      for (let i = 0; i < count; i++) {
+        const base = 6 + i * 16;
+        const sz = sizes[i];
+        buf[base + 0] = sz >= 256 ? 0 : sz;  // width (0 = 256)
+        buf[base + 1] = sz >= 256 ? 0 : sz;  // height (0 = 256)
+        buf[base + 2] = 0;    // color count (0 = no palette)
+        buf[base + 3] = 0;    // reserved
+        view.setUint16(base + 4, 1, true);   // planes
+        view.setUint16(base + 6, 32, true);  // bit count
+        view.setUint32(base + 8, pngBytesArray[i].length, true);  // size of image data
+        view.setUint32(base + 12, offsets[i], true);              // offset of image data
+      }
+
+      // Copy PNG bytes
+      let pos = headerSize;
+      for (let i = 0; i < count; i++) {
+        buf.set(pngBytesArray[i], pos);
+        pos += pngBytesArray[i].length;
+      }
+
+      return buf;
+    }
+
+    // ─── Generate all favicons ───────────────────────────────────────────────
+    function generateFavicons() {
+      if (!sourceImage) return;
+      clearError();
+
+      spinner.classList.remove('hidden');
+      previewSection.classList.add('hidden');
+      generateBtn.disabled = true;
+      generateBtn.textContent = 'Generating…';
+
+      // Defer to next tick so spinner renders
+      setTimeout(() => {
+        try {
+          generatedBlobs = {};
+          const canvases = {};
+
+          // Render all sizes
+          for (const size of SIZES) {
+            canvases[size] = renderToCanvas(size);
+            generatedBlobs[`favicon-${size}x${size}.png`] = canvasToPngBytes(canvases[size]);
+          }
+
+          // ICO (16, 32, 48)
+          const icoPngs = ICO_SIZES.map(s => generatedBlobs[`favicon-${s}x${s}.png`]);
+          generatedBlobs['favicon.ico'] = buildIco(icoPngs, ICO_SIZES);
+
+          // Named outputs
+          generatedBlobs['apple-touch-icon.png'] = generatedBlobs['favicon-180x180.png'];
+          generatedBlobs['android-chrome-192x192.png'] = generatedBlobs['favicon-192x192.png'];
+          generatedBlobs['android-chrome-512x512.png'] = generatedBlobs['favicon-512x512.png'];
+
+          // site.webmanifest
+          const manifest = JSON.stringify({
+            name: "",
+            short_name: "",
+            icons: [
+              { src: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+              { src: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png" }
+            ],
+            theme_color: "#ffffff",
+            background_color: "#ffffff",
+            display: "standalone"
+          }, null, 2);
+          generatedBlobs['site.webmanifest'] = manifest;
+
+          // HTML snippet
+          const snippet = `<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#ffffff">`;
+          htmlSnippet.textContent = snippet;
+
+          // Build preview grid
+          previewGrid.innerHTML = '';
+          for (const size of SIZES) {
+            const cell = document.createElement('div');
+            cell.className = 'flex flex-col items-center gap-1.5';
+
+            const canvas = canvases[size];
+            // Show at fixed display size with checkerboard for transparency
+            const displaySize = Math.min(size, 80);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'rounded border border-surface-lighter flex items-center justify-center';
+            wrapper.style.cssText = `
+              width: ${displaySize}px; height: ${displaySize}px;
+              background-image: linear-gradient(45deg, #334155 25%, transparent 25%),
+                linear-gradient(-45deg, #334155 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #334155 75%),
+                linear-gradient(-45deg, transparent 75%, #334155 75%);
+              background-size: 8px 8px;
+              background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+              overflow: hidden;
+            `;
+
+            const display = document.createElement('canvas');
+            display.width = displaySize;
+            display.height = displaySize;
+            display.className = 'size-preview-canvas';
+            const dctx = display.getContext('2d');
+            dctx.imageSmoothingEnabled = true;
+            dctx.imageSmoothingQuality = 'high';
+            dctx.drawImage(canvas, 0, 0, displaySize, displaySize);
+
+            wrapper.appendChild(display);
+            cell.appendChild(wrapper);
+
+            const label = document.createElement('span');
+            label.className = 'text-[10px] text-gray-500 font-mono';
+            label.textContent = `${size}px`;
+            cell.appendChild(label);
+
+            previewGrid.appendChild(cell);
+          }
+
+          previewSection.classList.remove('hidden');
+        } catch (err) {
+          showError('Generation failed: ' + err.message);
+        } finally {
+          spinner.classList.add('hidden');
+          generateBtn.disabled = false;
+          generateBtn.textContent = 'Generate Favicons';
+        }
+      }, 20);
+    }
+
+    generateBtn.addEventListener('click', generateFavicons);
+
+    // ─── Download ZIP ─────────────────────────────────────────────────────────
+    downloadZipBtn.addEventListener('click', async () => {
+      if (!Object.keys(generatedBlobs).length) return;
+      downloadZipBtn.disabled = true;
+      const origText = downloadZipBtn.textContent;
+      downloadZipBtn.textContent = 'Zipping…';
+
+      try {
+        const zip = new JSZip();
+        for (const [name, data] of Object.entries(generatedBlobs)) {
+          if (typeof data === 'string') {
+            zip.file(name, data);
+          } else {
+            zip.file(name, data, { binary: true });
+          }
+        }
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'favicons.zip';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        downloadZipBtn.textContent = 'Downloaded!';
+        setTimeout(() => { downloadZipBtn.textContent = origText; downloadZipBtn.disabled = false; }, 2000);
+      } catch (err) {
+        showError('ZIP creation failed: ' + err.message);
+        downloadZipBtn.textContent = origText;
+        downloadZipBtn.disabled = false;
+      }
+    });
+
+    // ─── Copy snippet ─────────────────────────────────────────────────────────
+    copySnippetBtn.addEventListener('click', async () => {
+      const text = htmlSnippet.textContent;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = copySnippetBtn.textContent;
+      copySnippetBtn.textContent = 'Copied!';
+      setTimeout(() => { copySnippetBtn.textContent = orig; }, 1500);
+    });
+  </script>
+</body>
+</html>

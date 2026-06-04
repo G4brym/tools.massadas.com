@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PGP Tool — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    textarea, input[type="text"], input[type="email"], input[type="password"] {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">PGP Tool</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Privacy notice -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-4 flex items-start gap-3">
+      <span class="text-ok text-lg mt-0.5">&#128274;</span>
+      <p class="text-sm text-gray-400 leading-relaxed">
+        Everything runs locally in your browser. Keys and messages <strong class="text-gray-300">never leave your device</strong>.
+      </p>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="flex rounded-xl border border-surface-lighter overflow-hidden bg-surface-light">
+      <button class="tab-btn flex-1 px-3 py-2.5 text-xs sm:text-sm font-medium transition cursor-pointer text-center" data-tab="generate">Generate Keys</button>
+      <button class="tab-btn flex-1 px-3 py-2.5 text-xs sm:text-sm font-medium transition cursor-pointer text-center" data-tab="encrypt">Encrypt</button>
+      <button class="tab-btn flex-1 px-3 py-2.5 text-xs sm:text-sm font-medium transition cursor-pointer text-center" data-tab="decrypt">Decrypt</button>
+      <button class="tab-btn flex-1 px-3 py-2.5 text-xs sm:text-sm font-medium transition cursor-pointer text-center" data-tab="sign">Sign / Verify</button>
+    </div>
+
+    <!-- ── TAB: Generate Keys ── -->
+    <div id="tab-generate" class="tab-panel flex flex-col gap-5">
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <h2 class="text-sm font-semibold text-gray-200">Generate Key Pair</h2>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">Name</label>
+            <input id="gen-name" type="text" placeholder="Alice" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none" style="font-family: inherit;" />
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">Email</label>
+            <input id="gen-email" type="email" placeholder="alice@example.com" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none" style="font-family: inherit;" />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Passphrase <span class="text-gray-600">(optional)</span></label>
+          <input id="gen-passphrase" type="password" placeholder="Leave blank for no passphrase" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none" style="font-family: inherit;" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Key Type</label>
+          <div class="flex gap-2 flex-wrap">
+            <button class="key-type-btn px-4 py-2 text-sm rounded-lg transition cursor-pointer" data-type="curve25519">Curve25519 (recommended)</button>
+            <button class="key-type-btn px-4 py-2 text-sm rounded-lg transition cursor-pointer" data-type="rsa4096">RSA 4096-bit</button>
+            <button class="key-type-btn px-4 py-2 text-sm rounded-lg transition cursor-pointer" data-type="rsa2048">RSA 2048-bit</button>
+          </div>
+        </div>
+
+        <button id="btn-generate-keys" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start flex items-center gap-2">
+          <span id="gen-btn-text">Generate Key Pair</span>
+          <span id="gen-spinner" class="hidden">
+            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+          </span>
+        </button>
+
+        <div id="gen-error" class="hidden rounded-lg bg-err/10 border border-err/30 text-err text-sm px-4 py-3"></div>
+      </div>
+
+      <!-- Public key output -->
+      <div id="gen-public-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-200">Public Key</h3>
+          <div class="flex gap-2">
+            <button class="copy-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="gen-public-key">Copy</button>
+            <button class="download-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="gen-public-key" data-filename="public.asc">Download</button>
+          </div>
+        </div>
+        <textarea id="gen-public-key" readonly rows="8" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-300 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+      </div>
+
+      <!-- Private key output -->
+      <div id="gen-private-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-200">Private Key <span class="text-warn text-xs font-normal">(keep secret)</span></h3>
+          <div class="flex gap-2">
+            <button class="copy-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="gen-private-key">Copy</button>
+            <button class="download-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="gen-private-key" data-filename="private.asc">Download</button>
+          </div>
+        </div>
+        <textarea id="gen-private-key" readonly rows="12" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-300 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+      </div>
+    </div>
+
+    <!-- ── TAB: Encrypt ── -->
+    <div id="tab-encrypt" class="tab-panel hidden flex flex-col gap-5">
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <h2 class="text-sm font-semibold text-gray-200">Encrypt Message</h2>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Recipient Public Key</label>
+          <textarea id="enc-public-key" rows="6" placeholder="Paste recipient's PGP public key here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-100 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Message</label>
+          <textarea id="enc-message" rows="5" placeholder="Type your message here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none resize-y w-full" style="font-family: inherit;"></textarea>
+        </div>
+
+        <button id="btn-encrypt" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start flex items-center gap-2">
+          <span>Encrypt</span>
+          <span id="enc-spinner" class="hidden">
+            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+          </span>
+        </button>
+
+        <div id="enc-error" class="hidden rounded-lg bg-err/10 border border-err/30 text-err text-sm px-4 py-3"></div>
+      </div>
+
+      <div id="enc-output-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-200">Encrypted Message</h3>
+          <div class="flex gap-2">
+            <button class="copy-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="enc-output">Copy</button>
+            <button class="download-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="enc-output" data-filename="message.asc">Download</button>
+          </div>
+        </div>
+        <textarea id="enc-output" readonly rows="10" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-300 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+      </div>
+    </div>
+
+    <!-- ── TAB: Decrypt ── -->
+    <div id="tab-decrypt" class="tab-panel hidden flex flex-col gap-5">
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <h2 class="text-sm font-semibold text-gray-200">Decrypt Message</h2>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Your Private Key</label>
+          <textarea id="dec-private-key" rows="6" placeholder="Paste your PGP private key here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-100 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Passphrase <span class="text-gray-600">(if key is protected)</span></label>
+          <input id="dec-passphrase" type="password" placeholder="Leave blank if key has no passphrase" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none" style="font-family: inherit;" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Encrypted Message</label>
+          <textarea id="dec-ciphertext" rows="6" placeholder="Paste PGP encrypted message here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-100 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+        </div>
+
+        <button id="btn-decrypt" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start flex items-center gap-2">
+          <span>Decrypt</span>
+          <span id="dec-spinner" class="hidden">
+            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+          </span>
+        </button>
+
+        <div id="dec-error" class="hidden rounded-lg bg-err/10 border border-err/30 text-err text-sm px-4 py-3"></div>
+      </div>
+
+      <div id="dec-output-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-200">Decrypted Message</h3>
+          <button class="copy-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="dec-output">Copy</button>
+        </div>
+        <textarea id="dec-output" readonly rows="8" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-brand focus:outline-none resize-y w-full" style="font-family: inherit;"></textarea>
+      </div>
+    </div>
+
+    <!-- ── TAB: Sign / Verify ── -->
+    <div id="tab-sign" class="tab-panel hidden flex flex-col gap-5">
+
+      <!-- Mode toggle -->
+      <div class="flex rounded-xl border border-surface-lighter overflow-hidden bg-surface-light">
+        <button id="btn-sign-mode" class="flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center">Sign</button>
+        <button id="btn-verify-mode" class="flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center">Verify</button>
+      </div>
+
+      <!-- Sign panel -->
+      <div id="sign-panel" class="flex flex-col gap-5">
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+          <h2 class="text-sm font-semibold text-gray-200">Sign Message</h2>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">Your Private Key</label>
+            <textarea id="sign-private-key" rows="6" placeholder="Paste your PGP private key here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-100 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">Passphrase <span class="text-gray-600">(if key is protected)</span></label>
+            <input id="sign-passphrase" type="password" placeholder="Leave blank if key has no passphrase" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none" style="font-family: inherit;" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">Message to Sign</label>
+            <textarea id="sign-message" rows="5" placeholder="Type your message here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none resize-y w-full" style="font-family: inherit;"></textarea>
+          </div>
+
+          <button id="btn-sign" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start flex items-center gap-2">
+            <span>Sign</span>
+            <span id="sign-spinner" class="hidden">
+              <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </span>
+          </button>
+
+          <div id="sign-error" class="hidden rounded-lg bg-err/10 border border-err/30 text-err text-sm px-4 py-3"></div>
+        </div>
+
+        <div id="sign-output-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-200">Signed Message</h3>
+            <div class="flex gap-2">
+              <button class="copy-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="sign-output">Copy</button>
+              <button class="download-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" data-target="sign-output" data-filename="signed.asc">Download</button>
+            </div>
+          </div>
+          <textarea id="sign-output" readonly rows="10" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-300 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+        </div>
+      </div>
+
+      <!-- Verify panel -->
+      <div id="verify-panel" class="hidden flex flex-col gap-5">
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+          <h2 class="text-sm font-semibold text-gray-200">Verify Signature</h2>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">Signer's Public Key</label>
+            <textarea id="verify-public-key" rows="6" placeholder="Paste the signer's PGP public key here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-100 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">Signed Message</label>
+            <textarea id="verify-signed-message" rows="8" placeholder="Paste PGP signed message here..." class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-100 focus:border-brand focus:outline-none resize-y w-full"></textarea>
+          </div>
+
+          <button id="btn-verify" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start flex items-center gap-2">
+            <span>Verify</span>
+            <span id="verify-spinner" class="hidden">
+              <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            </span>
+          </button>
+
+          <div id="verify-error" class="hidden rounded-lg bg-err/10 border border-err/30 text-err text-sm px-4 py-3"></div>
+        </div>
+
+        <div id="verify-result-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+          <div id="verify-status" class="flex items-center gap-3 p-3 rounded-lg text-sm font-medium"></div>
+          <div id="verify-details" class="hidden flex flex-col gap-2 text-xs text-gray-400 border-t border-surface-lighter pt-3 mt-1"></div>
+          <div id="verify-plaintext-section" class="hidden flex flex-col gap-2">
+            <h3 class="text-xs font-medium text-gray-400">Message Content</h3>
+            <textarea id="verify-plaintext" readonly rows="5" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-brand focus:outline-none resize-y w-full" style="font-family: inherit;"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/openpgp@5/dist/openpgp.min.js"></script>
+  <script>
+    // ── Tab management ──────────────────────────────────────────────────────────
+    const TAB_ACTIVE   = 'bg-brand text-white';
+    const TAB_INACTIVE = 'bg-surface-light text-gray-400 hover:text-gray-200';
+
+    function setActiveTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isActive = btn.dataset.tab === name;
+        btn.className = `tab-btn flex-1 px-3 py-2.5 text-xs sm:text-sm font-medium transition cursor-pointer text-center ${isActive ? TAB_ACTIVE : TAB_INACTIVE}`;
+      });
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== `tab-${name}`);
+      });
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
+    });
+
+    // ── Key type buttons ─────────────────────────────────────────────────────────
+    let selectedKeyType = 'curve25519';
+
+    function setKeyType(type) {
+      selectedKeyType = type;
+      document.querySelectorAll('.key-type-btn').forEach(btn => {
+        const isActive = btn.dataset.type === type;
+        btn.className = `key-type-btn px-4 py-2 text-sm rounded-lg transition cursor-pointer ${isActive ? 'bg-brand text-white' : 'bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light'}`;
+      });
+    }
+
+    document.querySelectorAll('.key-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => setKeyType(btn.dataset.type));
+    });
+
+    // ── Sign/Verify mode toggle ──────────────────────────────────────────────────
+    let signMode = 'sign';
+
+    function setSignMode(mode) {
+      signMode = mode;
+      const signBtn = document.getElementById('btn-sign-mode');
+      const verifyBtn = document.getElementById('btn-verify-mode');
+      const signPanel = document.getElementById('sign-panel');
+      const verifyPanel = document.getElementById('verify-panel');
+
+      if (mode === 'sign') {
+        signBtn.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center bg-brand text-white';
+        verifyBtn.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center bg-surface-light text-gray-400 hover:text-gray-200';
+        signPanel.classList.remove('hidden');
+        verifyPanel.classList.add('hidden');
+      } else {
+        verifyBtn.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center bg-brand text-white';
+        signBtn.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center bg-surface-light text-gray-400 hover:text-gray-200';
+        signPanel.classList.add('hidden');
+        verifyPanel.classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('btn-sign-mode').addEventListener('click', () => setSignMode('sign'));
+    document.getElementById('btn-verify-mode').addEventListener('click', () => setSignMode('verify'));
+
+    // ── Helper: show/hide error ──────────────────────────────────────────────────
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function clearError(id) {
+      const el = document.getElementById(id);
+      el.textContent = '';
+      el.classList.add('hidden');
+    }
+
+    // ── Helper: spinner ──────────────────────────────────────────────────────────
+    function setLoading(spinnerId, btnTextId, loading) {
+      const spinner = document.getElementById(spinnerId);
+      const btnText = btnTextId ? document.getElementById(btnTextId) : null;
+      if (loading) {
+        spinner.classList.remove('hidden');
+        if (btnText) btnText.textContent = 'Working...';
+      } else {
+        spinner.classList.add('hidden');
+      }
+    }
+
+    // ── Copy & Download buttons ──────────────────────────────────────────────────
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const target = document.getElementById(btn.dataset.target);
+        const text = target.value || target.textContent;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+    });
+
+    document.querySelectorAll('.download-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.dataset.target);
+        const text = target.value || target.textContent;
+        if (!text) return;
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = btn.dataset.filename || 'key.asc';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    });
+
+    // ── Generate Key Pair ────────────────────────────────────────────────────────
+    document.getElementById('btn-generate-keys').addEventListener('click', async () => {
+      clearError('gen-error');
+      const name = document.getElementById('gen-name').value.trim();
+      const email = document.getElementById('gen-email').value.trim();
+      const passphrase = document.getElementById('gen-passphrase').value;
+
+      if (!name) { showError('gen-error', 'Please enter a name.'); return; }
+      if (!email || !email.includes('@')) { showError('gen-error', 'Please enter a valid email address.'); return; }
+
+      setLoading('gen-spinner', 'gen-btn-text', true);
+      document.getElementById('gen-public-section').classList.add('hidden');
+      document.getElementById('gen-private-section').classList.add('hidden');
+
+      try {
+        let keyOptions = {
+          userIDs: [{ name, email }],
+          passphrase: passphrase || undefined,
+        };
+
+        if (selectedKeyType === 'curve25519') {
+          keyOptions.type = 'ecc';
+          keyOptions.curve = 'curve25519';
+        } else if (selectedKeyType === 'rsa4096') {
+          keyOptions.type = 'rsa';
+          keyOptions.rsaBits = 4096;
+        } else {
+          keyOptions.type = 'rsa';
+          keyOptions.rsaBits = 2048;
+        }
+
+        const { privateKey, publicKey } = await openpgp.generateKey(keyOptions);
+
+        document.getElementById('gen-public-key').value = publicKey;
+        document.getElementById('gen-private-key').value = privateKey;
+        document.getElementById('gen-public-section').classList.remove('hidden');
+        document.getElementById('gen-private-section').classList.remove('hidden');
+        document.getElementById('gen-btn-text').textContent = 'Generate Key Pair';
+      } catch (err) {
+        showError('gen-error', `Key generation failed: ${err.message}`);
+        document.getElementById('gen-btn-text').textContent = 'Generate Key Pair';
+      } finally {
+        setLoading('gen-spinner', null, false);
+      }
+    });
+
+    // ── Encrypt ──────────────────────────────────────────────────────────────────
+    document.getElementById('btn-encrypt').addEventListener('click', async () => {
+      clearError('enc-error');
+      const publicKeyArmored = document.getElementById('enc-public-key').value.trim();
+      const message = document.getElementById('enc-message').value;
+
+      if (!publicKeyArmored) { showError('enc-error', 'Please paste the recipient\'s public key.'); return; }
+      if (!message.trim()) { showError('enc-error', 'Please enter a message to encrypt.'); return; }
+
+      setLoading('enc-spinner', null, true);
+      document.getElementById('enc-output-section').classList.add('hidden');
+
+      try {
+        const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored });
+        const msg = await openpgp.createMessage({ text: message });
+        const encrypted = await openpgp.encrypt({
+          message: msg,
+          encryptionKeys: publicKey,
+        });
+
+        document.getElementById('enc-output').value = encrypted;
+        document.getElementById('enc-output-section').classList.remove('hidden');
+      } catch (err) {
+        showError('enc-error', `Encryption failed: ${err.message}`);
+      } finally {
+        setLoading('enc-spinner', null, false);
+      }
+    });
+
+    // ── Decrypt ──────────────────────────────────────────────────────────────────
+    document.getElementById('btn-decrypt').addEventListener('click', async () => {
+      clearError('dec-error');
+      const privateKeyArmored = document.getElementById('dec-private-key').value.trim();
+      const passphrase = document.getElementById('dec-passphrase').value;
+      const ciphertext = document.getElementById('dec-ciphertext').value.trim();
+
+      if (!privateKeyArmored) { showError('dec-error', 'Please paste your private key.'); return; }
+      if (!ciphertext) { showError('dec-error', 'Please paste the encrypted message.'); return; }
+
+      setLoading('dec-spinner', null, true);
+      document.getElementById('dec-output-section').classList.add('hidden');
+
+      try {
+        let privateKey = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored });
+
+        if (passphrase) {
+          privateKey = await openpgp.decryptKey({ privateKey, passphrase });
+        }
+
+        const message = await openpgp.readMessage({ armoredMessage: ciphertext });
+        const { data: decrypted } = await openpgp.decrypt({
+          message,
+          decryptionKeys: privateKey,
+        });
+
+        document.getElementById('dec-output').value = decrypted;
+        document.getElementById('dec-output-section').classList.remove('hidden');
+      } catch (err) {
+        let msg = err.message;
+        if (msg.includes('passphrase') || msg.includes('Incorrect key passphrase') || msg.includes('decrypt')) {
+          msg = 'Decryption failed. Check that the correct private key is used and the passphrase is correct.';
+        }
+        showError('dec-error', msg);
+      } finally {
+        setLoading('dec-spinner', null, false);
+      }
+    });
+
+    // ── Sign ─────────────────────────────────────────────────────────────────────
+    document.getElementById('btn-sign').addEventListener('click', async () => {
+      clearError('sign-error');
+      const privateKeyArmored = document.getElementById('sign-private-key').value.trim();
+      const passphrase = document.getElementById('sign-passphrase').value;
+      const messageText = document.getElementById('sign-message').value;
+
+      if (!privateKeyArmored) { showError('sign-error', 'Please paste your private key.'); return; }
+      if (!messageText.trim()) { showError('sign-error', 'Please enter a message to sign.'); return; }
+
+      setLoading('sign-spinner', null, true);
+      document.getElementById('sign-output-section').classList.add('hidden');
+
+      try {
+        let privateKey = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored });
+
+        if (passphrase) {
+          privateKey = await openpgp.decryptKey({ privateKey, passphrase });
+        }
+
+        const message = await openpgp.createMessage({ text: messageText });
+        const signed = await openpgp.sign({
+          message,
+          signingKeys: privateKey,
+        });
+
+        document.getElementById('sign-output').value = signed;
+        document.getElementById('sign-output-section').classList.remove('hidden');
+      } catch (err) {
+        let msg = err.message;
+        if (msg.includes('passphrase') || msg.includes('Incorrect key passphrase')) {
+          msg = 'Signing failed. Check that the passphrase is correct.';
+        }
+        showError('sign-error', msg);
+      } finally {
+        setLoading('sign-spinner', null, false);
+      }
+    });
+
+    // ── Verify ───────────────────────────────────────────────────────────────────
+    document.getElementById('btn-verify').addEventListener('click', async () => {
+      clearError('verify-error');
+      const publicKeyArmored = document.getElementById('verify-public-key').value.trim();
+      const signedMessageArmored = document.getElementById('verify-signed-message').value.trim();
+
+      if (!publicKeyArmored) { showError('verify-error', 'Please paste the signer\'s public key.'); return; }
+      if (!signedMessageArmored) { showError('verify-error', 'Please paste the signed message.'); return; }
+
+      setLoading('verify-spinner', null, true);
+      document.getElementById('verify-result-section').classList.add('hidden');
+
+      try {
+        const publicKey = await openpgp.readKey({ armoredKey: publicKeyArmored });
+        const message = await openpgp.readMessage({ armoredMessage: signedMessageArmored });
+
+        const { data: plaintext, signatures } = await openpgp.verify({
+          message,
+          verificationKeys: publicKey,
+        });
+
+        const statusEl = document.getElementById('verify-status');
+        const detailsEl = document.getElementById('verify-details');
+        const plaintextSection = document.getElementById('verify-plaintext-section');
+        const plaintextEl = document.getElementById('verify-plaintext');
+
+        let allValid = false;
+        let detailLines = [];
+
+        if (signatures.length === 0) {
+          statusEl.className = 'flex items-center gap-3 p-3 rounded-lg text-sm font-medium bg-warn/10 border border-warn/30 text-warn';
+          statusEl.innerHTML = '<span class="text-lg">&#9888;</span> No signatures found in message.';
+          detailsEl.classList.add('hidden');
+        } else {
+          try {
+            // Try to verify all signatures
+            allValid = true;
+            for (const sig of signatures) {
+              try {
+                await sig.verified; // throws if invalid
+                const sigInfo = sig.signature ? await sig.signature : null;
+                detailLines.push(`&#10003; Signature valid`);
+                const created = sig.signature ? (await sig.signature).packets?.[0]?.created : null;
+                if (created) {
+                  detailLines.push(`&nbsp;&nbsp;Signed on: ${created.toLocaleString()}`);
+                }
+              } catch (verErr) {
+                allValid = false;
+                detailLines.push(`&#10007; Signature invalid: ${verErr.message}`);
+              }
+            }
+          } catch {
+            allValid = false;
+          }
+
+          if (allValid) {
+            statusEl.className = 'flex items-center gap-3 p-3 rounded-lg text-sm font-medium bg-ok/10 border border-ok/30 text-ok';
+            statusEl.innerHTML = '<span class="text-lg">&#10003;</span> Signature verified successfully.';
+          } else {
+            statusEl.className = 'flex items-center gap-3 p-3 rounded-lg text-sm font-medium bg-err/10 border border-err/30 text-err';
+            statusEl.innerHTML = '<span class="text-lg">&#10007;</span> Signature verification FAILED.';
+          }
+
+          if (detailLines.length > 0) {
+            detailsEl.innerHTML = detailLines.map(l => `<div>${l}</div>`).join('');
+            detailsEl.classList.remove('hidden');
+          } else {
+            detailsEl.classList.add('hidden');
+          }
+        }
+
+        if (plaintext) {
+          plaintextEl.value = plaintext;
+          plaintextSection.classList.remove('hidden');
+        } else {
+          plaintextSection.classList.add('hidden');
+        }
+
+        document.getElementById('verify-result-section').classList.remove('hidden');
+      } catch (err) {
+        showError('verify-error', `Verification failed: ${err.message}`);
+      } finally {
+        setLoading('verify-spinner', null, false);
+      }
+    });
+
+    // ── Initialize ───────────────────────────────────────────────────────────────
+    setActiveTab('generate');
+    setKeyType('curve25519');
+    setSignMode('sign');
+  </script>
+</body>
+</html>

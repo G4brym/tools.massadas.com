@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL Encoder / Decoder — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">URL Encoder / Decoder</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Section 1: Encode / Decode -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-base font-semibold text-gray-200">Encode / Decode</h2>
+
+      <!-- Input -->
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Input</label>
+        <textarea
+          id="enc-input"
+          rows="4"
+          placeholder="Paste text or a URL here…"
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none resize-y w-full"
+        ></textarea>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex flex-wrap gap-2">
+        <button id="btn-enc-component" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+          Encode (component)
+        </button>
+        <button id="btn-enc-uri" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          Encode (full URI)
+        </button>
+        <button id="btn-dec" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          Decode
+        </button>
+        <button id="btn-enc-swap" title="Swap input and output" class="px-3 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" aria-label="Swap">
+          &#8645;
+        </button>
+      </div>
+
+      <!-- Output -->
+      <div class="flex flex-col gap-1.5">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Output</label>
+          <button id="btn-enc-copy" class="text-xs px-3 py-1 rounded-md bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">
+            Copy
+          </button>
+        </div>
+        <div
+          id="enc-output"
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm font-mono text-gray-100 min-h-[4rem] break-all whitespace-pre-wrap select-all"
+        ></div>
+        <div id="enc-error" class="hidden text-xs text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2"></div>
+      </div>
+    </div>
+
+    <!-- Section 2: URL Parser -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-base font-semibold text-gray-200">URL Parser</h2>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Full URL</label>
+        <div class="flex gap-2">
+          <input
+            id="parser-input"
+            type="text"
+            placeholder="https://example.com/path?foo=bar&baz=qux#section"
+            class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="parser-error" class="hidden text-xs text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2"></div>
+
+      <!-- Breakdown table -->
+      <div id="parser-breakdown" class="hidden flex flex-col gap-3">
+        <!-- Static fields table -->
+        <div class="overflow-x-auto rounded-lg border border-surface-lighter">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-surface-lighter">
+                <th class="text-left px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide w-1/3">Field</th>
+                <th class="text-left px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide">Value</th>
+              </tr>
+            </thead>
+            <tbody id="parser-static-rows" class="divide-y divide-surface-lighter">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Query params section -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Query Parameters</span>
+            <button id="btn-parser-add-param" class="text-xs px-3 py-1 rounded-md bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">
+              + Add
+            </button>
+          </div>
+
+          <div id="parser-params-list" class="flex flex-col gap-2">
+            <!-- param rows injected here -->
+          </div>
+
+          <div id="parser-no-params" class="text-xs text-gray-500 italic py-2">No query parameters</div>
+        </div>
+
+        <!-- Rebuilt URL -->
+        <div class="flex flex-col gap-1.5 border-t border-surface-lighter pt-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Rebuilt URL</label>
+            <button id="btn-parser-copy" class="text-xs px-3 py-1 rounded-md bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">
+              Copy
+            </button>
+          </div>
+          <div id="parser-rebuilt" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm font-mono text-brand-light break-all select-all min-h-[2.5rem]"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Query String Builder -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-base font-semibold text-gray-200">Query String Builder</h2>
+
+      <div id="builder-rows" class="flex flex-col gap-2">
+        <!-- rows injected here -->
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button id="btn-builder-add" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          + Add Row
+        </button>
+      </div>
+
+      <!-- Output -->
+      <div class="flex flex-col gap-1.5 border-t border-surface-lighter pt-3">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Encoded Query String</label>
+          <button id="btn-builder-copy" class="text-xs px-3 py-1 rounded-md bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">
+            Copy
+          </button>
+        </div>
+        <div id="builder-output" class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm font-mono text-brand-light break-all select-all min-h-[2.5rem]"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    function copyText(text, btn) {
+      if (!text) return;
+      navigator.clipboard.writeText(text).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      });
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    }
+
+    // ─── Section 1: Encode / Decode ────────────────────────────────────────────
+
+    const encInput  = document.getElementById('enc-input');
+    const encOutput = document.getElementById('enc-output');
+    const encError  = document.getElementById('enc-error');
+
+    function showEncError(msg) {
+      encError.textContent = msg;
+      encError.classList.remove('hidden');
+    }
+    function clearEncError() {
+      encError.textContent = '';
+      encError.classList.add('hidden');
+    }
+
+    function setEncOutput(text) {
+      clearEncError();
+      encOutput.textContent = text;
+    }
+
+    document.getElementById('btn-enc-component').addEventListener('click', () => {
+      const val = encInput.value;
+      clearEncError();
+      try {
+        setEncOutput(encodeURIComponent(val));
+      } catch (e) {
+        showEncError('Encoding error: ' + e.message);
+      }
+    });
+
+    document.getElementById('btn-enc-uri').addEventListener('click', () => {
+      const val = encInput.value;
+      clearEncError();
+      try {
+        setEncOutput(encodeURI(val));
+      } catch (e) {
+        showEncError('Encoding error: ' + e.message);
+      }
+    });
+
+    document.getElementById('btn-dec').addEventListener('click', () => {
+      const val = encInput.value;
+      clearEncError();
+      try {
+        // Try decodeURIComponent first; fall back to decodeURI on error
+        try {
+          setEncOutput(decodeURIComponent(val));
+        } catch (e1) {
+          try {
+            setEncOutput(decodeURI(val));
+          } catch (e2) {
+            throw new Error('Malformed percent-encoding. ' + e2.message);
+          }
+        }
+      } catch (e) {
+        encOutput.textContent = '';
+        showEncError('Decode error: ' + e.message);
+      }
+    });
+
+    document.getElementById('btn-enc-swap').addEventListener('click', () => {
+      const out = encOutput.textContent;
+      if (!out) return;
+      encInput.value = out;
+      encOutput.textContent = '';
+      clearEncError();
+    });
+
+    document.getElementById('btn-enc-copy').addEventListener('click', function () {
+      copyText(encOutput.textContent, this);
+    });
+
+    // ─── Section 2: URL Parser ─────────────────────────────────────────────────
+
+    const parserInput     = document.getElementById('parser-input');
+    const parserError     = document.getElementById('parser-error');
+    const parserBreakdown = document.getElementById('parser-breakdown');
+    const parserStaticRows= document.getElementById('parser-static-rows');
+    const parserParamsList= document.getElementById('parser-params-list');
+    const parserNoParams  = document.getElementById('parser-no-params');
+    const parserRebuilt   = document.getElementById('parser-rebuilt');
+
+    let parserURL = null; // parsed URL object (mutable base for reconstruction)
+
+    function showParserError(msg) {
+      parserError.textContent = msg;
+      parserError.classList.remove('hidden');
+      parserBreakdown.classList.add('hidden');
+    }
+    function clearParserError() {
+      parserError.textContent = '';
+      parserError.classList.add('hidden');
+    }
+
+    function makeStaticRow(label, value) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="px-3 py-2 text-xs font-mono text-gray-400 align-top">${label}</td>
+        <td class="px-3 py-2 text-sm font-mono text-gray-100 break-all">${value || '<span class="text-gray-600 italic">—</span>'}</td>
+      `;
+      return tr;
+    }
+
+    function renderParserParams() {
+      if (!parserURL) return;
+      parserParamsList.innerHTML = '';
+      const params = [...parserURL.searchParams.entries()];
+
+      if (params.length === 0) {
+        parserNoParams.classList.remove('hidden');
+      } else {
+        parserNoParams.classList.add('hidden');
+        params.forEach(([k, v], idx) => {
+          parserParamsList.appendChild(makeParserParamRow(k, v, idx));
+        });
+      }
+
+      rebuildParserURL();
+    }
+
+    function makeParserParamRow(key, value, idx) {
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-2';
+      row.dataset.idx = idx;
+      row.innerHTML = `
+        <input
+          type="text"
+          value="${escAttr(key)}"
+          placeholder="key"
+          data-role="key"
+          class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-1.5 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none"
+        />
+        <span class="text-gray-600 text-sm">=</span>
+        <input
+          type="text"
+          value="${escAttr(value)}"
+          placeholder="value"
+          data-role="val"
+          class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-1.5 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none"
+        />
+        <button data-role="remove" class="px-2 py-1.5 text-xs rounded-md bg-surface border border-surface-lighter text-gray-500 hover:border-err hover:text-err transition cursor-pointer" title="Remove">&#x2715;</button>
+      `;
+
+      row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', () => syncParserParamsFromDOM());
+      });
+      row.querySelector('[data-role="remove"]').addEventListener('click', () => {
+        row.remove();
+        syncParserParamsFromDOM();
+      });
+
+      return row;
+    }
+
+    function syncParserParamsFromDOM() {
+      if (!parserURL) return;
+      const rows = parserParamsList.querySelectorAll('[data-idx]');
+      const newParams = new URLSearchParams();
+      // Read from DOM rows
+      parserParamsList.querySelectorAll('.flex.items-center').forEach(row => {
+        const key = row.querySelector('[data-role="key"]').value;
+        const val = row.querySelector('[data-role="val"]').value;
+        if (key !== '') {
+          newParams.append(key, val);
+        }
+      });
+      parserURL.search = newParams.toString();
+      rebuildParserURL();
+
+      const paramCount = [...newParams.entries()].length;
+      parserNoParams.classList.toggle('hidden', paramCount > 0);
+    }
+
+    function rebuildParserURL() {
+      if (!parserURL) return;
+      parserRebuilt.textContent = parserURL.toString();
+    }
+
+    function parseURL(raw) {
+      clearParserError();
+      raw = raw.trim();
+      if (!raw) {
+        parserBreakdown.classList.add('hidden');
+        return;
+      }
+
+      let url;
+      try {
+        url = new URL(raw);
+      } catch (e) {
+        // Try prepending https:// if missing scheme
+        try {
+          url = new URL('https://' + raw);
+        } catch (e2) {
+          showParserError('Invalid URL: ' + e.message);
+          return;
+        }
+      }
+
+      parserURL = url;
+      parserBreakdown.classList.remove('hidden');
+
+      // Build static rows
+      parserStaticRows.innerHTML = '';
+      const fields = [
+        ['protocol', url.protocol],
+        ['host',     url.host],
+        ['hostname', url.hostname],
+        ['port',     url.port],
+        ['pathname', url.pathname],
+        ['hash',     url.hash],
+      ];
+      fields.forEach(([label, value]) => {
+        parserStaticRows.appendChild(makeStaticRow(label, escHTML(value)));
+      });
+
+      renderParserParams();
+    }
+
+    parserInput.addEventListener('input', () => parseURL(parserInput.value));
+
+    document.getElementById('btn-parser-add-param').addEventListener('click', () => {
+      if (!parserURL) return;
+      const idx = parserParamsList.querySelectorAll('.flex.items-center').length;
+      parserParamsList.appendChild(makeParserParamRow('', '', idx));
+      parserNoParams.classList.add('hidden');
+      syncParserParamsFromDOM();
+    });
+
+    document.getElementById('btn-parser-copy').addEventListener('click', function () {
+      copyText(parserRebuilt.textContent, this);
+    });
+
+    // ─── Section 3: Query String Builder ───────────────────────────────────────
+
+    const builderRows  = document.getElementById('builder-rows');
+    const builderOutput= document.getElementById('builder-output');
+
+    let builderRowCount = 0;
+
+    function makeBuilderRow() {
+      const id = ++builderRowCount;
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-2';
+      row.dataset.rowId = id;
+      row.innerHTML = `
+        <input
+          type="text"
+          placeholder="key"
+          data-role="key"
+          class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-1.5 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none"
+        />
+        <span class="text-gray-600 text-sm">=</span>
+        <input
+          type="text"
+          placeholder="value"
+          data-role="val"
+          class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-1.5 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none"
+        />
+        <button data-role="remove" class="px-2 py-1.5 text-xs rounded-md bg-surface border border-surface-lighter text-gray-500 hover:border-err hover:text-err transition cursor-pointer" title="Remove">&#x2715;</button>
+      `;
+
+      row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', rebuildQueryString);
+      });
+      row.querySelector('[data-role="remove"]').addEventListener('click', () => {
+        row.remove();
+        rebuildQueryString();
+      });
+
+      return row;
+    }
+
+    function rebuildQueryString() {
+      const params = new URLSearchParams();
+      builderRows.querySelectorAll('[data-row-id]').forEach(row => {
+        const key = row.querySelector('[data-role="key"]').value;
+        const val = row.querySelector('[data-role="val"]').value;
+        if (key !== '') {
+          params.append(key, val);
+        }
+      });
+      const qs = params.toString();
+      builderOutput.textContent = qs ? '?' + qs : '';
+    }
+
+    document.getElementById('btn-builder-add').addEventListener('click', () => {
+      builderRows.appendChild(makeBuilderRow());
+      rebuildQueryString();
+    });
+
+    document.getElementById('btn-builder-copy').addEventListener('click', function () {
+      copyText(builderOutput.textContent, this);
+    });
+
+    // ─── Escape helpers ─────────────────────────────────────────────────────────
+
+    function escHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function escAttr(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    // ─── Init: seed builder with two empty rows ─────────────────────────────────
+    builderRows.appendChild(makeBuilderRow());
+    builderRows.appendChild(makeBuilderRow());
+    rebuildQueryString();
+  </script>
+</body>
+</html>

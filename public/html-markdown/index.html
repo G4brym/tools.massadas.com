@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML ↔ Markdown Converter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+
+    /* Rendered preview prose styling */
+    .prose-preview h1 { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; margin: 1rem 0 0.5rem; border-bottom: 1px solid var(--color-surface-lighter); padding-bottom: 0.25rem; }
+    .prose-preview h2 { font-size: 1.25rem; font-weight: 700; color: #f1f5f9; margin: 0.875rem 0 0.4rem; }
+    .prose-preview h3 { font-size: 1.1rem; font-weight: 600; color: #e2e8f0; margin: 0.75rem 0 0.35rem; }
+    .prose-preview h4, .prose-preview h5, .prose-preview h6 { font-size: 1rem; font-weight: 600; color: #cbd5e1; margin: 0.625rem 0 0.25rem; }
+    .prose-preview p { margin: 0.5rem 0; color: #cbd5e1; line-height: 1.65; }
+    .prose-preview a { color: #818cf8; text-decoration: underline; }
+    .prose-preview a:hover { color: #a5b4fc; }
+    .prose-preview ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; color: #cbd5e1; }
+    .prose-preview ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; color: #cbd5e1; }
+    .prose-preview li { margin: 0.2rem 0; line-height: 1.6; }
+    .prose-preview li input[type="checkbox"] { margin-right: 0.4rem; accent-color: var(--color-brand); }
+    .prose-preview blockquote { border-left: 3px solid var(--color-brand); padding-left: 0.875rem; margin: 0.625rem 0; color: #94a3b8; font-style: italic; }
+    .prose-preview code { background: #0f172a; color: #a5f3fc; font-family: ui-monospace, monospace; font-size: 0.82em; padding: 0.15em 0.4em; border-radius: 0.25rem; }
+    .prose-preview pre { background: #0f172a; border: 1px solid var(--color-surface-lighter); border-radius: 0.5rem; padding: 0.875rem 1rem; overflow-x: auto; margin: 0.625rem 0; }
+    .prose-preview pre code { background: transparent; padding: 0; font-size: 0.85rem; color: #e2e8f0; }
+    .prose-preview table { width: 100%; border-collapse: collapse; margin: 0.625rem 0; font-size: 0.875rem; }
+    .prose-preview th { background: var(--color-surface-lighter); color: #e2e8f0; padding: 0.4rem 0.75rem; text-align: left; border: 1px solid #475569; font-weight: 600; }
+    .prose-preview td { padding: 0.35rem 0.75rem; border: 1px solid #334155; color: #cbd5e1; }
+    .prose-preview tr:nth-child(even) td { background: rgba(30,41,59,0.5); }
+    .prose-preview hr { border: none; border-top: 1px solid var(--color-surface-lighter); margin: 1rem 0; }
+    .prose-preview del { text-decoration: line-through; color: #94a3b8; }
+    .prose-preview strong { font-weight: 700; color: #f1f5f9; }
+    .prose-preview em { font-style: italic; color: #e2e8f0; }
+    .prose-preview img { max-width: 100%; border-radius: 0.375rem; }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">HTML ↔ Markdown Converter</h1>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Direction toggle + actions -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+      <div class="flex rounded-lg border border-surface-lighter overflow-hidden shrink-0">
+        <button id="btn-html-to-md"
+          class="px-4 py-2 text-sm font-medium bg-brand text-white transition cursor-pointer">
+          HTML → Markdown
+        </button>
+        <button id="btn-md-to-html"
+          class="px-4 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer">
+          Markdown → HTML
+        </button>
+      </div>
+      <div class="flex gap-2 ml-auto">
+        <button id="btn-copy"
+          class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          Copy Output
+        </button>
+        <button id="btn-download"
+          class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          Download
+        </button>
+      </div>
+    </div>
+
+    <!-- Error card -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/40 rounded-xl px-5 py-4 text-sm text-red-400 flex items-start gap-3">
+      <span class="mt-0.5 shrink-0">⚠</span>
+      <span id="error-msg"></span>
+    </div>
+
+    <!-- Editor row: input + output -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      <!-- Input panel -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-lighter">
+          <span id="input-label" class="text-xs font-semibold text-gray-400 uppercase tracking-wider">HTML Input</span>
+          <button id="btn-clear" class="text-xs text-gray-500 hover:text-gray-300 transition cursor-pointer">Clear</button>
+        </div>
+        <textarea
+          id="input-area"
+          spellcheck="false"
+          class="flex-1 bg-transparent font-mono text-sm text-gray-200 px-4 py-3 resize-none focus:outline-none min-h-64 lg:min-h-[28rem]"
+          placeholder="Paste your HTML here…"
+        ></textarea>
+      </div>
+
+      <!-- Output panel -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-lighter">
+          <span id="output-label" class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Markdown Output</span>
+          <span id="char-count" class="text-xs text-gray-500"></span>
+        </div>
+        <textarea
+          id="output-area"
+          readonly
+          spellcheck="false"
+          class="flex-1 bg-transparent font-mono text-sm text-gray-300 px-4 py-3 resize-none focus:outline-none min-h-64 lg:min-h-[28rem]"
+          placeholder="Converted output will appear here…"
+        ></textarea>
+      </div>
+
+    </div>
+
+    <!-- Rendered preview panel -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-2.5 border-b border-surface-lighter">
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Rendered Preview</span>
+        <span id="preview-label" class="text-xs text-gray-500">Sanitized HTML render</span>
+      </div>
+      <div id="preview-area" class="prose-preview px-5 py-4 min-h-32 text-sm leading-relaxed overflow-x-auto">
+        <p class="text-gray-500 italic">Preview will appear here after conversion…</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/turndown@7/dist/turndown.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1/dist/turndown-plugin-gfm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let direction = 'html-to-md'; // 'html-to-md' | 'md-to-html'
+    let debounceTimer = null;
+
+    // ── Samples ────────────────────────────────────────────────────────────────
+    const SAMPLE_HTML = `<h1>Hello, World!</h1>
+<p>This is a <strong>demo</strong> of the <em>HTML → Markdown</em> converter.</p>
+
+<h2>Features</h2>
+<ul>
+  <li>Converts headings, lists, tables, code blocks &amp; more</li>
+  <li>Uses <a href="https://github.com/mixmark-io/turndown">Turndown</a> with GFM plugin</li>
+  <li>Live preview with DOMPurify sanitization</li>
+</ul>
+
+<h2>Code Example</h2>
+<pre><code class="language-js">function greet(name) {
+  return \`Hello, \${name}!\`;
+}
+</code></pre>
+
+<h2>Table</h2>
+<table>
+  <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>Turndown</td><td>HTML → Markdown</td></tr>
+    <tr><td>marked</td><td>Markdown → HTML</td></tr>
+    <tr><td>DOMPurify</td><td>Sanitize HTML output</td></tr>
+  </tbody>
+</table>
+
+<blockquote><p>100% browser-side — no data is ever sent anywhere.</p></blockquote>`;
+
+    const SAMPLE_MD = `# Hello, World!
+
+This is a **demo** of the _Markdown → HTML_ converter.
+
+## Features
+
+- Converts headings, lists, tables, code blocks & more
+- Uses [marked](https://github.com/markedjs/marked) for parsing
+- Live preview with DOMPurify sanitization
+- ~~Strikethrough~~ support via GFM
+
+## Code Example
+
+\`\`\`js
+function greet(name) {
+  return \`Hello, \${name}!\`;
+}
+\`\`\`
+
+## Table
+
+| Tool      | Purpose          |
+|-----------|------------------|
+| Turndown  | HTML → Markdown  |
+| marked    | Markdown → HTML  |
+| DOMPurify | Sanitize output  |
+
+> 100% browser-side — no data is ever sent anywhere.
+
+## Task list
+
+- [x] Live conversion
+- [x] Copy & download
+- [ ] More features?`;
+
+    // ── Elements ───────────────────────────────────────────────────────────────
+    const btnHtmlToMd   = document.getElementById('btn-html-to-md');
+    const btnMdToHtml   = document.getElementById('btn-md-to-html');
+    const inputArea     = document.getElementById('input-area');
+    const outputArea    = document.getElementById('output-area');
+    const previewArea   = document.getElementById('preview-area');
+    const inputLabel    = document.getElementById('input-label');
+    const outputLabel   = document.getElementById('output-label');
+    const previewLabel  = document.getElementById('preview-label');
+    const charCount     = document.getElementById('char-count');
+    const errorCard     = document.getElementById('error-card');
+    const errorMsg      = document.getElementById('error-msg');
+    const btnCopy       = document.getElementById('btn-copy');
+    const btnDownload   = document.getElementById('btn-download');
+    const btnClear      = document.getElementById('btn-clear');
+
+    // ── Turndown setup ─────────────────────────────────────────────────────────
+    function buildTurndown() {
+      const td = new TurndownService({
+        headingStyle: 'atx',
+        codeBlockStyle: 'fenced',
+        fence: '```',
+        bulletListMarker: '-',
+        strongDelimiter: '**',
+        emDelimiter: '_',
+      });
+      // GFM plugin: tables, strikethrough, task lists
+      const { tables, strikethrough, taskListItems } = turndownPluginGfm;
+      td.use([tables, strikethrough, taskListItems]);
+      return td;
+    }
+
+    // ── marked setup ──────────────────────────────────────────────────────────
+    marked.setOptions({
+      gfm: true,
+      breaks: false,
+    });
+
+    // ── Convert ────────────────────────────────────────────────────────────────
+    function convert() {
+      hideError();
+      const input = inputArea.value;
+
+      if (!input.trim()) {
+        outputArea.value = '';
+        charCount.textContent = '';
+        previewArea.innerHTML = '<p class="text-gray-500 italic">Preview will appear here after conversion…</p>';
+        return;
+      }
+
+      try {
+        if (direction === 'html-to-md') {
+          // HTML → Markdown
+          const td = buildTurndown();
+          const md = td.turndown(input);
+          outputArea.value = md;
+          charCount.textContent = md.length + ' chars';
+
+          // Preview: render the markdown back to HTML for preview
+          const rawHtml = marked.parse(md);
+          previewArea.innerHTML = DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
+        } else {
+          // Markdown → HTML
+          const rawHtml = marked.parse(input);
+          const sanitized = DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
+          // Output is the raw HTML source (not sanitized for readability, but safe to display)
+          outputArea.value = rawHtml;
+          charCount.textContent = rawHtml.length + ' chars';
+
+          // Preview: the sanitized render
+          previewArea.innerHTML = sanitized;
+        }
+      } catch (err) {
+        showError('Conversion error: ' + err.message);
+      }
+    }
+
+    // ── Debounced convert ──────────────────────────────────────────────────────
+    function scheduleConvert() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(convert, 200);
+    }
+
+    // ── Error helpers ──────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorCard.classList.remove('hidden');
+    }
+    function hideError() {
+      errorCard.classList.add('hidden');
+    }
+
+    // ── Direction switch ───────────────────────────────────────────────────────
+    function setDirection(dir) {
+      direction = dir;
+      if (dir === 'html-to-md') {
+        btnHtmlToMd.className = 'px-4 py-2 text-sm font-medium bg-brand text-white transition cursor-pointer';
+        btnMdToHtml.className = 'px-4 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+        inputLabel.textContent  = 'HTML Input';
+        outputLabel.textContent = 'Markdown Output';
+        previewLabel.textContent = 'Sanitized HTML render';
+        inputArea.placeholder   = 'Paste your HTML here…';
+        outputArea.placeholder  = 'Converted Markdown will appear here…';
+        inputArea.value = SAMPLE_HTML;
+      } else {
+        btnMdToHtml.className = 'px-4 py-2 text-sm font-medium bg-brand text-white transition cursor-pointer';
+        btnHtmlToMd.className = 'px-4 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+        inputLabel.textContent  = 'Markdown Input';
+        outputLabel.textContent = 'HTML Output';
+        previewLabel.textContent = 'Rendered preview';
+        inputArea.placeholder   = 'Paste your Markdown here…';
+        outputArea.placeholder  = 'Converted HTML will appear here…';
+        inputArea.value = SAMPLE_MD;
+      }
+      convert();
+    }
+
+    // ── Copy ───────────────────────────────────────────────────────────────────
+    btnCopy.addEventListener('click', async () => {
+      const text = outputArea.value;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopy.textContent;
+      btnCopy.textContent = 'Copied!';
+      setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+    });
+
+    // ── Download ───────────────────────────────────────────────────────────────
+    btnDownload.addEventListener('click', () => {
+      const text = outputArea.value;
+      if (!text) return;
+      const ext  = direction === 'html-to-md' ? 'md' : 'html';
+      const mime = direction === 'html-to-md' ? 'text/markdown' : 'text/html';
+      const blob = new Blob([text], { type: mime });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'output.' + ext;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ── Clear ──────────────────────────────────────────────────────────────────
+    btnClear.addEventListener('click', () => {
+      inputArea.value = '';
+      outputArea.value = '';
+      charCount.textContent = '';
+      previewArea.innerHTML = '<p class="text-gray-500 italic">Preview will appear here after conversion…</p>';
+      hideError();
+    });
+
+    // ── Live conversion ────────────────────────────────────────────────────────
+    inputArea.addEventListener('input', scheduleConvert);
+
+    // ── Direction buttons ──────────────────────────────────────────────────────
+    btnHtmlToMd.addEventListener('click', () => { if (direction !== 'html-to-md') setDirection('html-to-md'); });
+    btnMdToHtml.addEventListener('click', () => { if (direction !== 'md-to-html') setDirection('md-to-html'); });
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    // Wait for libraries to load then seed
+    window.addEventListener('load', () => {
+      setDirection('html-to-md');
+    });
+  </script>
+</body>
+</html>

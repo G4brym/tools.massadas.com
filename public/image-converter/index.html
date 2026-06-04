@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Converter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      animation: spin 0.8s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Image Converter</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-4xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Hero / pitch -->
+    <div>
+      <h2 class="text-2xl font-bold text-gray-100">HEIC to JPG &amp; more</h2>
+      <p class="mt-1 text-sm text-gray-400">Convert HEIC, WebP, AVIF, PNG, JPEG, GIF, and BMP images — entirely in your browser. Nothing is uploaded to any server.</p>
+    </div>
+
+    <!-- Settings card -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+        <!-- Output format -->
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Output format</label>
+          <div class="flex flex-wrap gap-2" id="format-buttons">
+            <button data-fmt="image/jpeg" class="fmt-btn px-4 py-1.5 text-sm font-medium rounded-lg bg-brand text-white transition cursor-pointer">JPEG</button>
+            <button data-fmt="image/png" class="fmt-btn px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">PNG</button>
+            <button data-fmt="image/webp" class="fmt-btn px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">WebP</button>
+            <button data-fmt="image/avif" class="fmt-btn px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" id="avif-btn">AVIF</button>
+          </div>
+          <p id="avif-note" class="hidden mt-2 text-xs text-warn">AVIF encoding is not supported in this browser. Try Chrome 94+ or Firefox 93+.</p>
+        </div>
+
+        <!-- Quality slider -->
+        <div id="quality-section">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-medium text-gray-300">Quality</label>
+            <span id="quality-value" class="text-sm font-mono text-brand-light">85%</span>
+          </div>
+          <input type="range" id="quality-slider" min="1" max="100" value="85" class="w-full">
+          <p class="text-xs text-gray-500 mt-1">Applies to JPEG, WebP, and AVIF</p>
+        </div>
+      </div>
+
+      <!-- Resize options -->
+      <div class="border-t border-surface-lighter pt-4">
+        <label class="flex items-center gap-2.5 cursor-pointer mb-3">
+          <input type="checkbox" id="resize-enable" class="w-4 h-4 rounded border-surface-lighter text-brand accent-brand cursor-pointer">
+          <span class="text-sm font-medium text-gray-300">Resize (optional)</span>
+        </label>
+        <div id="resize-fields" class="hidden grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Max width (px)</label>
+            <input type="number" id="max-width" placeholder="e.g. 1920" min="1" max="16384"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Max height (px)</label>
+            <input type="number" id="max-height" placeholder="e.g. 1080" min="1" max="16384"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop zone -->
+    <div id="drop-zone"
+      class="border-2 border-dashed border-surface-lighter rounded-xl p-10 text-center cursor-pointer hover:border-brand transition flex flex-col items-center gap-3"
+      role="button" tabindex="0" aria-label="Drop images here or click to select">
+      <svg class="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+      </svg>
+      <div>
+        <p class="text-sm font-medium text-gray-300">Drop images here or <span class="text-brand-light underline">click to select</span></p>
+        <p class="text-xs text-gray-500 mt-1">HEIC/HEIF, PNG, JPEG, WebP, AVIF, GIF, BMP supported</p>
+      </div>
+      <input type="file" id="file-input" multiple accept=".heic,.heif,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,image/*" class="hidden">
+    </div>
+
+    <!-- Action bar (visible when files present) -->
+    <div id="action-bar" class="hidden flex flex-wrap items-center gap-3">
+      <button id="btn-convert-all" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+        Convert all
+      </button>
+      <button id="btn-download-zip" class="hidden px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+        Download all as ZIP
+      </button>
+      <button id="btn-clear" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+        Clear
+      </button>
+    </div>
+
+    <!-- File list -->
+    <div id="file-list" class="flex flex-col gap-3"></div>
+
+  </main>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let outputMime = 'image/jpeg';
+    let quality = 0.85;
+    let maxWidth = null;
+    let maxHeight = null;
+    const files = []; // { id, file, status, resultBlob, resultExt, error }
+    let nextId = 0;
+    let avifSupported = null; // null = unchecked
+
+    // ── AVIF support detection ─────────────────────────────────────────────────
+    async function detectAvif() {
+      if (avifSupported !== null) return avifSupported;
+      try {
+        const cvs = document.createElement('canvas');
+        cvs.width = 1; cvs.height = 1;
+        const blob = await new Promise(r => cvs.toBlob(r, 'image/avif', 0.5));
+        avifSupported = !!(blob && blob.type === 'image/avif');
+      } catch {
+        avifSupported = false;
+      }
+      return avifSupported;
+    }
+
+    // ── Format buttons ─────────────────────────────────────────────────────────
+    const fmtBtns = document.querySelectorAll('.fmt-btn');
+    const avifNote = document.getElementById('avif-note');
+    const qualitySection = document.getElementById('quality-section');
+
+    function setFormat(mime) {
+      outputMime = mime;
+      fmtBtns.forEach(b => {
+        if (b.dataset.fmt === mime) {
+          b.className = 'fmt-btn px-4 py-1.5 text-sm font-medium rounded-lg bg-brand text-white transition cursor-pointer';
+        } else {
+          b.className = 'fmt-btn px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer';
+        }
+      });
+      // Quality slider only meaningful for lossy
+      const lossless = mime === 'image/png';
+      qualitySection.style.opacity = lossless ? '0.4' : '1';
+      qualitySection.style.pointerEvents = lossless ? 'none' : '';
+
+      // AVIF note
+      if (mime === 'image/avif') {
+        detectAvif().then(ok => {
+          avifNote.classList.toggle('hidden', ok);
+        });
+      } else {
+        avifNote.classList.add('hidden');
+      }
+    }
+
+    fmtBtns.forEach(b => b.addEventListener('click', () => setFormat(b.dataset.fmt)));
+    setFormat('image/jpeg'); // initial
+
+    // ── Quality slider ─────────────────────────────────────────────────────────
+    const qualitySlider = document.getElementById('quality-slider');
+    const qualityValue = document.getElementById('quality-value');
+    qualitySlider.addEventListener('input', () => {
+      quality = parseInt(qualitySlider.value, 10) / 100;
+      qualityValue.textContent = qualitySlider.value + '%';
+    });
+
+    // ── Resize ─────────────────────────────────────────────────────────────────
+    const resizeEnable = document.getElementById('resize-enable');
+    const resizeFields = document.getElementById('resize-fields');
+    const maxWidthInput = document.getElementById('max-width');
+    const maxHeightInput = document.getElementById('max-height');
+    resizeEnable.addEventListener('change', () => {
+      resizeFields.classList.toggle('hidden', !resizeEnable.checked);
+    });
+    maxWidthInput.addEventListener('input', () => {
+      maxWidth = parseInt(maxWidthInput.value) || null;
+    });
+    maxHeightInput.addEventListener('input', () => {
+      maxHeight = parseInt(maxHeightInput.value) || null;
+    });
+
+    // ── Drop zone ─────────────────────────────────────────────────────────────
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('border-brand');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-brand');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand');
+      handleFiles([...e.dataTransfer.files]);
+    });
+
+    fileInput.addEventListener('change', () => {
+      handleFiles([...fileInput.files]);
+      fileInput.value = '';
+    });
+
+    // ── File handling ──────────────────────────────────────────────────────────
+    function isHeic(file) {
+      const name = file.name.toLowerCase();
+      return name.endsWith('.heic') || name.endsWith('.heif') ||
+             file.type === 'image/heic' || file.type === 'image/heif';
+    }
+
+    function formatBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function mimeToExt(mime) {
+      const map = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif' };
+      return map[mime] || 'jpg';
+    }
+
+    function baseName(file) {
+      return file.name.replace(/\.[^.]+$/, '');
+    }
+
+    function handleFiles(newFiles) {
+      const imageTypes = ['image/jpeg','image/png','image/webp','image/avif','image/gif','image/bmp',
+                          'image/heic','image/heif'];
+      for (const f of newFiles) {
+        const isImg = imageTypes.includes(f.type) || isHeic(f) ||
+          /\.(png|jpe?g|webp|avif|gif|bmp|heic|heif)$/i.test(f.name);
+        if (!isImg) continue;
+        const id = nextId++;
+        files.push({ id, file: f, status: 'pending', resultBlob: null, resultExt: null, error: null });
+        renderFileCard(id);
+      }
+      if (files.length > 0) {
+        document.getElementById('action-bar').classList.remove('hidden');
+      }
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────────────
+    function renderFileCard(id) {
+      const entry = files.find(f => f.id === id);
+      if (!entry) return;
+
+      const existing = document.getElementById('card-' + id);
+      if (existing) existing.remove();
+
+      const card = document.createElement('div');
+      card.id = 'card-' + id;
+      card.className = 'bg-surface-light border border-surface-lighter rounded-xl p-4 flex flex-col sm:flex-row gap-4';
+
+      // Thumbnail area
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = 'flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-surface flex items-center justify-center';
+      card.appendChild(thumbWrap);
+
+      // Right column
+      const right = document.createElement('div');
+      right.className = 'flex-1 flex flex-col gap-2 min-w-0';
+
+      const nameRow = document.createElement('div');
+      nameRow.className = 'flex items-start gap-2';
+      const nameEl = document.createElement('p');
+      nameEl.className = 'text-sm font-medium text-gray-200 truncate flex-1';
+      nameEl.textContent = entry.file.name;
+      nameRow.appendChild(nameEl);
+
+      // Remove button
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'text-gray-500 hover:text-err transition text-xs flex-shrink-0 cursor-pointer';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove';
+      removeBtn.addEventListener('click', () => {
+        const idx = files.findIndex(f => f.id === id);
+        if (idx !== -1) files.splice(idx, 1);
+        card.remove();
+        if (files.length === 0) {
+          document.getElementById('action-bar').classList.add('hidden');
+          document.getElementById('btn-download-zip').classList.add('hidden');
+        }
+      });
+      nameRow.appendChild(removeBtn);
+      right.appendChild(nameRow);
+
+      const metaRow = document.createElement('div');
+      metaRow.id = 'meta-' + id;
+      metaRow.className = 'text-xs text-gray-400';
+      metaRow.textContent = formatBytes(entry.file.size);
+      right.appendChild(metaRow);
+
+      const statusRow = document.createElement('div');
+      statusRow.id = 'status-' + id;
+      statusRow.className = 'text-xs';
+      right.appendChild(statusRow);
+
+      const actionsRow = document.createElement('div');
+      actionsRow.id = 'actions-' + id;
+      actionsRow.className = 'flex gap-2 flex-wrap';
+      right.appendChild(actionsRow);
+
+      card.appendChild(right);
+      document.getElementById('file-list').appendChild(card);
+
+      // Load thumbnail
+      loadThumbnail(entry, thumbWrap);
+    }
+
+    function loadThumbnail(entry, container) {
+      const img = document.createElement('img');
+      img.className = 'w-full h-full object-cover';
+      img.alt = '';
+
+      if (isHeic(entry.file)) {
+        // HEIC: decode first then show thumbnail
+        heic2any({ blob: entry.file, toType: 'image/jpeg', quality: 0.5 })
+          .then(blob => {
+            img.src = URL.createObjectURL(blob);
+            container.appendChild(img);
+          })
+          .catch(() => {
+            container.innerHTML = '<span class="text-xs text-gray-500">HEIC</span>';
+          });
+      } else {
+        img.src = URL.createObjectURL(entry.file);
+        container.appendChild(img);
+      }
+    }
+
+    function setCardStatus(id, html, cls) {
+      const el = document.getElementById('status-' + id);
+      if (el) { el.className = 'text-xs ' + (cls || ''); el.innerHTML = html; }
+    }
+
+    function setCardSpinner(id, text) {
+      setCardStatus(id, `<span class="flex items-center gap-1.5">
+        <svg class="spinner w-3.5 h-3.5 text-brand-light" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+        </svg>
+        <span class="text-gray-400">${text}</span>
+      </span>`);
+    }
+
+    function setCardError(id, msg) {
+      setCardStatus(id, `<span class="text-err">Error: ${msg}</span>`);
+    }
+
+    function setCardDone(id, origSize, newSize) {
+      const delta = newSize < origSize
+        ? `<span class="text-ok">&darr; ${Math.round((1 - newSize/origSize)*100)}% smaller</span>`
+        : `<span class="text-warn">&uarr; ${Math.round((newSize/origSize - 1)*100)}% larger</span>`;
+      setCardStatus(id, `<span class="text-gray-400">${formatBytes(origSize)} &rarr; ${formatBytes(newSize)} ${delta}</span>`);
+    }
+
+    function setCardActions(id) {
+      const entry = files.find(f => f.id === id);
+      if (!entry || !entry.resultBlob) return;
+      const actionsEl = document.getElementById('actions-' + id);
+      if (!actionsEl) return;
+      actionsEl.innerHTML = '';
+      const dl = document.createElement('a');
+      dl.className = 'px-3 py-1 text-xs font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer';
+      dl.textContent = 'Download';
+      const url = URL.createObjectURL(entry.resultBlob);
+      dl.href = url;
+      dl.download = baseName(entry.file) + '.' + entry.resultExt;
+      actionsEl.appendChild(dl);
+    }
+
+    // ── Conversion ─────────────────────────────────────────────────────────────
+    async function convertEntry(entry) {
+      entry.status = 'converting';
+      entry.resultBlob = null;
+      entry.error = null;
+
+      const actionsEl = document.getElementById('actions-' + entry.id);
+      if (actionsEl) actionsEl.innerHTML = '';
+      setCardSpinner(entry.id, 'Converting…');
+
+      try {
+        // Step 1: get a drawable blob
+        let drawableBlob = entry.file;
+        if (isHeic(entry.file)) {
+          setCardSpinner(entry.id, 'Decoding HEIC…');
+          drawableBlob = await heic2any({ blob: entry.file, toType: 'image/png' });
+          // heic2any may return an array for multi-frame
+          if (Array.isArray(drawableBlob)) drawableBlob = drawableBlob[0];
+        }
+
+        // Step 2: draw onto canvas
+        setCardSpinner(entry.id, 'Rendering…');
+        const bitmap = await createImageBitmap(drawableBlob);
+        let w = bitmap.width, h = bitmap.height;
+
+        // Optional resize
+        const mw = resizeEnable.checked ? (parseInt(maxWidthInput.value) || null) : null;
+        const mh = resizeEnable.checked ? (parseInt(maxHeightInput.value) || null) : null;
+        if (mw || mh) {
+          const scaleW = mw ? mw / w : Infinity;
+          const scaleH = mh ? mh / h : Infinity;
+          const scale = Math.min(1, scaleW, scaleH);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        // Fill white background for JPEG (avoids transparency → black)
+        if (outputMime === 'image/jpeg') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        bitmap.close();
+
+        // Step 3: encode
+        setCardSpinner(entry.id, 'Encoding…');
+        const q = outputMime === 'image/png' ? undefined : quality;
+        const resultBlob = await new Promise((resolve, reject) => {
+          canvas.toBlob(b => {
+            if (b) resolve(b);
+            else reject(new Error('Encoding failed — format may not be supported'));
+          }, outputMime, q);
+        });
+
+        // Verify AVIF actually encoded
+        if (outputMime === 'image/avif' && resultBlob.type !== 'image/avif') {
+          throw new Error('AVIF encoding not supported in this browser');
+        }
+
+        entry.resultBlob = resultBlob;
+        entry.resultExt = mimeToExt(outputMime);
+        entry.status = 'done';
+        setCardDone(entry.id, entry.file.size, resultBlob.size);
+        setCardActions(entry.id);
+      } catch (err) {
+        entry.status = 'error';
+        entry.error = err.message || String(err);
+        setCardError(entry.id, entry.error);
+      }
+    }
+
+    // ── Convert all ────────────────────────────────────────────────────────────
+    document.getElementById('btn-convert-all').addEventListener('click', async () => {
+      if (files.length === 0) return;
+      const zipBtn = document.getElementById('btn-download-zip');
+      zipBtn.classList.add('hidden');
+
+      // Run conversions (sequentially to avoid browser memory pressure)
+      for (const entry of files) {
+        await convertEntry(entry);
+      }
+
+      // Show ZIP button if any succeeded
+      const anyDone = files.some(f => f.status === 'done');
+      if (anyDone) zipBtn.classList.remove('hidden');
+    });
+
+    // ── Download ZIP ───────────────────────────────────────────────────────────
+    document.getElementById('btn-download-zip').addEventListener('click', async () => {
+      const done = files.filter(f => f.status === 'done' && f.resultBlob);
+      if (done.length === 0) return;
+
+      const btn = document.getElementById('btn-download-zip');
+      btn.textContent = 'Zipping…';
+      btn.disabled = true;
+
+      try {
+        const zip = new JSZip();
+        for (const entry of done) {
+          const name = baseName(entry.file) + '.' + entry.resultExt;
+          zip.file(name, entry.resultBlob);
+        }
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'converted-images.zip';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        // show inline error
+        const errDiv = document.createElement('div');
+        errDiv.className = 'text-sm text-err';
+        errDiv.textContent = 'ZIP failed: ' + (e.message || e);
+        document.getElementById('action-bar').appendChild(errDiv);
+        setTimeout(() => errDiv.remove(), 4000);
+      } finally {
+        btn.textContent = 'Download all as ZIP';
+        btn.disabled = false;
+      }
+    });
+
+    // ── Clear ──────────────────────────────────────────────────────────────────
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      files.length = 0;
+      document.getElementById('file-list').innerHTML = '';
+      document.getElementById('action-bar').classList.add('hidden');
+      document.getElementById('btn-download-zip').classList.add('hidden');
+    });
+  </script>
+</body>
+</html>

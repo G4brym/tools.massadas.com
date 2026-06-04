@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Case Converter &amp; Counter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Text Case Converter &amp; Counter</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Input -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+      <label class="text-sm font-medium text-gray-300">Input text</label>
+      <textarea
+        id="input"
+        rows="7"
+        placeholder="Type or paste your text here…"
+        class="bg-surface border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:border-brand focus:outline-none resize-y w-full font-mono leading-relaxed"
+      ></textarea>
+
+      <!-- Stats bar -->
+      <div id="stats" class="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-gray-400 select-none">
+        <span><span class="text-gray-200 font-medium" id="s-chars">0</span> chars</span>
+        <span><span class="text-gray-200 font-medium" id="s-chars-ns">0</span> chars (no spaces)</span>
+        <span><span class="text-gray-200 font-medium" id="s-words">0</span> words</span>
+        <span><span class="text-gray-200 font-medium" id="s-sentences">0</span> sentences</span>
+        <span><span class="text-gray-200 font-medium" id="s-paragraphs">0</span> paragraphs</span>
+        <span><span class="text-gray-200 font-medium" id="s-lines">0</span> lines</span>
+        <span><span class="text-gray-200 font-medium" id="s-reading">0</span> min read</span>
+      </div>
+    </div>
+
+    <!-- Case transforms -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold text-gray-200">Case transforms</h2>
+      <div class="flex flex-wrap gap-2">
+        <button data-action="upper"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">UPPERCASE</button>
+        <button data-action="lower"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">lowercase</button>
+        <button data-action="title"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Title Case</button>
+        <button data-action="sentence"    class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Sentence case</button>
+        <button data-action="camel"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer font-mono">camelCase</button>
+        <button data-action="pascal"      class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer font-mono">PascalCase</button>
+        <button data-action="snake"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer font-mono">snake_case</button>
+        <button data-action="kebab"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer font-mono">kebab-case</button>
+        <button data-action="constant"    class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer font-mono">CONSTANT_CASE</button>
+        <button data-action="dot"         class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer font-mono">dot.case</button>
+        <button data-action="inverse"     class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">iNVERSE cASE</button>
+        <button data-action="alternating" class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">aLtErNaTiNg</button>
+      </div>
+    </div>
+
+    <!-- Extra utilities -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold text-gray-200">Extra utilities</h2>
+      <div class="flex flex-wrap gap-2">
+        <button data-action="trim-lines"    class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Trim each line</button>
+        <button data-action="remove-spaces" class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Remove extra spaces</button>
+        <button data-action="remove-blank"  class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Remove blank lines</button>
+        <button data-action="sort-az"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Sort A→Z</button>
+        <button data-action="sort-za"       class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Sort Z→A</button>
+        <button data-action="reverse-lines" class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Reverse lines</button>
+        <button data-action="dedupe"        class="transform-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Deduplicate lines</button>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div id="output-section" class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-gray-300">Output</span>
+          <span id="active-label" class="text-xs px-2 py-0.5 rounded-full bg-brand/20 text-brand-light hidden"></span>
+        </div>
+        <div class="flex gap-2">
+          <button id="btn-copy" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+          <button id="btn-download" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Download .txt</button>
+        </div>
+      </div>
+      <textarea
+        id="output"
+        rows="7"
+        readonly
+        placeholder="Output appears here after applying a transform…"
+        class="bg-surface border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:border-brand focus:outline-none resize-y w-full font-mono leading-relaxed"
+      ></textarea>
+    </div>
+
+  </main>
+
+  <script>
+    const inputEl   = document.getElementById('input');
+    const outputEl  = document.getElementById('output');
+    const copyBtn   = document.getElementById('btn-copy');
+    const dlBtn     = document.getElementById('btn-download');
+    const activeLabel = document.getElementById('active-label');
+
+    // Stat elements
+    const sChars      = document.getElementById('s-chars');
+    const sCharsNs    = document.getElementById('s-chars-ns');
+    const sWords      = document.getElementById('s-words');
+    const sSentences  = document.getElementById('s-sentences');
+    const sParagraphs = document.getElementById('s-paragraphs');
+    const sLines      = document.getElementById('s-lines');
+    const sReading    = document.getElementById('s-reading');
+
+    // ── Stats ──────────────────────────────────────────────────────────────
+    function updateStats() {
+      const text = inputEl.value;
+      const chars      = text.length;
+      const charsNs    = text.replace(/ /g, '').length;
+      const words      = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+      const sentences  = text.trim() === '' ? 0 : (text.match(/[^.!?]*[.!?]+/g) || []).length;
+      const lines      = text === '' ? 0 : text.split('\n').length;
+      // Paragraphs = blocks of non-empty lines separated by blank lines
+      const paragraphs = text.trim() === '' ? 0
+        : text.trim().split(/\n\s*\n+/).filter(p => p.trim().length > 0).length;
+      const readingMin = words === 0 ? 0 : Math.ceil(words / 200);
+
+      sChars.textContent      = chars.toLocaleString();
+      sCharsNs.textContent    = charsNs.toLocaleString();
+      sWords.textContent      = words.toLocaleString();
+      sSentences.textContent  = sentences.toLocaleString();
+      sParagraphs.textContent = paragraphs.toLocaleString();
+      sLines.textContent      = lines.toLocaleString();
+      sReading.textContent    = readingMin;
+    }
+
+    inputEl.addEventListener('input', updateStats);
+    updateStats();
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    // Split text into "words" respecting camelCase / PascalCase / snake / kebab / dots
+    function splitWords(str) {
+      // Insert space before uppercase sequences following lowercase, and vice-versa (camel/pascal)
+      return str
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+        // Replace separators
+        .replace(/[_\-\.]+/g, ' ')
+        // Collapse whitespace
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .filter(w => w.length > 0);
+    }
+
+    // Title-case small words list
+    const MINOR_WORDS = new Set([
+      'a','an','the','and','but','or','nor','for','so','yet',
+      'at','by','in','of','on','to','up','as','is','it'
+    ]);
+
+    function toTitleCase(str) {
+      // Process each "sentence" (split on . ! ?) separately so first word is always capitalised
+      return str.replace(/[^\n]+/g, line => {
+        // Split on sentence-ending punctuation to capitalize first word of each sentence
+        return line.replace(/(\S.*?)(?=[.!?]|$)/g, (segment, _, offset) => {
+          const words = segment.split(/\b/);
+          return words.map((w, i) => {
+            if (!/[a-z]/i.test(w)) return w; // punctuation / spaces
+            const lower = w.toLowerCase();
+            // Always capitalize first real word and non-minor words
+            if (i === 0 || !MINOR_WORDS.has(lower)) {
+              return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+            }
+            return lower;
+          }).join('');
+        });
+      });
+    }
+
+    function toSentenceCase(str) {
+      // Capitalize first letter after . ! ? or at very start
+      return str
+        .toLowerCase()
+        .replace(/(^\s*|[.!?]\s+)([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase());
+    }
+
+    function toCamelCase(str) {
+      const words = splitWords(str);
+      if (words.length === 0) return '';
+      return words[0].toLowerCase() +
+        words.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
+    }
+
+    function toPascalCase(str) {
+      return splitWords(str)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join('');
+    }
+
+    function toSnakeCase(str) {
+      return splitWords(str).map(w => w.toLowerCase()).join('_');
+    }
+
+    function toKebabCase(str) {
+      return splitWords(str).map(w => w.toLowerCase()).join('-');
+    }
+
+    function toConstantCase(str) {
+      return splitWords(str).map(w => w.toUpperCase()).join('_');
+    }
+
+    function toDotCase(str) {
+      return splitWords(str).map(w => w.toLowerCase()).join('.');
+    }
+
+    function toInverseCase(str) {
+      return str.split('').map(c => {
+        if (c === c.toUpperCase()) return c.toLowerCase();
+        return c.toUpperCase();
+      }).join('');
+    }
+
+    function toAlternatingCase(str) {
+      let i = 0;
+      return str.split('').map(c => {
+        if (!/[a-zA-Z]/.test(c)) return c;
+        return (i++ % 2 === 0) ? c.toLowerCase() : c.toUpperCase();
+      }).join('');
+    }
+
+    // ── Transforms map ─────────────────────────────────────────────────────
+    const TRANSFORMS = {
+      'upper':        { label: 'UPPERCASE',      fn: s => s.toUpperCase() },
+      'lower':        { label: 'lowercase',      fn: s => s.toLowerCase() },
+      'title':        { label: 'Title Case',     fn: toTitleCase },
+      'sentence':     { label: 'Sentence case',  fn: toSentenceCase },
+      'camel':        { label: 'camelCase',      fn: toCamelCase },
+      'pascal':       { label: 'PascalCase',     fn: toPascalCase },
+      'snake':        { label: 'snake_case',     fn: toSnakeCase },
+      'kebab':        { label: 'kebab-case',     fn: toKebabCase },
+      'constant':     { label: 'CONSTANT_CASE',  fn: toConstantCase },
+      'dot':          { label: 'dot.case',       fn: toDotCase },
+      'inverse':      { label: 'iNVERSE cASE',   fn: toInverseCase },
+      'alternating':  { label: 'aLtErNaTiNg',    fn: toAlternatingCase },
+      // Utilities
+      'trim-lines':    { label: 'Trim each line',      fn: s => s.split('\n').map(l => l.trim()).join('\n') },
+      'remove-spaces': { label: 'Remove extra spaces', fn: s => s.replace(/[ \t]+/g, ' ').replace(/^ | $/gm, '') },
+      'remove-blank':  { label: 'Remove blank lines',  fn: s => s.split('\n').filter(l => l.trim().length > 0).join('\n') },
+      'sort-az':       { label: 'Sort A→Z',            fn: s => s.split('\n').sort((a, b) => a.localeCompare(b)).join('\n') },
+      'sort-za':       { label: 'Sort Z→A',            fn: s => s.split('\n').sort((a, b) => b.localeCompare(a)).join('\n') },
+      'reverse-lines': { label: 'Reverse lines',       fn: s => s.split('\n').reverse().join('\n') },
+      'dedupe':        { label: 'Deduplicate lines',   fn: s => [...new Set(s.split('\n'))].join('\n') },
+    };
+
+    let activeAction = null;
+
+    function applyTransform(action) {
+      const t = TRANSFORMS[action];
+      if (!t) return;
+
+      const input = inputEl.value;
+      if (input.trim() === '') {
+        outputEl.value = '';
+        return;
+      }
+
+      outputEl.value = t.fn(input);
+      activeAction = action;
+      activeLabel.textContent = t.label;
+      activeLabel.classList.remove('hidden');
+
+      // Highlight active button
+      document.querySelectorAll('.transform-btn').forEach(btn => {
+        const isActive = btn.dataset.action === action;
+        if (isActive) {
+          btn.classList.add('bg-brand', 'text-white', 'border-brand');
+          btn.classList.remove('bg-surface', 'text-gray-300', 'border-surface-lighter', 'hover:border-brand', 'hover:text-brand-light');
+        } else {
+          btn.classList.remove('bg-brand', 'text-white', 'border-brand');
+          btn.classList.add('bg-surface', 'text-gray-300', 'border-surface-lighter', 'hover:border-brand', 'hover:text-brand-light');
+        }
+      });
+    }
+
+    // Re-run active transform on input change
+    inputEl.addEventListener('input', () => {
+      if (activeAction) applyTransform(activeAction);
+    });
+
+    document.querySelectorAll('.transform-btn').forEach(btn => {
+      btn.addEventListener('click', () => applyTransform(btn.dataset.action));
+    });
+
+    // ── Copy ───────────────────────────────────────────────────────────────
+    copyBtn.addEventListener('click', async () => {
+      const text = outputEl.value;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+    });
+
+    // ── Download ───────────────────────────────────────────────────────────
+    dlBtn.addEventListener('click', () => {
+      const text = outputEl.value;
+      if (!text) return;
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'converted-text.txt';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  </script>
+</body>
+</html>

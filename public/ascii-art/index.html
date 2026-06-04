@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASCII Art Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    #ascii-output {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 7px;
+      line-height: 1.0;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    #banner-output {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      line-height: 1.15;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .tab-active {
+      background: var(--color-brand);
+      color: white;
+    }
+    .tab-inactive {
+      background: var(--color-surface-light);
+      color: #9ca3af;
+    }
+    .tab-inactive:hover {
+      color: #e5e7eb;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">ASCII Art Generator</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Tab switcher -->
+    <div class="flex rounded-lg border border-surface-lighter overflow-hidden">
+      <button id="tab-image" class="flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center tab-active">Image to ASCII</button>
+      <button id="tab-banner" class="flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center tab-inactive">Text to Banner</button>
+    </div>
+
+    <!-- ===== TAB 1: Image to ASCII ===== -->
+    <div id="panel-image" class="flex flex-col gap-6">
+
+      <!-- Drop zone -->
+      <div id="drop-zone" class="bg-surface-light border-2 border-dashed border-surface-lighter rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition hover:border-brand group">
+        <div class="text-4xl text-gray-500 group-hover:text-brand-light transition select-none">&#128444;</div>
+        <p class="text-sm text-gray-400 group-hover:text-gray-300 transition text-center">Drag &amp; drop an image here, or <span class="text-brand-light underline cursor-pointer">click to select</span></p>
+        <p class="text-xs text-gray-600">PNG, JPEG, WebP, GIF, BMP — processed locally</p>
+        <input type="file" id="image-input" accept="image/*" class="hidden">
+      </div>
+
+      <!-- Controls -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <!-- Width -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label for="img-width" class="text-sm font-medium text-gray-300">Output Width (chars)</label>
+              <span id="img-width-value" class="text-sm font-mono text-brand-light">100</span>
+            </div>
+            <input type="range" id="img-width" min="40" max="200" value="100" class="w-full">
+          </div>
+
+          <!-- Charset -->
+          <div>
+            <label class="text-sm font-medium text-gray-300 mb-2 block">Character Ramp</label>
+            <select id="charset-select" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+              <option value="standard">Standard ( .:-=+*#%@)</option>
+              <option value="dense">Dense (Detailed)</option>
+              <option value="blocks">Block Chars</option>
+              <option value="minimal">Minimal (. o O #)</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Custom charset -->
+        <div id="custom-charset-row" class="hidden">
+          <label class="text-sm font-medium text-gray-300 mb-2 block">Custom Character Ramp <span class="text-xs text-gray-500">(light → dark)</span></label>
+          <input type="text" id="custom-charset" value=" .:-=+*#%@" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm font-mono text-gray-100 focus:border-brand focus:outline-none">
+        </div>
+
+        <!-- Toggles row -->
+        <div class="flex flex-wrap gap-4 border-t border-surface-lighter pt-4">
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" id="opt-invert" class="w-4 h-4 rounded border-surface-lighter accent-brand cursor-pointer">
+            <span class="text-sm text-gray-300">Invert</span>
+          </label>
+          <label class="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" id="opt-color" class="w-4 h-4 rounded border-surface-lighter accent-brand cursor-pointer">
+            <span class="text-sm text-gray-300">Color (HTML preview)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div id="img-error" class="hidden bg-err/10 border border-err/30 rounded-xl p-4 text-sm text-err"></div>
+
+      <!-- Spinner -->
+      <div id="img-spinner" class="hidden flex justify-center items-center py-8">
+        <div class="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin"></div>
+        <span class="ml-3 text-sm text-gray-400">Processing image…</span>
+      </div>
+
+      <!-- Output area -->
+      <div id="img-output-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs text-gray-500" id="img-info"></span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="btn-copy-text" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy Text</button>
+            <button id="btn-copy-html" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer hidden">Copy HTML</button>
+            <button id="btn-download-txt" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Download .txt</button>
+          </div>
+        </div>
+        <!-- plain text output -->
+        <div id="ascii-text-wrap" class="bg-surface rounded-lg p-3 overflow-auto max-h-[600px]">
+          <pre id="ascii-output" class="text-gray-300"></pre>
+        </div>
+        <!-- color html output -->
+        <div id="ascii-color-wrap" class="hidden bg-surface rounded-lg p-3 overflow-auto max-h-[600px]">
+          <pre id="ascii-color-output" class="font-mono" style="font-size:7px;line-height:1.0;white-space:pre;"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB 2: Text to Banner ===== -->
+    <div id="panel-banner" class="hidden flex flex-col gap-6">
+
+      <!-- Input -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+        <div>
+          <label for="banner-text" class="text-sm font-medium text-gray-300 mb-2 block">Text</label>
+          <input type="text" id="banner-text" value="HELLO" maxlength="20" placeholder="Enter text (max 20 chars)" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm font-mono text-gray-100 focus:border-brand focus:outline-none">
+          <p class="text-xs text-gray-600 mt-1">Supports A–Z, 0–9, and some punctuation. Max 20 characters.</p>
+        </div>
+
+        <!-- Style selector -->
+        <div>
+          <label class="text-sm font-medium text-gray-300 mb-2 block">Style</label>
+          <div class="flex rounded-lg border border-surface-lighter overflow-hidden">
+            <button id="banner-style-block" data-style="block" class="flex-1 px-4 py-2 text-sm font-medium transition cursor-pointer text-center tab-active">Block</button>
+            <button id="banner-style-thin" data-style="thin" class="flex-1 px-4 py-2 text-sm font-medium transition cursor-pointer text-center tab-inactive">Thin</button>
+            <button id="banner-style-shadow" data-style="shadow" class="flex-1 px-4 py-2 text-sm font-medium transition cursor-pointer text-center tab-inactive">Shadow</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="banner-error" class="hidden bg-err/10 border border-err/30 rounded-xl p-4 text-sm text-err"></div>
+
+      <!-- Output -->
+      <div id="banner-output-card" class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs text-gray-500">ASCII Banner</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="btn-copy-banner" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+            <button id="btn-download-banner" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Download .txt</button>
+          </div>
+        </div>
+        <div class="bg-surface rounded-lg p-3 overflow-auto max-h-[600px]">
+          <pre id="banner-output" class="text-gray-300"></pre>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Hidden canvas for image processing -->
+  <canvas id="work-canvas" class="hidden"></canvas>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // =========================================================
+    // TAB SWITCHING
+    // =========================================================
+    const tabImage = document.getElementById('tab-image');
+    const tabBanner = document.getElementById('tab-banner');
+    const panelImage = document.getElementById('panel-image');
+    const panelBanner = document.getElementById('panel-banner');
+
+    function setTab(tab) {
+      if (tab === 'image') {
+        tabImage.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center tab-active';
+        tabBanner.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center tab-inactive';
+        panelImage.classList.remove('hidden');
+        panelBanner.classList.add('hidden');
+      } else {
+        tabBanner.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center tab-active';
+        tabImage.className = 'flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer text-center tab-inactive';
+        panelBanner.classList.remove('hidden');
+        panelImage.classList.add('hidden');
+      }
+    }
+
+    tabImage.addEventListener('click', () => setTab('image'));
+    tabBanner.addEventListener('click', () => setTab('banner'));
+
+    // =========================================================
+    // IMAGE → ASCII
+    // =========================================================
+    const dropZone = document.getElementById('drop-zone');
+    const imageInput = document.getElementById('image-input');
+    const imgWidthSlider = document.getElementById('img-width');
+    const imgWidthValue = document.getElementById('img-width-value');
+    const charsetSelect = document.getElementById('charset-select');
+    const customCharsetRow = document.getElementById('custom-charset-row');
+    const customCharsetInput = document.getElementById('custom-charset');
+    const optInvert = document.getElementById('opt-invert');
+    const optColor = document.getElementById('opt-color');
+    const imgError = document.getElementById('img-error');
+    const imgSpinner = document.getElementById('img-spinner');
+    const imgOutputCard = document.getElementById('img-output-card');
+    const imgInfo = document.getElementById('img-info');
+    const asciiOutput = document.getElementById('ascii-output');
+    const asciiColorOutput = document.getElementById('ascii-color-output');
+    const asciiTextWrap = document.getElementById('ascii-text-wrap');
+    const asciiColorWrap = document.getElementById('ascii-color-wrap');
+    const btnCopyText = document.getElementById('btn-copy-text');
+    const btnCopyHtml = document.getElementById('btn-copy-html');
+    const btnDownloadTxt = document.getElementById('btn-download-txt');
+    const workCanvas = document.getElementById('work-canvas');
+    const ctx = workCanvas.getContext('2d');
+
+    const CHARSETS = {
+      standard: ' .:-=+*#%@',
+      dense: ' `.\'^",:;Il!i><~+_-?][}{)(|/\\tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
+      blocks: ' ░▒▓█',
+      minimal: ' .oO#'
+    };
+
+    let currentImage = null;
+    let lastAsciiText = '';
+    let lastAsciiHtml = '';
+
+    // Character aspect ratio correction: typical monospace chars are ~0.5 wide/tall
+    // So we need to sample fewer rows relative to cols
+    const CHAR_ASPECT = 0.55; // width/height of a monospace char
+
+    function getCharset() {
+      const sel = charsetSelect.value;
+      if (sel === 'custom') {
+        return customCharsetInput.value || ' .:-=+*#%@';
+      }
+      return CHARSETS[sel] || CHARSETS.standard;
+    }
+
+    function showImgError(msg) {
+      imgError.textContent = msg;
+      imgError.classList.remove('hidden');
+    }
+    function hideImgError() {
+      imgError.classList.add('hidden');
+    }
+
+    function processImage(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        showImgError('Please select a valid image file (PNG, JPEG, WebP, GIF, BMP).');
+        return;
+      }
+      hideImgError();
+      imgOutputCard.classList.add('hidden');
+      imgSpinner.classList.remove('hidden');
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          currentImage = img;
+          // use setTimeout to allow spinner to render
+          setTimeout(() => renderAscii(), 50);
+        };
+        img.onerror = () => {
+          imgSpinner.classList.add('hidden');
+          showImgError('Failed to load image. The file may be corrupted or unsupported.');
+        };
+        img.src = e.target.result;
+      };
+      reader.onerror = () => {
+        imgSpinner.classList.add('hidden');
+        showImgError('Failed to read file.');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderAscii() {
+      if (!currentImage) return;
+      imgSpinner.classList.remove('hidden');
+      imgOutputCard.classList.add('hidden');
+
+      const outCols = parseInt(imgWidthSlider.value, 10);
+      // For each character column, sample the image. Characters are taller than wide
+      // so we need fewer rows: rows = cols * (imgHeight/imgWidth) * CHAR_ASPECT
+      const imgW = currentImage.naturalWidth;
+      const imgH = currentImage.naturalHeight;
+      const outRows = Math.max(1, Math.round(outCols * (imgH / imgW) * CHAR_ASPECT));
+
+      workCanvas.width = outCols;
+      workCanvas.height = outRows;
+      ctx.drawImage(currentImage, 0, 0, outCols, outRows);
+
+      let imageData;
+      try {
+        imageData = ctx.getImageData(0, 0, outCols, outRows);
+      } catch (err) {
+        imgSpinner.classList.add('hidden');
+        showImgError('Unable to read image pixel data (cross-origin restriction). Try a locally-loaded file.');
+        return;
+      }
+
+      const data = imageData.data;
+      const charset = getCharset();
+      const invert = optInvert.checked;
+      const useColor = optColor.checked;
+
+      const charLen = charset.length;
+      let textLines = [];
+      let htmlLines = [];
+
+      for (let row = 0; row < outRows; row++) {
+        let textRow = '';
+        let htmlRow = '';
+
+        for (let col = 0; col < outCols; col++) {
+          const idx = (row * outCols + col) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          // Luminance (perceived brightness)
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+          let normalized = lum / 255; // 0=dark, 1=bright
+          if (invert) normalized = 1 - normalized;
+
+          const charIdx = Math.min(charLen - 1, Math.floor(normalized * charLen));
+          const ch = charset[charIdx];
+          textRow += ch;
+
+          if (useColor) {
+            // Escape HTML special chars
+            const safeChar = ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '&' ? '&amp;' : ch;
+            htmlRow += `<span style="color:rgb(${r},${g},${b})">${safeChar}</span>`;
+          }
+        }
+
+        textLines.push(textRow);
+        if (useColor) htmlLines.push(htmlRow);
+      }
+
+      lastAsciiText = textLines.join('\n');
+
+      if (useColor) {
+        lastAsciiHtml = `<pre style="font-family:'Courier New',Courier,monospace;font-size:7px;line-height:1.0;white-space:pre;background:#0f172a;padding:8px;">${htmlLines.join('\n')}</pre>`;
+        asciiColorOutput.innerHTML = htmlLines.join('\n');
+        asciiTextWrap.classList.add('hidden');
+        asciiColorWrap.classList.remove('hidden');
+        btnCopyHtml.classList.remove('hidden');
+      } else {
+        asciiOutput.textContent = lastAsciiText;
+        asciiTextWrap.classList.remove('hidden');
+        asciiColorWrap.classList.add('hidden');
+        btnCopyHtml.classList.add('hidden');
+      }
+
+      imgInfo.textContent = `${outCols}×${outRows} characters — original ${imgW}×${imgH}px`;
+      imgSpinner.classList.add('hidden');
+      imgOutputCard.classList.remove('hidden');
+    }
+
+    // Drop zone events
+    dropZone.addEventListener('click', () => imageInput.click());
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('border-brand');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-brand');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand');
+      const file = e.dataTransfer.files[0];
+      if (file) processImage(file);
+    });
+    imageInput.addEventListener('change', () => {
+      if (imageInput.files[0]) processImage(imageInput.files[0]);
+    });
+
+    // Control changes re-render
+    imgWidthSlider.addEventListener('input', () => {
+      imgWidthValue.textContent = imgWidthSlider.value;
+      if (currentImage) renderAscii();
+    });
+    charsetSelect.addEventListener('change', () => {
+      if (charsetSelect.value === 'custom') {
+        customCharsetRow.classList.remove('hidden');
+      } else {
+        customCharsetRow.classList.add('hidden');
+      }
+      if (currentImage) renderAscii();
+    });
+    customCharsetInput.addEventListener('input', () => {
+      if (currentImage) renderAscii();
+    });
+    optInvert.addEventListener('change', () => { if (currentImage) renderAscii(); });
+    optColor.addEventListener('change', () => { if (currentImage) renderAscii(); });
+
+    // Copy as text
+    btnCopyText.addEventListener('click', async () => {
+      if (!lastAsciiText) return;
+      try {
+        await navigator.clipboard.writeText(lastAsciiText);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = lastAsciiText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopyText.textContent;
+      btnCopyText.textContent = 'Copied!';
+      setTimeout(() => { btnCopyText.textContent = orig; }, 1500);
+    });
+
+    // Copy as HTML
+    btnCopyHtml.addEventListener('click', async () => {
+      if (!lastAsciiHtml) return;
+      try {
+        await navigator.clipboard.writeText(lastAsciiHtml);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = lastAsciiHtml;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopyHtml.textContent;
+      btnCopyHtml.textContent = 'Copied!';
+      setTimeout(() => { btnCopyHtml.textContent = orig; }, 1500);
+    });
+
+    // Download .txt
+    btnDownloadTxt.addEventListener('click', () => {
+      if (!lastAsciiText) return;
+      const blob = new Blob([lastAsciiText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ascii-art.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // =========================================================
+    // TEXT → BANNER
+    // =========================================================
+
+    // Built-in 5×7 block font (each char is 5 cols wide, 7 rows tall)
+    // Encoded as array of 7 strings, each 5 chars wide ('X' = filled, ' ' = empty)
+    const BLOCK_FONT = {
+      'A': [
+        ' XXX ',
+        'X   X',
+        'X   X',
+        'XXXXX',
+        'X   X',
+        'X   X',
+        'X   X',
+      ],
+      'B': [
+        'XXXX ',
+        'X   X',
+        'X   X',
+        'XXXX ',
+        'X   X',
+        'X   X',
+        'XXXX ',
+      ],
+      'C': [
+        ' XXXX',
+        'X    ',
+        'X    ',
+        'X    ',
+        'X    ',
+        'X    ',
+        ' XXXX',
+      ],
+      'D': [
+        'XXXX ',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        'XXXX ',
+      ],
+      'E': [
+        'XXXXX',
+        'X    ',
+        'X    ',
+        'XXXX ',
+        'X    ',
+        'X    ',
+        'XXXXX',
+      ],
+      'F': [
+        'XXXXX',
+        'X    ',
+        'X    ',
+        'XXXX ',
+        'X    ',
+        'X    ',
+        'X    ',
+      ],
+      'G': [
+        ' XXXX',
+        'X    ',
+        'X    ',
+        'X  XX',
+        'X   X',
+        'X   X',
+        ' XXXX',
+      ],
+      'H': [
+        'X   X',
+        'X   X',
+        'X   X',
+        'XXXXX',
+        'X   X',
+        'X   X',
+        'X   X',
+      ],
+      'I': [
+        'XXXXX',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        'XXXXX',
+      ],
+      'J': [
+        'XXXXX',
+        '   X ',
+        '   X ',
+        '   X ',
+        '   X ',
+        'X  X ',
+        ' XX  ',
+      ],
+      'K': [
+        'X   X',
+        'X  X ',
+        'X X  ',
+        'XX   ',
+        'X X  ',
+        'X  X ',
+        'X   X',
+      ],
+      'L': [
+        'X    ',
+        'X    ',
+        'X    ',
+        'X    ',
+        'X    ',
+        'X    ',
+        'XXXXX',
+      ],
+      'M': [
+        'X   X',
+        'XX XX',
+        'X X X',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+      ],
+      'N': [
+        'X   X',
+        'XX  X',
+        'X X X',
+        'X  XX',
+        'X   X',
+        'X   X',
+        'X   X',
+      ],
+      'O': [
+        ' XXX ',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        ' XXX ',
+      ],
+      'P': [
+        'XXXX ',
+        'X   X',
+        'X   X',
+        'XXXX ',
+        'X    ',
+        'X    ',
+        'X    ',
+      ],
+      'Q': [
+        ' XXX ',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X X X',
+        'X  XX',
+        ' XXXX',
+      ],
+      'R': [
+        'XXXX ',
+        'X   X',
+        'X   X',
+        'XXXX ',
+        'X X  ',
+        'X  X ',
+        'X   X',
+      ],
+      'S': [
+        ' XXXX',
+        'X    ',
+        'X    ',
+        ' XXX ',
+        '    X',
+        '    X',
+        'XXXX ',
+      ],
+      'T': [
+        'XXXXX',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+      ],
+      'U': [
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        ' XXX ',
+      ],
+      'V': [
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        ' X X ',
+        ' X X ',
+        '  X  ',
+      ],
+      'W': [
+        'X   X',
+        'X   X',
+        'X   X',
+        'X   X',
+        'X X X',
+        'XX XX',
+        'X   X',
+      ],
+      'X': [
+        'X   X',
+        'X   X',
+        ' X X ',
+        '  X  ',
+        ' X X ',
+        'X   X',
+        'X   X',
+      ],
+      'Y': [
+        'X   X',
+        'X   X',
+        ' X X ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+      ],
+      'Z': [
+        'XXXXX',
+        '    X',
+        '   X ',
+        '  X  ',
+        ' X   ',
+        'X    ',
+        'XXXXX',
+      ],
+      '0': [
+        ' XXX ',
+        'X  XX',
+        'X  XX',
+        'X X X',
+        'XX  X',
+        'XX  X',
+        ' XXX ',
+      ],
+      '1': [
+        ' XX  ',
+        'X X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        'XXXXX',
+      ],
+      '2': [
+        ' XXX ',
+        'X   X',
+        '    X',
+        '  XX ',
+        ' X   ',
+        'X    ',
+        'XXXXX',
+      ],
+      '3': [
+        'XXXX ',
+        '    X',
+        '    X',
+        ' XXX ',
+        '    X',
+        '    X',
+        'XXXX ',
+      ],
+      '4': [
+        '   X ',
+        '  XX ',
+        ' X X ',
+        'X  X ',
+        'XXXXX',
+        '   X ',
+        '   X ',
+      ],
+      '5': [
+        'XXXXX',
+        'X    ',
+        'X    ',
+        'XXXX ',
+        '    X',
+        '    X',
+        'XXXX ',
+      ],
+      '6': [
+        ' XXX ',
+        'X    ',
+        'X    ',
+        'XXXX ',
+        'X   X',
+        'X   X',
+        ' XXX ',
+      ],
+      '7': [
+        'XXXXX',
+        '    X',
+        '   X ',
+        '  X  ',
+        ' X   ',
+        ' X   ',
+        ' X   ',
+      ],
+      '8': [
+        ' XXX ',
+        'X   X',
+        'X   X',
+        ' XXX ',
+        'X   X',
+        'X   X',
+        ' XXX ',
+      ],
+      '9': [
+        ' XXX ',
+        'X   X',
+        'X   X',
+        ' XXXX',
+        '    X',
+        '    X',
+        ' XXX ',
+      ],
+      ' ': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+      ],
+      '!': [
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '  X  ',
+        '     ',
+        '  X  ',
+      ],
+      '?': [
+        ' XXX ',
+        'X   X',
+        '    X',
+        '  XX ',
+        '  X  ',
+        '     ',
+        '  X  ',
+      ],
+      '.': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        ' XX  ',
+        ' XX  ',
+      ],
+      ',': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        ' XX  ',
+        ' X   ',
+        'X    ',
+      ],
+      '-': [
+        '     ',
+        '     ',
+        '     ',
+        'XXXXX',
+        '     ',
+        '     ',
+        '     ',
+      ],
+      '+': [
+        '     ',
+        '  X  ',
+        '  X  ',
+        'XXXXX',
+        '  X  ',
+        '  X  ',
+        '     ',
+      ],
+      ':': [
+        '     ',
+        ' XX  ',
+        ' XX  ',
+        '     ',
+        ' XX  ',
+        ' XX  ',
+        '     ',
+      ],
+      '/': [
+        '    X',
+        '   X ',
+        '   X ',
+        '  X  ',
+        ' X   ',
+        ' X   ',
+        'X    ',
+      ],
+      '#': [
+        ' X X ',
+        ' X X ',
+        'XXXXX',
+        ' X X ',
+        'XXXXX',
+        ' X X ',
+        ' X X ',
+      ],
+      '@': [
+        ' XXX ',
+        'X   X',
+        'X XXX',
+        'X X X',
+        'X XXX',
+        'X    ',
+        ' XXXX',
+      ],
+      '(': [
+        '  X  ',
+        ' X   ',
+        'X    ',
+        'X    ',
+        'X    ',
+        ' X   ',
+        '  X  ',
+      ],
+      ')': [
+        '  X  ',
+        '   X ',
+        '    X',
+        '    X',
+        '    X',
+        '   X ',
+        '  X  ',
+      ],
+      '_': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        'XXXXX',
+      ],
+      '&': [
+        ' XX  ',
+        'X  X ',
+        'X  X ',
+        ' XX  ',
+        'X  X ',
+        'X   X',
+        ' XX X',
+      ],
+      '*': [
+        '     ',
+        'X X X',
+        ' XXX ',
+        'XXXXX',
+        ' XXX ',
+        'X X X',
+        '     ',
+      ],
+    };
+
+    // Thin font variant (uses different fill chars)
+    // We'll use the same shapes but render with different chars
+    // Block style: fill=█, bg=
+    // Thin style: fill=*, bg=
+    // Shadow style: fill=#, with a shadow offset
+
+    const FONT_STYLES = {
+      block: { fill: '█', bg: ' ' },
+      thin:  { fill: '+', bg: ' ' },
+      shadow: { fill: '#', bg: ' ', shadow: '.', shadowOff: [1, 1] }
+    };
+
+    let currentBannerStyle = 'block';
+
+    function renderBanner(text, style) {
+      const upperText = text.toUpperCase().slice(0, 20);
+      if (!upperText.trim()) return '';
+
+      const fontStyle = FONT_STYLES[style] || FONT_STYLES.block;
+      const ROWS = 7;
+      const COL_GAP = 1; // 1 space between characters
+
+      // For shadow: we need extra rows/cols
+      const shadowOff = (style === 'shadow') ? [1, 1] : [0, 0];
+      const totalRows = ROWS + shadowOff[1];
+
+      // Build a 2D grid
+      const chars = upperText.split('');
+      const totalCols = chars.reduce((sum, ch) => {
+        const glyph = BLOCK_FONT[ch] || BLOCK_FONT['?'];
+        return sum + glyph[0].length + COL_GAP;
+      }, 0) + shadowOff[0];
+
+      // Initialize grid with bg
+      const grid = Array.from({ length: totalRows }, () => Array(totalCols).fill(fontStyle.bg));
+
+      let colOffset = 0;
+      for (const ch of chars) {
+        const glyph = BLOCK_FONT[ch] || BLOCK_FONT['?'];
+        const glyphW = glyph[0].length;
+
+        if (style === 'shadow') {
+          // Draw shadow first (bottom-right shifted)
+          for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < glyphW; c++) {
+              if (glyph[r][c] === 'X') {
+                const gr = r + shadowOff[1];
+                const gc = colOffset + c + shadowOff[0];
+                if (gr < totalRows && gc < totalCols) {
+                  grid[gr][gc] = fontStyle.shadow || '.';
+                }
+              }
+            }
+          }
+          // Draw main char on top
+          for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < glyphW; c++) {
+              if (glyph[r][c] === 'X') {
+                grid[r][colOffset + c] = fontStyle.fill;
+              }
+            }
+          }
+        } else {
+          for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < glyphW; c++) {
+              grid[r][colOffset + c] = glyph[r][c] === 'X' ? fontStyle.fill : fontStyle.bg;
+            }
+          }
+        }
+
+        colOffset += glyphW + COL_GAP;
+      }
+
+      return grid.map(row => row.join('')).join('\n');
+    }
+
+    function updateBanner() {
+      const text = document.getElementById('banner-text').value;
+      const bannerError = document.getElementById('banner-error');
+
+      if (!text.trim()) {
+        bannerError.textContent = 'Please enter some text.';
+        bannerError.classList.remove('hidden');
+        document.getElementById('banner-output').textContent = '';
+        return;
+      }
+      bannerError.classList.add('hidden');
+
+      const result = renderBanner(text, currentBannerStyle);
+      document.getElementById('banner-output').textContent = result;
+    }
+
+    // Banner style tabs
+    document.querySelectorAll('[data-style]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentBannerStyle = btn.dataset.style;
+        document.querySelectorAll('[data-style]').forEach(b => {
+          b.className = b === btn
+            ? 'flex-1 px-4 py-2 text-sm font-medium transition cursor-pointer text-center tab-active'
+            : 'flex-1 px-4 py-2 text-sm font-medium transition cursor-pointer text-center tab-inactive';
+        });
+        updateBanner();
+      });
+    });
+
+    document.getElementById('banner-text').addEventListener('input', updateBanner);
+
+    // Copy banner
+    document.getElementById('btn-copy-banner').addEventListener('click', async () => {
+      const text = document.getElementById('banner-output').textContent;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const btn = document.getElementById('btn-copy-banner');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+
+    // Download banner
+    document.getElementById('btn-download-banner').addEventListener('click', () => {
+      const text = document.getElementById('banner-output').textContent;
+      if (!text) return;
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ascii-banner.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Initialize banner on load
+    updateBanner();
+
+  })();
+  </script>
+</body>
+</html>

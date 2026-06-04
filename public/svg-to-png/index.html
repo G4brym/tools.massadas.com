@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG to PNG / JPEG Rasterizer — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    .checkerboard {
+      background-image:
+        linear-gradient(45deg, #374151 25%, transparent 25%),
+        linear-gradient(-45deg, #374151 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #374151 75%),
+        linear-gradient(-45deg, transparent 75%, #374151 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+      background-color: #1f2937;
+    }
+    .drag-over {
+      border-color: var(--color-brand) !important;
+      background-color: rgba(99, 102, 241, 0.08) !important;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">SVG to PNG / JPEG Rasterizer</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Input area -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold text-gray-300">Input SVG</h2>
+
+      <!-- Drag & drop zone -->
+      <div
+        id="drop-zone"
+        class="border-2 border-dashed border-surface-lighter rounded-lg p-8 text-center cursor-pointer transition hover:border-brand hover:bg-brand/5 flex flex-col items-center gap-2"
+      >
+        <svg class="w-10 h-10 text-gray-600 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+        <p class="text-sm text-gray-400">Drop an <span class="text-brand-light font-medium">.svg</span> file here</p>
+        <p class="text-xs text-gray-600">or</p>
+        <button
+          id="btn-browse"
+          class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer"
+        >Browse file</button>
+        <input type="file" id="file-input" accept=".svg,image/svg+xml" class="hidden">
+        <p id="file-name" class="text-xs text-gray-500 hidden"></p>
+      </div>
+
+      <!-- Or paste SVG -->
+      <div class="flex flex-col gap-2">
+        <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Or paste SVG markup</label>
+        <textarea
+          id="svg-input"
+          rows="6"
+          placeholder='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">...</svg>'
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono resize-y placeholder-gray-600"
+        ></textarea>
+        <div class="flex gap-2">
+          <button id="btn-load" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Load SVG</button>
+          <button id="btn-clear" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Clear</button>
+        </div>
+      </div>
+
+      <!-- Error display -->
+      <div id="error-box" class="hidden bg-err/10 border border-err/40 rounded-lg px-4 py-3 text-sm text-red-300"></div>
+    </div>
+
+    <!-- Preview -->
+    <div id="preview-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-300">SVG Preview</h2>
+        <span id="svg-dims" class="text-xs text-gray-500 font-mono"></span>
+      </div>
+      <div id="preview-container" class="checkerboard rounded-lg overflow-hidden flex items-center justify-center min-h-[120px] max-h-[280px]">
+        <img id="preview-img" alt="SVG Preview" class="max-w-full max-h-[280px] object-contain">
+      </div>
+    </div>
+
+    <!-- Export controls -->
+    <div id="controls-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+      <h2 class="text-sm font-semibold text-gray-300">Export Settings</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <!-- Format -->
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Output Format</label>
+          <div class="flex rounded-lg border border-surface-lighter overflow-hidden">
+            <button data-fmt="png"  class="fmt-btn flex-1 px-3 py-2 text-sm font-medium bg-brand text-white transition cursor-pointer text-center">PNG</button>
+            <button data-fmt="jpeg" class="fmt-btn flex-1 px-3 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center">JPEG</button>
+            <button data-fmt="webp" class="fmt-btn flex-1 px-3 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center">WebP</button>
+          </div>
+        </div>
+
+        <!-- Scale -->
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Scale</label>
+            <span id="scale-value" class="text-xs font-mono text-brand-light">2×</span>
+          </div>
+          <input type="range" id="scale-slider" min="1" max="8" step="0.5" value="2" class="w-full">
+          <div class="flex justify-between text-[10px] text-gray-600">
+            <span>1×</span><span>4×</span><span>8×</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explicit dimensions -->
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Explicit Dimensions (optional)</label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="lock-aspect" checked class="w-3.5 h-3.5 rounded accent-brand cursor-pointer">
+            <span class="text-xs text-gray-400">Lock aspect ratio</span>
+          </label>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex-1 flex flex-col gap-1">
+            <label for="width-input" class="text-xs text-gray-500">Width (px)</label>
+            <input type="number" id="width-input" min="1" max="16384" placeholder="auto"
+              class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none w-full">
+          </div>
+          <div class="flex items-end pb-2">
+            <svg class="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6"/></svg>
+          </div>
+          <div class="flex-1 flex flex-col gap-1">
+            <label for="height-input" class="text-xs text-gray-500">Height (px)</label>
+            <input type="number" id="height-input" min="1" max="16384" placeholder="auto"
+              class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none w-full">
+          </div>
+        </div>
+        <p class="text-xs text-gray-600">Leave both blank to use scale multiplier. Fill one to lock aspect ratio, or fill both to stretch freely.</p>
+      </div>
+
+      <!-- Background color (hidden for PNG/WebP when transparent is selected) -->
+      <div class="flex flex-col gap-3">
+        <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Background</label>
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Transparent toggle (PNG/WebP only) -->
+          <label id="transparent-option" class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="transparent-bg" checked class="w-3.5 h-3.5 rounded accent-brand cursor-pointer">
+            <span class="text-xs text-gray-300">Transparent (PNG/WebP)</span>
+          </label>
+          <!-- Color picker -->
+          <div id="bg-color-picker" class="hidden flex items-center gap-2">
+            <input type="color" id="bg-color" value="#ffffff"
+              class="w-8 h-8 rounded cursor-pointer border border-surface-lighter bg-surface p-0.5">
+            <span class="text-xs text-gray-400">Background color</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quality slider (JPEG/WebP only) -->
+      <div id="quality-section" class="hidden flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-400 uppercase tracking-wide">Quality</label>
+          <span id="quality-value" class="text-xs font-mono text-brand-light">85%</span>
+        </div>
+        <input type="range" id="quality-slider" min="10" max="100" step="5" value="85" class="w-full">
+        <div class="flex justify-between text-[10px] text-gray-600">
+          <span>10%</span><span>55%</span><span>100%</span>
+        </div>
+      </div>
+
+      <!-- Render button -->
+      <button id="btn-render" class="px-5 py-2.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start">
+        Render Image
+      </button>
+    </div>
+
+    <!-- Output -->
+    <div id="output-section" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h2 class="text-sm font-semibold text-gray-300">Output</h2>
+        <div id="output-meta" class="flex items-center gap-3 text-xs text-gray-500 font-mono"></div>
+      </div>
+
+      <!-- Spinner -->
+      <div id="spinner" class="hidden flex items-center gap-3 py-6 justify-center">
+        <svg class="animate-spin w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="text-sm text-gray-400">Rendering…</span>
+      </div>
+
+      <!-- Output preview -->
+      <div id="output-preview-wrap" class="hidden checkerboard rounded-lg overflow-hidden flex items-center justify-center min-h-[80px] max-h-[360px]">
+        <img id="output-img" alt="Rendered output" class="max-w-full max-h-[360px] object-contain">
+      </div>
+
+      <!-- Download button -->
+      <div id="download-wrap" class="hidden flex gap-3 flex-wrap">
+        <a id="btn-download" href="#" download="image.png"
+          class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer inline-block">
+          Download
+        </a>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────
+    let svgMarkup = '';          // current SVG source
+    let intrinsicW = 0;
+    let intrinsicH = 0;
+    let currentFormat = 'png';
+    let blobUrl = null;          // last rendered blob URL (revoke on re-render)
+
+    // ── DOM refs ───────────────────────────────────────────────────────────
+    const dropZone       = document.getElementById('drop-zone');
+    const fileInput      = document.getElementById('file-input');
+    const btnBrowse      = document.getElementById('btn-browse');
+    const fileNameEl     = document.getElementById('file-name');
+    const svgInputEl     = document.getElementById('svg-input');
+    const btnLoad        = document.getElementById('btn-load');
+    const btnClear       = document.getElementById('btn-clear');
+    const errorBox       = document.getElementById('error-box');
+
+    const previewSection = document.getElementById('preview-section');
+    const previewImg     = document.getElementById('preview-img');
+    const svgDims        = document.getElementById('svg-dims');
+    const previewContainer = document.getElementById('preview-container');
+
+    const controlsSection = document.getElementById('controls-section');
+    const fmtBtns         = document.querySelectorAll('.fmt-btn');
+    const scaleSlider     = document.getElementById('scale-slider');
+    const scaleValue      = document.getElementById('scale-value');
+    const widthInput      = document.getElementById('width-input');
+    const heightInput     = document.getElementById('height-input');
+    const lockAspect      = document.getElementById('lock-aspect');
+    const transparentOpt  = document.getElementById('transparent-option');
+    const transparentBg   = document.getElementById('transparent-bg');
+    const bgColorPicker   = document.getElementById('bg-color-picker');
+    const bgColor         = document.getElementById('bg-color');
+    const qualitySection  = document.getElementById('quality-section');
+    const qualitySlider   = document.getElementById('quality-slider');
+    const qualityValue    = document.getElementById('quality-value');
+    const btnRender       = document.getElementById('btn-render');
+
+    const outputSection       = document.getElementById('output-section');
+    const spinner             = document.getElementById('spinner');
+    const outputPreviewWrap   = document.getElementById('output-preview-wrap');
+    const outputImg           = document.getElementById('output-img');
+    const outputMeta          = document.getElementById('output-meta');
+    const downloadWrap        = document.getElementById('download-wrap');
+    const btnDownload         = document.getElementById('btn-download');
+
+    // ── Error helpers ──────────────────────────────────────────────────────
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+    function clearError() {
+      errorBox.textContent = '';
+      errorBox.classList.add('hidden');
+    }
+
+    // ── Parse SVG intrinsic size ───────────────────────────────────────────
+    function parseSVGSize(markup) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(markup, 'image/svg+xml');
+      const parseErr = doc.querySelector('parsererror');
+      if (parseErr) throw new Error('Invalid SVG: ' + (parseErr.textContent || 'parse error').slice(0, 120));
+
+      const svgEl = doc.documentElement;
+      let w = 0, h = 0;
+
+      // Try width/height attributes first
+      const wAttr = svgEl.getAttribute('width');
+      const hAttr = svgEl.getAttribute('height');
+      if (wAttr && hAttr) {
+        w = parseFloat(wAttr);
+        h = parseFloat(hAttr);
+      }
+
+      // Fallback / also check viewBox
+      const vb = svgEl.getAttribute('viewBox');
+      if (vb) {
+        const parts = vb.trim().split(/[\s,]+/);
+        if (parts.length === 4) {
+          const vbW = parseFloat(parts[2]);
+          const vbH = parseFloat(parts[3]);
+          if (!w || !h) { w = vbW; h = vbH; }
+        }
+      }
+
+      if (!w || !h || isNaN(w) || isNaN(h)) {
+        // Last resort: default
+        w = 300; h = 150;
+      }
+
+      return { w: Math.round(w), h: Math.round(h) };
+    }
+
+    // ── Load SVG into UI ───────────────────────────────────────────────────
+    function loadSVG(markup) {
+      clearError();
+      markup = markup.trim();
+      if (!markup) { showError('No SVG markup provided.'); return; }
+
+      // Basic sniff
+      if (!markup.includes('<svg') && !markup.startsWith('<?xml')) {
+        showError('This does not look like SVG markup. Please paste valid SVG or drop an .svg file.');
+        return;
+      }
+
+      let size;
+      try {
+        size = parseSVGSize(markup);
+      } catch (e) {
+        showError(e.message);
+        return;
+      }
+
+      svgMarkup = markup;
+      intrinsicW = size.w;
+      intrinsicH = size.h;
+
+      // Show preview
+      const blob = new Blob([markup], { type: 'image/svg+xml' });
+      const url  = URL.createObjectURL(blob);
+      previewImg.onload  = () => URL.revokeObjectURL(url);
+      previewImg.onerror = () => { URL.revokeObjectURL(url); showError('Browser could not render this SVG for preview.'); };
+      previewImg.src = url;
+      svgDims.textContent = `${intrinsicW} × ${intrinsicH} px (intrinsic)`;
+
+      previewSection.classList.remove('hidden');
+      controlsSection.classList.remove('hidden');
+
+      // Reset explicit dimension fields to reflect scale default
+      widthInput.value  = '';
+      heightInput.value = '';
+      updateScaleLabel();
+    }
+
+    // ── File handling ──────────────────────────────────────────────────────
+    function handleFile(file) {
+      if (!file) return;
+      if (!file.name.endsWith('.svg') && file.type !== 'image/svg+xml') {
+        showError('Please select an .svg file.'); return;
+      }
+      fileNameEl.textContent = `${file.name} (${formatBytes(file.size)})`;
+      fileNameEl.classList.remove('hidden');
+      const reader = new FileReader();
+      reader.onload = e => {
+        svgInputEl.value = e.target.result;
+        loadSVG(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+
+    // Drag & drop
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    dropZone.addEventListener('click', e => {
+      // Don't re-trigger if clicking the Browse button itself
+      if (e.target === btnBrowse || btnBrowse.contains(e.target)) return;
+      fileInput.click();
+    });
+    btnBrowse.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+    // Paste / load
+    btnLoad.addEventListener('click', () => loadSVG(svgInputEl.value));
+    btnClear.addEventListener('click', () => {
+      svgInputEl.value = '';
+      svgMarkup = '';
+      fileInput.value = '';
+      fileNameEl.classList.add('hidden');
+      fileNameEl.textContent = '';
+      previewSection.classList.add('hidden');
+      controlsSection.classList.add('hidden');
+      outputSection.classList.add('hidden');
+      clearError();
+    });
+
+    // Also auto-load when user pastes into textarea
+    svgInputEl.addEventListener('paste', () => {
+      setTimeout(() => { if (svgInputEl.value.trim()) loadSVG(svgInputEl.value); }, 0);
+    });
+
+    // ── Format buttons ─────────────────────────────────────────────────────
+    fmtBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentFormat = btn.dataset.fmt;
+        fmtBtns.forEach(b => {
+          if (b === btn) {
+            b.className = 'fmt-btn flex-1 px-3 py-2 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+          } else {
+            b.className = 'fmt-btn flex-1 px-3 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+          }
+        });
+        updateFormatUI();
+      });
+    });
+
+    function updateFormatUI() {
+      const isLossy = currentFormat === 'jpeg' || currentFormat === 'webp';
+      qualitySection.classList.toggle('hidden', !isLossy);
+      // JPEG always needs a background color
+      if (currentFormat === 'jpeg') {
+        transparentBg.checked = false;
+        transparentOpt.classList.add('opacity-40', 'pointer-events-none');
+        bgColorPicker.classList.remove('hidden');
+      } else {
+        transparentOpt.classList.remove('opacity-40', 'pointer-events-none');
+        updateBgUI();
+      }
+    }
+
+    function updateBgUI() {
+      if (currentFormat === 'jpeg') {
+        bgColorPicker.classList.remove('hidden');
+        return;
+      }
+      if (transparentBg.checked) {
+        bgColorPicker.classList.add('hidden');
+      } else {
+        bgColorPicker.classList.remove('hidden');
+      }
+    }
+
+    transparentBg.addEventListener('change', updateBgUI);
+
+    // ── Scale & dimensions ─────────────────────────────────────────────────
+    scaleSlider.addEventListener('input', () => {
+      updateScaleLabel();
+      // Clear explicit dimensions when slider is moved
+      widthInput.value  = '';
+      heightInput.value = '';
+    });
+
+    function updateScaleLabel() {
+      const v = parseFloat(scaleSlider.value);
+      scaleValue.textContent = v % 1 === 0 ? v + '×' : v.toFixed(1) + '×';
+    }
+
+    qualitySlider.addEventListener('input', () => {
+      qualityValue.textContent = qualitySlider.value + '%';
+    });
+
+    // Aspect ratio lock when typing dimensions
+    widthInput.addEventListener('input', () => {
+      if (lockAspect.checked && intrinsicW && intrinsicH && widthInput.value) {
+        const w = parseFloat(widthInput.value);
+        if (!isNaN(w) && w > 0) {
+          heightInput.value = Math.round(w * intrinsicH / intrinsicW);
+        }
+      }
+    });
+    heightInput.addEventListener('input', () => {
+      if (lockAspect.checked && intrinsicW && intrinsicH && heightInput.value) {
+        const h = parseFloat(heightInput.value);
+        if (!isNaN(h) && h > 0) {
+          widthInput.value = Math.round(h * intrinsicW / intrinsicH);
+        }
+      }
+    });
+
+    // ── Compute target dimensions ──────────────────────────────────────────
+    function computeTargetDims() {
+      const scale = parseFloat(scaleSlider.value);
+      let tw = parseFloat(widthInput.value)  || 0;
+      let th = parseFloat(heightInput.value) || 0;
+
+      if (tw > 0 && th > 0) {
+        // Both set — use as-is (user may want to stretch)
+        return { w: Math.round(tw), h: Math.round(th) };
+      } else if (tw > 0) {
+        // Only width
+        const h = intrinsicH > 0 ? Math.round(tw * intrinsicH / intrinsicW) : Math.round(tw);
+        return { w: Math.round(tw), h };
+      } else if (th > 0) {
+        // Only height
+        const w = intrinsicW > 0 ? Math.round(th * intrinsicW / intrinsicH) : Math.round(th);
+        return { w, h: Math.round(th) };
+      } else {
+        // Use scale multiplier
+        return { w: Math.round(intrinsicW * scale), h: Math.round(intrinsicH * scale) };
+      }
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────────
+    btnRender.addEventListener('click', renderImage);
+
+    function renderImage() {
+      if (!svgMarkup) { showError('Load an SVG first.'); return; }
+      clearError();
+
+      outputSection.classList.remove('hidden');
+      spinner.classList.remove('hidden');
+      outputPreviewWrap.classList.add('hidden');
+      downloadWrap.classList.add('hidden');
+      outputMeta.textContent = '';
+
+      const { w, h } = computeTargetDims();
+
+      if (w < 1 || h < 1 || w > 16384 || h > 16384) {
+        spinner.classList.add('hidden');
+        showError(`Invalid output dimensions: ${w}×${h}. Must be between 1 and 16384.`);
+        return;
+      }
+
+      // Build a data URL from the SVG (ensures cross-origin is not an issue)
+      const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl  = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(svgUrl);
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        // Background fill
+        const useTransparent = transparentBg.checked && currentFormat !== 'jpeg';
+        if (!useTransparent) {
+          ctx.fillStyle = bgColor.value;
+          ctx.fillRect(0, 0, w, h);
+        }
+
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const mimeType = currentFormat === 'jpeg' ? 'image/jpeg'
+                       : currentFormat === 'webp' ? 'image/webp'
+                       : 'image/png';
+        const quality  = (currentFormat === 'jpeg' || currentFormat === 'webp')
+                       ? parseFloat(qualitySlider.value) / 100
+                       : undefined;
+
+        canvas.toBlob(blob => {
+          if (!blob) {
+            spinner.classList.add('hidden');
+            showError('Failed to render image. Your browser may not support this format.');
+            return;
+          }
+
+          // Revoke previous blob URL
+          if (blobUrl) URL.revokeObjectURL(blobUrl);
+          blobUrl = URL.createObjectURL(blob);
+
+          const ext  = currentFormat === 'jpeg' ? 'jpg' : currentFormat;
+          const size = formatBytes(blob.size);
+
+          outputImg.src = blobUrl;
+          outputImg.onload = () => {
+            spinner.classList.add('hidden');
+            outputPreviewWrap.classList.remove('hidden');
+            downloadWrap.classList.remove('hidden');
+
+            btnDownload.href = blobUrl;
+            btnDownload.download = `image.${ext}`;
+            outputMeta.innerHTML =
+              `<span class="text-gray-400">${w} × ${h} px</span>` +
+              `<span class="text-gray-600">·</span>` +
+              `<span class="text-gray-400">${size}</span>` +
+              `<span class="text-gray-600">·</span>` +
+              `<span class="text-brand-light">${currentFormat.toUpperCase()}</span>`;
+          };
+        }, mimeType, quality);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(svgUrl);
+        spinner.classList.add('hidden');
+        showError('Browser could not load the SVG for rendering. Make sure the markup is valid.');
+      };
+
+      img.src = svgUrl;
+    }
+
+    // ── Utility ─────────────────────────────────────────────────────────────
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────────
+    updateScaleLabel();
+    updateFormatUI();
+  </script>
+</body>
+</html>

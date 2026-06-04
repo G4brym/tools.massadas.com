@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bcrypt Hash &amp; Verify — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Bcrypt Hash &amp; Verify</h1>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Section 1: Hash -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-base font-semibold text-gray-200">Hash a password</h2>
+
+      <!-- Password input -->
+      <div class="flex flex-col gap-1.5">
+        <label for="hash-input" class="text-sm font-medium text-gray-400">Password / string</label>
+        <input
+          type="password"
+          id="hash-input"
+          placeholder="Enter text to hash…"
+          autocomplete="off"
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono"
+        >
+        <label class="flex items-center gap-2 mt-1 cursor-pointer select-none w-fit">
+          <input type="checkbox" id="hash-show-toggle" class="accent-brand w-3.5 h-3.5 cursor-pointer">
+          <span class="text-xs text-gray-500">Show characters</span>
+        </label>
+      </div>
+
+      <!-- Cost factor slider -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label for="cost-slider" class="text-sm font-medium text-gray-400">Cost factor (rounds)</label>
+          <span id="cost-value" class="text-sm font-mono text-brand-light">10</span>
+        </div>
+        <input type="range" id="cost-slider" min="4" max="15" value="10" class="w-full">
+        <div class="flex justify-between mt-1">
+          <span class="text-[10px] text-gray-600">4 (fastest)</span>
+          <span class="text-[10px] text-gray-600">15 (slowest)</span>
+        </div>
+        <p id="cost-warning" class="hidden text-xs text-warn mt-1.5">
+          &#9888; Rounds &gt;12 can take several seconds in-browser. Please be patient.
+        </p>
+      </div>
+
+      <!-- Generate button -->
+      <button id="btn-hash" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start">
+        Generate hash
+      </button>
+
+      <!-- Hash error -->
+      <div id="hash-error" class="hidden text-sm text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2"></div>
+
+      <!-- Hash result -->
+      <div id="hash-result" class="hidden flex flex-col gap-3">
+        <div>
+          <div class="text-xs font-medium text-gray-500 mb-1.5">Generated hash</div>
+          <div class="flex gap-2 items-start">
+            <code id="hash-output" class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-ok font-mono break-all leading-relaxed select-all"></code>
+            <button id="btn-copy-hash" class="shrink-0 px-3 py-2 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+          </div>
+        </div>
+
+        <!-- Parsed breakdown -->
+        <div id="hash-breakdown" class="bg-surface rounded-lg border border-surface-lighter p-3 flex flex-col gap-2">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hash breakdown</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div>
+              <div class="text-[10px] text-gray-500 mb-0.5">Algorithm</div>
+              <div id="bd-algo" class="text-xs font-mono text-brand-light"></div>
+            </div>
+            <div>
+              <div class="text-[10px] text-gray-500 mb-0.5">Cost factor</div>
+              <div id="bd-cost" class="text-xs font-mono text-brand-light"></div>
+            </div>
+            <div>
+              <div class="text-[10px] text-gray-500 mb-0.5">Salt (base64)</div>
+              <div id="bd-salt" class="text-xs font-mono text-brand-light break-all"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Verify -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-base font-semibold text-gray-200">Verify a password</h2>
+
+      <!-- Plaintext input -->
+      <div class="flex flex-col gap-1.5">
+        <label for="verify-plain" class="text-sm font-medium text-gray-400">Plaintext password</label>
+        <input
+          type="password"
+          id="verify-plain"
+          placeholder="Enter plaintext…"
+          autocomplete="off"
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono"
+        >
+        <label class="flex items-center gap-2 mt-1 cursor-pointer select-none w-fit">
+          <input type="checkbox" id="verify-show-toggle" class="accent-brand w-3.5 h-3.5 cursor-pointer">
+          <span class="text-xs text-gray-500">Show characters</span>
+        </label>
+      </div>
+
+      <!-- Hash input -->
+      <div class="flex flex-col gap-1.5">
+        <label for="verify-hash" class="text-sm font-medium text-gray-400">Bcrypt hash</label>
+        <input
+          type="text"
+          id="verify-hash"
+          placeholder="$2b$10$…"
+          autocomplete="off"
+          spellcheck="false"
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono"
+        >
+      </div>
+
+      <!-- Hash breakdown for verify input -->
+      <div id="verify-breakdown" class="hidden bg-surface rounded-lg border border-surface-lighter p-3 flex flex-col gap-2">
+        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Hash breakdown</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <div class="text-[10px] text-gray-500 mb-0.5">Algorithm</div>
+            <div id="vbd-algo" class="text-xs font-mono text-brand-light"></div>
+          </div>
+          <div>
+            <div class="text-[10px] text-gray-500 mb-0.5">Cost factor</div>
+            <div id="vbd-cost" class="text-xs font-mono text-brand-light"></div>
+          </div>
+          <div>
+            <div class="text-[10px] text-gray-500 mb-0.5">Salt (base64)</div>
+            <div id="vbd-salt" class="text-xs font-mono text-brand-light break-all"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verify inline error -->
+      <div id="verify-hash-error" class="hidden text-xs text-err"></div>
+
+      <!-- Verify button -->
+      <button id="btn-verify" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start">
+        Verify
+      </button>
+
+      <!-- Verify error -->
+      <div id="verify-error" class="hidden text-sm text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2"></div>
+
+      <!-- Verify result -->
+      <div id="verify-result" class="hidden rounded-lg px-4 py-3 text-sm font-semibold flex items-center gap-2.5"></div>
+    </div>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+  <script>
+    // Detect the bcrypt global — bcryptjs CDN build may expose dcodeIO.bcrypt or bcrypt
+    const bcrypt = (typeof dcodeIO !== 'undefined' && dcodeIO.bcrypt)
+      ? dcodeIO.bcrypt
+      : (typeof window.bcrypt !== 'undefined' ? window.bcrypt : null);
+
+    // --- Helpers ---
+    function parseBcryptHash(hash) {
+      // Format: $<version>$<cost>$<22-char-salt><31-char-checksum>
+      const m = hash.match(/^\$(\d[a-z]?)\$(\d{2})\$([./A-Za-z0-9]{22})/);
+      if (!m) return null;
+      return { version: '$' + m[1], cost: parseInt(m[2], 10), salt: m[3] };
+    }
+
+    function showBreakdown(parsed, algoEl, costEl, saltEl, container) {
+      if (!parsed) {
+        container.classList.add('hidden');
+        return;
+      }
+      algoEl.textContent = parsed.version;
+      costEl.textContent = parsed.cost + ' (' + Math.pow(2, parsed.cost).toLocaleString() + ' iterations)';
+      saltEl.textContent = parsed.salt;
+      container.classList.remove('hidden');
+    }
+
+    function showError(el, msg) {
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function hideError(el) {
+      el.classList.add('hidden');
+      el.textContent = '';
+    }
+
+    async function copyText(text, btn, original) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    }
+
+    function setButtonLoading(btn, loading) {
+      if (loading) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Hashing…';
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        btn.classList.remove('hover:bg-brand-light', 'cursor-pointer');
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = 'Generate hash';
+        btn.classList.remove('opacity-70', 'cursor-not-allowed');
+        btn.classList.add('hover:bg-brand-light', 'cursor-pointer');
+      }
+    }
+
+    function setVerifyButtonLoading(btn, loading) {
+      if (loading) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Verifying…';
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        btn.classList.remove('hover:bg-brand-light', 'cursor-pointer');
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = 'Verify';
+        btn.classList.remove('opacity-70', 'cursor-not-allowed');
+        btn.classList.add('hover:bg-brand-light', 'cursor-pointer');
+      }
+    }
+
+    // --- Section 1: Hash ---
+    const hashInput = document.getElementById('hash-input');
+    const hashShowToggle = document.getElementById('hash-show-toggle');
+    const costSlider = document.getElementById('cost-slider');
+    const costValue = document.getElementById('cost-value');
+    const costWarning = document.getElementById('cost-warning');
+    const btnHash = document.getElementById('btn-hash');
+    const hashError = document.getElementById('hash-error');
+    const hashResult = document.getElementById('hash-result');
+    const hashOutput = document.getElementById('hash-output');
+    const btnCopyHash = document.getElementById('btn-copy-hash');
+    const bdAlgo = document.getElementById('bd-algo');
+    const bdCost = document.getElementById('bd-cost');
+    const bdSalt = document.getElementById('bd-salt');
+    const hashBreakdown = document.getElementById('hash-breakdown');
+
+    hashShowToggle.addEventListener('change', () => {
+      hashInput.type = hashShowToggle.checked ? 'text' : 'password';
+    });
+
+    costSlider.addEventListener('input', () => {
+      const v = parseInt(costSlider.value, 10);
+      costValue.textContent = v;
+      costWarning.classList.toggle('hidden', v <= 12);
+    });
+
+    btnHash.addEventListener('click', async () => {
+      if (!bcrypt) {
+        showError(hashError, 'bcryptjs library failed to load. Please refresh the page.');
+        return;
+      }
+      const password = hashInput.value;
+      if (!password) {
+        showError(hashError, 'Please enter a password to hash.');
+        return;
+      }
+      hideError(hashError);
+      hashResult.classList.add('hidden');
+      setButtonLoading(btnHash, true);
+
+      try {
+        const rounds = parseInt(costSlider.value, 10);
+        const salt = await bcrypt.genSalt(rounds);
+        const hash = await bcrypt.hash(password, salt);
+        hashOutput.textContent = hash;
+        hashResult.classList.remove('hidden');
+        const parsed = parseBcryptHash(hash);
+        showBreakdown(parsed, bdAlgo, bdCost, bdSalt, hashBreakdown);
+      } catch (err) {
+        showError(hashError, 'Error generating hash: ' + err.message);
+      } finally {
+        setButtonLoading(btnHash, false);
+      }
+    });
+
+    btnCopyHash.addEventListener('click', () => {
+      copyText(hashOutput.textContent, btnCopyHash, 'Copy');
+    });
+
+    // --- Section 2: Verify ---
+    const verifyPlain = document.getElementById('verify-plain');
+    const verifyShowToggle = document.getElementById('verify-show-toggle');
+    const verifyHashInput = document.getElementById('verify-hash');
+    const verifyBreakdown = document.getElementById('verify-breakdown');
+    const vbdAlgo = document.getElementById('vbd-algo');
+    const vbdCost = document.getElementById('vbd-cost');
+    const vbdSalt = document.getElementById('vbd-salt');
+    const verifyHashError = document.getElementById('verify-hash-error');
+    const btnVerify = document.getElementById('btn-verify');
+    const verifyError = document.getElementById('verify-error');
+    const verifyResult = document.getElementById('verify-result');
+
+    verifyShowToggle.addEventListener('change', () => {
+      verifyPlain.type = verifyShowToggle.checked ? 'text' : 'password';
+    });
+
+    // Live parse of the verify hash input
+    verifyHashInput.addEventListener('input', () => {
+      const val = verifyHashInput.value.trim();
+      hideError(verifyHashError);
+      if (!val) {
+        verifyBreakdown.classList.add('hidden');
+        return;
+      }
+      const parsed = parseBcryptHash(val);
+      if (parsed) {
+        showBreakdown(parsed, vbdAlgo, vbdCost, vbdSalt, verifyBreakdown);
+        hideError(verifyHashError);
+      } else {
+        verifyBreakdown.classList.add('hidden');
+        showError(verifyHashError, 'Not a valid bcrypt hash. Expected format: $2b$10$…');
+      }
+    });
+
+    btnVerify.addEventListener('click', async () => {
+      if (!bcrypt) {
+        showError(verifyError, 'bcryptjs library failed to load. Please refresh the page.');
+        return;
+      }
+      const plain = verifyPlain.value;
+      const hash = verifyHashInput.value.trim();
+
+      if (!plain) {
+        showError(verifyError, 'Please enter the plaintext password.');
+        return;
+      }
+      if (!hash) {
+        showError(verifyError, 'Please enter a bcrypt hash.');
+        return;
+      }
+      const parsed = parseBcryptHash(hash);
+      if (!parsed) {
+        showError(verifyError, 'The hash does not appear to be a valid bcrypt hash. Expected format: $2b$10$…');
+        return;
+      }
+
+      hideError(verifyError);
+      verifyResult.classList.add('hidden');
+      setVerifyButtonLoading(btnVerify, true);
+
+      try {
+        const match = await bcrypt.compare(plain, hash);
+        verifyResult.classList.remove('hidden');
+        if (match) {
+          verifyResult.className = 'rounded-lg px-4 py-3 text-sm font-semibold flex items-center gap-2.5 bg-ok/10 border border-ok/30 text-ok';
+          verifyResult.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Match — the password matches the hash.';
+        } else {
+          verifyResult.className = 'rounded-lg px-4 py-3 text-sm font-semibold flex items-center gap-2.5 bg-err/10 border border-err/30 text-err';
+          verifyResult.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> No match — the password does not match the hash.';
+        }
+      } catch (err) {
+        showError(verifyError, 'Error during verification: ' + err.message);
+      } finally {
+        setVerifyButtonLoading(btnVerify, false);
+      }
+    });
+
+    // Allow pressing Enter in verify inputs to trigger verify
+    [verifyPlain, verifyHashInput].forEach(el => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') btnVerify.click();
+      });
+    });
+
+    // Allow pressing Enter in hash input to trigger hash
+    hashInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btnHash.click();
+    });
+
+    // If library failed to load, show a top-level notice
+    window.addEventListener('load', () => {
+      if (!bcrypt) {
+        const notice = document.createElement('div');
+        notice.className = 'max-w-2xl mx-auto px-4 py-3 mb-2 text-sm text-err bg-err/10 border border-err/30 rounded-lg';
+        notice.textContent = 'Failed to load bcryptjs. Check your internet connection and refresh.';
+        document.querySelector('main').prepend(notice);
+      }
+    });
+  </script>
+</body>
+</html>

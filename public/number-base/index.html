@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Number Base Converter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    .field-error {
+      border-color: var(--color-err) !important;
+    }
+    .mono-input {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Number Base Converter</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Primary Base Converters -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Base Conversion</h2>
+
+      <!-- Binary -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-xs font-medium text-gray-400">Binary <span class="text-gray-600">(base 2)</span></label>
+          <button data-copy="bin" class="copy-btn text-xs text-gray-500 hover:text-brand-light transition px-2 py-0.5 rounded hover:bg-surface-lighter">Copy</button>
+        </div>
+        <div class="relative">
+          <input id="inp-bin" type="text" spellcheck="false" autocomplete="off"
+            placeholder="e.g. 1010"
+            class="mono-input w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          <span id="err-bin" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-xs text-err">Invalid</span>
+        </div>
+      </div>
+
+      <!-- Octal -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-xs font-medium text-gray-400">Octal <span class="text-gray-600">(base 8)</span></label>
+          <button data-copy="oct" class="copy-btn text-xs text-gray-500 hover:text-brand-light transition px-2 py-0.5 rounded hover:bg-surface-lighter">Copy</button>
+        </div>
+        <div class="relative">
+          <input id="inp-oct" type="text" spellcheck="false" autocomplete="off"
+            placeholder="e.g. 12"
+            class="mono-input w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          <span id="err-oct" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-xs text-err">Invalid</span>
+        </div>
+      </div>
+
+      <!-- Decimal -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-xs font-medium text-gray-400">Decimal <span class="text-gray-600">(base 10)</span></label>
+          <button data-copy="dec" class="copy-btn text-xs text-gray-500 hover:text-brand-light transition px-2 py-0.5 rounded hover:bg-surface-lighter">Copy</button>
+        </div>
+        <div class="relative">
+          <input id="inp-dec" type="text" spellcheck="false" autocomplete="off"
+            placeholder="e.g. 10"
+            class="mono-input w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          <span id="err-dec" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-xs text-err">Invalid</span>
+        </div>
+      </div>
+
+      <!-- Hexadecimal -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-xs font-medium text-gray-400">Hexadecimal <span class="text-gray-600">(base 16)</span></label>
+          <button data-copy="hex" class="copy-btn text-xs text-gray-500 hover:text-brand-light transition px-2 py-0.5 rounded hover:bg-surface-lighter">Copy</button>
+        </div>
+        <div class="relative">
+          <input id="inp-hex" type="text" spellcheck="false" autocomplete="off"
+            placeholder="e.g. A"
+            class="mono-input w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          <span id="err-hex" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-xs text-err">Invalid</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Number Extras -->
+    <div id="extras-card" class="bg-surface-light border border-surface-lighter rounded-xl p-5 hidden">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Number Info</h2>
+      <div class="grid sm:grid-cols-2 gap-3" id="extras-grid">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <!-- Two's Complement -->
+    <div id="twos-card" class="bg-surface-light border border-surface-lighter rounded-xl p-5 hidden">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Two's Complement</h2>
+      <div class="flex flex-col gap-3" id="twos-grid">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <!-- Arbitrary Base Converter -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Arbitrary Base Converter</h2>
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex-1">
+            <label class="text-xs font-medium text-gray-400 block mb-1.5">Value</label>
+            <input id="arb-value" type="text" spellcheck="false" autocomplete="off"
+              placeholder="Enter value…"
+              class="mono-input w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          </div>
+          <div class="sm:w-28">
+            <label class="text-xs font-medium text-gray-400 block mb-1.5">From base</label>
+            <input id="arb-from" type="number" min="2" max="36" value="10"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          </div>
+          <div class="sm:w-28">
+            <label class="text-xs font-medium text-gray-400 block mb-1.5">To base</label>
+            <input id="arb-to" type="number" min="2" max="36" value="2"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          </div>
+        </div>
+        <div id="arb-error" class="hidden text-xs text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2"></div>
+        <div id="arb-result-wrap" class="hidden">
+          <label class="text-xs font-medium text-gray-400 block mb-1.5">Result</label>
+          <div class="flex items-center gap-2">
+            <input id="arb-result" type="text" readonly
+              class="mono-input flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none select-all cursor-text">
+            <button id="arb-copy" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer whitespace-nowrap">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bitwise Playground -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Bitwise Playground</h2>
+      <div class="flex flex-col gap-4">
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium text-gray-400 block mb-1.5">Operand A <span class="text-gray-600">(decimal)</span></label>
+            <input id="bit-a" type="text" spellcheck="false" autocomplete="off" value="42"
+              class="mono-input w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-400 block mb-1.5">Operand B <span class="text-gray-600">(decimal)</span></label>
+            <input id="bit-b" type="text" spellcheck="false" autocomplete="off" value="15"
+              class="mono-input w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          </div>
+        </div>
+
+        <!-- Shift row -->
+        <div class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="text-xs font-medium text-gray-400 block mb-1.5">Shift amount</label>
+            <input id="bit-shift" type="number" min="0" max="63" value="1"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none transition">
+          </div>
+          <div id="bit-error" class="flex-1 hidden text-xs text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2 self-stretch flex items-center"></div>
+        </div>
+
+        <!-- Results table -->
+        <div id="bit-results" class="overflow-x-auto hidden">
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="text-xs text-gray-500 border-b border-surface-lighter">
+                <th class="text-left py-2 pr-4 font-medium">Operation</th>
+                <th class="text-left py-2 pr-4 font-medium">Decimal</th>
+                <th class="text-left py-2 pr-4 font-medium">Hex</th>
+                <th class="text-left py-2 font-medium">Binary</th>
+              </tr>
+            </thead>
+            <tbody id="bit-tbody" class="font-mono text-xs text-gray-300">
+              <!-- filled by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    const DIGITS_MAP = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+    // Convert a non-negative BigInt to string in the given base (2–36)
+    function bigintToBase(n, base) {
+      if (n < 0n) return '-' + bigintToBase(-n, base);
+      if (n === 0n) return '0';
+      const b = BigInt(base);
+      let result = '';
+      let tmp = n;
+      while (tmp > 0n) {
+        result = DIGITS_MAP[Number(tmp % b)] + result;
+        tmp = tmp / b;
+      }
+      return result;
+    }
+
+    // Parse a string in a given base to a BigInt (throws on invalid)
+    function parseBase(str, base) {
+      str = str.trim().toLowerCase();
+      if (str === '' || str === '-') throw new Error('empty');
+      let neg = false;
+      if (str[0] === '-') { neg = true; str = str.slice(1); }
+      if (str === '') throw new Error('empty');
+      const valid = DIGITS_MAP.slice(0, base);
+      const b = BigInt(base);
+      let result = 0n;
+      for (const ch of str) {
+        const idx = valid.indexOf(ch);
+        if (idx === -1) throw new Error(`Invalid digit: ${ch}`);
+        result = result * b + BigInt(idx);
+      }
+      return neg ? -result : result;
+    }
+
+    // Validate digits only (no parse) – returns true if valid
+    function isValidInBase(str, base) {
+      const s = str.trim().replace(/^-/, '');
+      if (!s) return false;
+      const valid = DIGITS_MAP.slice(0, base);
+      return [...s].every(c => valid.includes(c.toLowerCase()));
+    }
+
+    // Async clipboard copy with transient button label
+    async function copyText(text, btn) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    }
+
+    // Group binary string into nibbles (4 bits) for readability
+    function groupBinary(binStr) {
+      // Remove leading minus, pad to multiple of 4
+      const neg = binStr.startsWith('-');
+      let s = neg ? binStr.slice(1) : binStr;
+      while (s.length % 4 !== 0) s = '0' + s;
+      const groups = [];
+      for (let i = 0; i < s.length; i += 4) groups.push(s.slice(i, i + 4));
+      return (neg ? '-' : '') + groups.join(' ');
+    }
+
+    // Group hex string into pairs (bytes)
+    function groupHex(hexStr) {
+      const neg = hexStr.startsWith('-');
+      let s = neg ? hexStr.slice(1) : hexStr;
+      if (s.length % 2 !== 0) s = '0' + s;
+      const groups = [];
+      for (let i = 0; i < s.length; i += 2) groups.push(s.slice(i, i + 2));
+      return (neg ? '-' : '') + groups.join(' ');
+    }
+
+    // Two's complement for given bit width (returns string, or null on overflow)
+    function twosComplement(n, bits) {
+      const MAX = (1n << BigInt(bits - 1)) - 1n;
+      const MIN = -(1n << BigInt(bits - 1));
+      if (n >= MIN && n <= MAX) {
+        // In range
+        if (n >= 0n) {
+          return { value: bigintToBase(n, 2).padStart(bits, '0'), overflow: false };
+        } else {
+          // Add 2^bits to get the unsigned two's complement
+          const unsigned = n + (1n << BigInt(bits));
+          return { value: bigintToBase(unsigned, 2).padStart(bits, '0'), overflow: false };
+        }
+      }
+      // Overflow — still show but annotate
+      const mask = (1n << BigInt(bits)) - 1n;
+      let masked = n & mask; // JS BigInt handles negative AND fine
+      // Handle potential negative mask result
+      if (masked < 0n) masked = masked + (1n << BigInt(bits));
+      return { value: bigintToBase(masked, 2).padStart(bits, '0'), overflow: true };
+    }
+
+    // ─── Primary inputs ──────────────────────────────────────────────────────────
+
+    const inpBin = document.getElementById('inp-bin');
+    const inpOct = document.getElementById('inp-oct');
+    const inpDec = document.getElementById('inp-dec');
+    const inpHex = document.getElementById('inp-hex');
+    const errBin = document.getElementById('err-bin');
+    const errOct = document.getElementById('err-oct');
+    const errDec = document.getElementById('err-dec');
+    const errHex = document.getElementById('err-hex');
+
+    const extrasCard = document.getElementById('extras-card');
+    const extrasGrid = document.getElementById('extras-grid');
+    const twosCard = document.getElementById('twos-card');
+    const twosGrid = document.getElementById('twos-grid');
+
+    let currentValue = null; // BigInt or null
+
+    function setError(inp, errEl, msg) {
+      inp.classList.add('field-error');
+      errEl.textContent = msg;
+      errEl.classList.remove('hidden');
+    }
+
+    function clearError(inp, errEl) {
+      inp.classList.remove('field-error');
+      errEl.classList.add('hidden');
+    }
+
+    function updateOthers(source, value) {
+      const binStr = bigintToBase(value, 2);
+      const octStr = bigintToBase(value, 8);
+      const decStr = value.toString();
+      const hexStr = bigintToBase(value, 16);
+
+      if (source !== 'bin') { inpBin.value = binStr; clearError(inpBin, errBin); }
+      if (source !== 'oct') { inpOct.value = octStr; clearError(inpOct, errOct); }
+      if (source !== 'dec') { inpDec.value = decStr; clearError(inpDec, errDec); }
+      if (source !== 'hex') { inpHex.value = hexStr; clearError(inpHex, errHex); }
+    }
+
+    function clearAllOutputs() {
+      currentValue = null;
+      extrasCard.classList.add('hidden');
+      twosCard.classList.add('hidden');
+    }
+
+    function renderExtras(n) {
+      const absN = n < 0n ? -n : n;
+      const binStr = bigintToBase(absN, 2);
+      const hexStr = bigintToBase(absN, 16);
+      const bitLen = n === 0n ? 1 : binStr.length;
+      const byteLen = Math.ceil(bitLen / 8);
+
+      extrasGrid.innerHTML = `
+        <div class="bg-surface rounded-lg border border-surface-lighter px-4 py-3">
+          <div class="text-xs text-gray-500 mb-1">Bit length</div>
+          <div class="font-mono text-sm text-brand-light">${bitLen}</div>
+        </div>
+        <div class="bg-surface rounded-lg border border-surface-lighter px-4 py-3">
+          <div class="text-xs text-gray-500 mb-1">Byte count</div>
+          <div class="font-mono text-sm text-brand-light">${byteLen}</div>
+        </div>
+        <div class="bg-surface rounded-lg border border-surface-lighter px-4 py-3 sm:col-span-2">
+          <div class="text-xs text-gray-500 mb-1">Binary (nibble groups)</div>
+          <div class="font-mono text-sm text-gray-200 break-all">${groupBinary(n < 0n ? '-' + binStr : binStr)}</div>
+        </div>
+        <div class="bg-surface rounded-lg border border-surface-lighter px-4 py-3 sm:col-span-2">
+          <div class="text-xs text-gray-500 mb-1">Hex (byte groups)</div>
+          <div class="font-mono text-sm text-gray-200 break-all">${groupHex(n < 0n ? '-' + hexStr : hexStr)}</div>
+        </div>
+      `;
+
+      // Two's complement
+      const widths = [8, 16, 32, 64];
+      twosGrid.innerHTML = widths.map(w => {
+        const { value, overflow } = twosComplement(n, w);
+        // Group binary value into nibbles
+        const grouped = [];
+        for (let i = 0; i < value.length; i += 4) grouped.push(value.slice(i, i + 4));
+        const hexVal = bigintToBase(BigInt('0b' + value), 16).padStart(w / 4, '0');
+        return `
+          <div class="bg-surface rounded-lg border border-surface-lighter px-4 py-3">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs text-gray-500">${w}-bit two's complement</span>
+              ${overflow ? `<span class="text-xs text-warn font-medium">⚠ overflow</span>` : ''}
+            </div>
+            <div class="font-mono text-xs text-gray-300 break-all leading-relaxed">${grouped.join(' ')}</div>
+            <div class="font-mono text-xs text-gray-500 mt-1">0x${hexVal.toUpperCase()}</div>
+          </div>
+        `;
+      }).join('');
+
+      extrasCard.classList.remove('hidden');
+      twosCard.classList.remove('hidden');
+    }
+
+    function handleInput(source, base, inp, errEl) {
+      const raw = inp.value.trim();
+      if (raw === '' || raw === '-') {
+        clearError(inp, errEl);
+        clearAllOutputs();
+        return;
+      }
+
+      // Validate digits
+      const toValidate = raw.startsWith('-') ? raw.slice(1) : raw;
+      if (!toValidate || !isValidInBase(toValidate, base)) {
+        setError(inp, errEl, 'Invalid');
+        clearAllOutputs();
+        return;
+      }
+
+      try {
+        const value = parseBase(raw, base);
+        clearError(inp, errEl);
+        currentValue = value;
+        updateOthers(source, value);
+        renderExtras(value);
+      } catch {
+        setError(inp, errEl, 'Invalid');
+        clearAllOutputs();
+      }
+    }
+
+    inpBin.addEventListener('input', () => handleInput('bin', 2, inpBin, errBin));
+    inpOct.addEventListener('input', () => handleInput('oct', 8, inpOct, errOct));
+    inpDec.addEventListener('input', () => handleInput('dec', 10, inpDec, errDec));
+    inpHex.addEventListener('input', () => handleInput('hex', 16, inpHex, errHex));
+
+    // Copy buttons for primary fields
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.copy;
+        const map = { bin: inpBin, oct: inpOct, dec: inpDec, hex: inpHex };
+        const el = map[key];
+        if (el && el.value) copyText(el.value, btn);
+      });
+    });
+
+    // ─── Arbitrary base ──────────────────────────────────────────────────────────
+
+    const arbValue = document.getElementById('arb-value');
+    const arbFrom = document.getElementById('arb-from');
+    const arbTo = document.getElementById('arb-to');
+    const arbError = document.getElementById('arb-error');
+    const arbResultWrap = document.getElementById('arb-result-wrap');
+    const arbResult = document.getElementById('arb-result');
+    const arbCopy = document.getElementById('arb-copy');
+
+    function runArb() {
+      const raw = arbValue.value.trim();
+      const fromBase = parseInt(arbFrom.value, 10);
+      const toBase = parseInt(arbTo.value, 10);
+
+      arbError.classList.add('hidden');
+      arbResultWrap.classList.add('hidden');
+
+      if (!raw) return;
+
+      if (isNaN(fromBase) || fromBase < 2 || fromBase > 36) {
+        arbError.textContent = 'Source base must be between 2 and 36.';
+        arbError.classList.remove('hidden');
+        return;
+      }
+      if (isNaN(toBase) || toBase < 2 || toBase > 36) {
+        arbError.textContent = 'Target base must be between 2 and 36.';
+        arbError.classList.remove('hidden');
+        return;
+      }
+
+      const toValidate = raw.startsWith('-') ? raw.slice(1) : raw;
+      if (!toValidate || !isValidInBase(toValidate, fromBase)) {
+        arbError.textContent = `Value contains digits invalid for base ${fromBase}.`;
+        arbError.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const n = parseBase(raw, fromBase);
+        const out = bigintToBase(n, toBase);
+        arbResult.value = out;
+        arbResultWrap.classList.remove('hidden');
+      } catch (e) {
+        arbError.textContent = 'Conversion error: ' + e.message;
+        arbError.classList.remove('hidden');
+      }
+    }
+
+    arbValue.addEventListener('input', runArb);
+    arbFrom.addEventListener('input', runArb);
+    arbTo.addEventListener('input', runArb);
+    arbCopy.addEventListener('click', () => {
+      if (arbResult.value) copyText(arbResult.value, arbCopy);
+    });
+
+    // ─── Bitwise playground ──────────────────────────────────────────────────────
+
+    const bitA = document.getElementById('bit-a');
+    const bitB = document.getElementById('bit-b');
+    const bitShift = document.getElementById('bit-shift');
+    const bitError = document.getElementById('bit-error');
+    const bitResults = document.getElementById('bit-results');
+    const bitTbody = document.getElementById('bit-tbody');
+
+    function renderBitRow(label, value) {
+      const dec = value.toString();
+      const hex = '0x' + bigintToBase(value < 0n ? value : value, 16).toUpperCase();
+      let binStr;
+      if (value >= 0n) {
+        binStr = bigintToBase(value, 2);
+      } else {
+        // Show raw two's complement 64-bit for negatives for readability
+        const tc = twosComplement(value, 64);
+        binStr = tc.value;
+      }
+      // Nibble group the binary
+      const grouped = [];
+      for (let i = binStr.length % 4 !== 0 ? 0 : 0; i < binStr.length; i += 4) {
+        grouped.push(binStr.slice(i, i + 4));
+      }
+      // Re-do properly
+      let s = binStr;
+      while (s.length % 4 !== 0) s = '0' + s;
+      const gArr = [];
+      for (let i = 0; i < s.length; i += 4) gArr.push(s.slice(i, i + 4));
+      const binDisplay = gArr.join(' ');
+
+      return `<tr class="border-b border-surface-lighter last:border-0">
+        <td class="py-2 pr-4 text-brand-light">${label}</td>
+        <td class="py-2 pr-4 text-gray-300">${dec}</td>
+        <td class="py-2 pr-4 text-gray-400">${hex}</td>
+        <td class="py-2 text-gray-500 break-all max-w-[12rem] whitespace-normal">${binDisplay}</td>
+      </tr>`;
+    }
+
+    function runBitwise() {
+      bitError.classList.add('hidden');
+      bitResults.classList.add('hidden');
+
+      const rawA = bitA.value.trim();
+      const rawB = bitB.value.trim();
+      const shiftAmt = parseInt(bitShift.value, 10);
+
+      if (!rawA && !rawB) return;
+
+      let errMsg = '';
+      let A, B;
+      try { A = parseBase(rawA, 10); } catch { errMsg = 'Operand A is not a valid decimal integer.'; }
+      if (!errMsg) {
+        try { B = parseBase(rawB, 10); } catch { errMsg = 'Operand B is not a valid decimal integer.'; }
+      }
+      if (!errMsg && (isNaN(shiftAmt) || shiftAmt < 0 || shiftAmt > 63)) {
+        errMsg = 'Shift amount must be 0–63.';
+      }
+      if (errMsg) {
+        bitError.textContent = errMsg;
+        bitError.classList.remove('hidden');
+        return;
+      }
+
+      const S = BigInt(shiftAmt);
+      const ops = [
+        { label: 'A', value: A },
+        { label: 'B', value: B },
+        { label: 'A AND B', value: A & B },
+        { label: 'A OR B', value: A | B },
+        { label: 'A XOR B', value: A ^ B },
+        { label: 'NOT A (64-bit)', value: ~A },
+        { label: `A << ${shiftAmt}`, value: A << S },
+        { label: `A >> ${shiftAmt}`, value: A >> S },
+      ];
+
+      bitTbody.innerHTML = ops.map(op => renderBitRow(op.label, op.value)).join('');
+      bitResults.classList.remove('hidden');
+    }
+
+    bitA.addEventListener('input', runBitwise);
+    bitB.addEventListener('input', runBitwise);
+    bitShift.addEventListener('input', runBitwise);
+
+    // ─── Initialize ──────────────────────────────────────────────────────────────
+
+    // Seed with a nice starting value (decimal 255)
+    inpDec.value = '255';
+    handleInput('dec', 10, inpDec, errDec);
+    runBitwise();
+  </script>
+</body>
+</html>

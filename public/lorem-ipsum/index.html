@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lorem Ipsum &amp; Fake Data Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    .tab-active {
+      background: var(--color-brand);
+      color: white;
+    }
+    .tab-inactive {
+      background: transparent;
+      color: #94a3b8;
+    }
+    .tab-inactive:hover {
+      color: #e2e8f0;
+    }
+    .field-chip-active {
+      background: var(--color-brand);
+      color: white;
+      border-color: var(--color-brand);
+    }
+    .field-chip-inactive {
+      background: transparent;
+      color: #94a3b8;
+      border-color: var(--color-surface-lighter);
+    }
+    .field-chip-inactive:hover {
+      border-color: var(--color-brand);
+      color: #818cf8;
+    }
+    /* Table scrollable */
+    .table-wrap {
+      overflow-x: auto;
+    }
+    .data-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 0.8rem;
+    }
+    .data-table th {
+      background: var(--color-surface-lighter);
+      color: #cbd5e1;
+      padding: 6px 10px;
+      text-align: left;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .data-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--color-surface-lighter);
+      color: #e2e8f0;
+      white-space: nowrap;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .data-table tr:nth-child(even) td {
+      background: #172033;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Lorem Ipsum &amp; Fake Data Generator</h1>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Tab switcher -->
+    <div class="flex rounded-lg border border-surface-lighter overflow-hidden">
+      <button id="tab-lorem" class="flex-1 px-4 py-2.5 text-sm font-medium tab-active transition cursor-pointer text-center">Lorem Ipsum</button>
+      <button id="tab-fake" class="flex-1 px-4 py-2.5 text-sm font-medium tab-inactive transition cursor-pointer text-center">Fake Data</button>
+    </div>
+
+    <!-- ===================== TAB 1: LOREM IPSUM ===================== -->
+    <div id="panel-lorem" class="flex flex-col gap-6">
+
+      <!-- Controls -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+
+        <!-- Mode -->
+        <div>
+          <label class="text-sm font-medium text-gray-300 block mb-2">Generate</label>
+          <div class="flex gap-2 flex-wrap">
+            <button data-mode="paragraphs" class="lorem-mode-btn px-4 py-1.5 text-sm rounded-lg bg-brand text-white transition cursor-pointer">Paragraphs</button>
+            <button data-mode="sentences" class="lorem-mode-btn px-4 py-1.5 text-sm rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">Sentences</button>
+            <button data-mode="words" class="lorem-mode-btn px-4 py-1.5 text-sm rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">Words</button>
+          </div>
+        </div>
+
+        <!-- Count slider -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label for="lorem-count" class="text-sm font-medium text-gray-300" id="lorem-count-label">Paragraphs</label>
+            <span id="lorem-count-value" class="text-sm font-mono text-brand-light">3</span>
+          </div>
+          <input type="range" id="lorem-count" min="1" max="20" value="3" class="w-full">
+        </div>
+
+        <!-- Sentences per paragraph (only shown in paragraph mode) -->
+        <div id="spp-row">
+          <div class="flex items-center justify-between mb-2">
+            <label for="spp-count" class="text-sm font-medium text-gray-300">Sentences per paragraph</label>
+            <span id="spp-count-value" class="text-sm font-mono text-brand-light">5</span>
+          </div>
+          <input type="range" id="spp-count" min="2" max="12" value="5" class="w-full">
+        </div>
+
+        <!-- Lorem ipsum start toggle -->
+        <label class="flex items-center gap-2.5 cursor-pointer border-t border-surface-lighter pt-4">
+          <input type="checkbox" id="opt-lorem-start" checked class="w-4 h-4 rounded border-surface-lighter accent-brand cursor-pointer">
+          <span class="text-sm text-gray-300">Start with <span class="font-mono text-gray-400">"Lorem ipsum dolor sit amet…"</span></span>
+        </label>
+
+        <!-- Generate button -->
+        <button id="btn-lorem-generate" class="self-start px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Generate</button>
+      </div>
+
+      <!-- Output -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs text-gray-500" id="lorem-stats"></span>
+          <button id="btn-lorem-copy" class="px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+        </div>
+        <div id="lorem-output" class="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap min-h-[6rem] font-serif select-all"></div>
+      </div>
+
+    </div>
+
+    <!-- ===================== TAB 2: FAKE DATA ===================== -->
+    <div id="panel-fake" class="flex flex-col gap-6 hidden">
+
+      <!-- Field selector -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <label class="text-sm font-medium text-gray-300">Fields to include</label>
+          <div class="flex gap-2">
+            <button id="btn-fields-all" class="px-3 py-1 text-xs rounded-md bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">All</button>
+            <button id="btn-fields-none" class="px-3 py-1 text-xs rounded-md bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">None</button>
+          </div>
+        </div>
+        <div id="field-chips" class="flex flex-wrap gap-2">
+          <!-- generated by JS -->
+        </div>
+      </div>
+
+      <!-- Row count + output format -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+        <div class="grid sm:grid-cols-2 gap-5">
+          <!-- Row count -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label for="row-count" class="text-sm font-medium text-gray-300">Rows</label>
+              <span id="row-count-value" class="text-sm font-mono text-brand-light">10</span>
+            </div>
+            <input type="range" id="row-count" min="1" max="1000" value="10" class="w-full">
+          </div>
+          <!-- Output format -->
+          <div>
+            <label class="text-sm font-medium text-gray-300 block mb-2">Output format</label>
+            <div class="flex gap-2 flex-wrap">
+              <button data-fmt="table" class="fake-fmt-btn px-3 py-1.5 text-xs rounded-lg bg-brand text-white transition cursor-pointer">Table</button>
+              <button data-fmt="json" class="fake-fmt-btn px-3 py-1.5 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">JSON</button>
+              <button data-fmt="csv" class="fake-fmt-btn px-3 py-1.5 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">CSV</button>
+              <button data-fmt="sql" class="fake-fmt-btn px-3 py-1.5 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">SQL INSERT</button>
+            </div>
+          </div>
+        </div>
+        <button id="btn-fake-generate" class="self-start px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Generate</button>
+      </div>
+
+      <!-- Output area -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-xs text-gray-500" id="fake-stats"></span>
+          <div class="flex gap-2">
+            <button id="btn-fake-copy" class="px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+            <button id="btn-fake-download" class="px-4 py-1.5 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Download</button>
+          </div>
+        </div>
+        <!-- Table view -->
+        <div id="fake-table-wrap" class="table-wrap hidden">
+          <table class="data-table" id="fake-table"></table>
+        </div>
+        <!-- Text view (JSON, CSV, SQL) -->
+        <textarea id="fake-text-output" class="hidden bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-xs text-gray-300 font-mono focus:border-brand focus:outline-none resize-none min-h-[16rem]" readonly spellcheck="false"></textarea>
+        <!-- Error -->
+        <div id="fake-error" class="hidden text-sm text-err px-3 py-2 bg-err/10 border border-err/30 rounded-lg"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+  // =========================================================
+  // DATA TABLES
+  // =========================================================
+  const FIRST_NAMES = [
+    'Alice','Bob','Carol','David','Emma','Frank','Grace','Henry','Isla','Jack',
+    'Karen','Liam','Mia','Noah','Olivia','Paul','Quinn','Rachel','Sam','Tara',
+    'Uma','Victor','Wendy','Xander','Yara','Zach','Aiden','Bella','Connor','Diana',
+    'Ethan','Fiona','George','Hannah','Ivan','Julia','Kyle','Laura','Mason','Nora',
+    'Owen','Piper','Ryan','Sophia','Tyler','Ursula','Vera','Will','Xena','Yasmine',
+    'Aaron','Brooke','Charles','Daisy','Eli','Florence','Gabe','Hazel','Ian','Jade',
+    'Kevin','Luna','Marcus','Natalie','Oscar','Penny','Quentin','Rosa','Steve','Tina'
+  ];
+  const LAST_NAMES = [
+    'Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Wilson','Taylor',
+    'Anderson','Thomas','Jackson','White','Harris','Martin','Thompson','Moore','Young','Lee',
+    'Walker','Allen','King','Wright','Scott','Torres','Evans','Nelson','Baker','Hill',
+    'Campbell','Mitchell','Carter','Roberts','Phillips','Turner','Parker','Collins','Edwards','Stewart',
+    'Morris','Rogers','Cook','Morgan','Bell','Murphy','Bailey','Rivera','Cooper','Cox',
+    'Howard','Ward','Long','Watson','Brooks','Kelly','Sanders','Price','Wood','Bennett',
+    'Hayes','Jenkins','Perry','Powell','Russell','Simmons','Foster','Gonzalez','Bryant','Alexander'
+  ];
+  const COMPANIES = [
+    'Acme Corp','Globex','Initech','Umbrella Ltd','Hooli','Vehement Capital','Massive Dynamic',
+    'Cyberdyne Systems','Soylent Corp','Aperture Science','Weyland Corp','Stark Industries',
+    'Wayne Enterprises','Oscorp','Nakatomi Trading','Vandelay Industries','Bluth Company',
+    'Pied Piper','Raviga Capital','Aviato','Dunder Mifflin','Sabre Corp','Prestige Worldwide',
+    'Veridian Dynamics','Skynet Systems','Rekall Inc','Frobozz Magic','Zorg Industries','LexCorp',
+    'Yoyodyne Propulsion','Tessier-Ashpool','Tyrell Corporation','Multi-National United','Xanatos Enterprises'
+  ];
+  const JOB_TITLES = [
+    'Software Engineer','Product Manager','Data Analyst','DevOps Engineer','UX Designer',
+    'Marketing Manager','Sales Executive','Business Analyst','Systems Architect','QA Engineer',
+    'Frontend Developer','Backend Developer','Full Stack Developer','Security Engineer','Data Scientist',
+    'Project Manager','Operations Manager','HR Manager','Finance Analyst','Content Strategist',
+    'Customer Success Manager','Technical Writer','Cloud Architect','Database Administrator','Network Engineer',
+    'Machine Learning Engineer','Mobile Developer','Scrum Master','Product Designer','Growth Hacker'
+  ];
+  const CITIES = [
+    'New York','Los Angeles','Chicago','Houston','Phoenix','Philadelphia','San Antonio','San Diego',
+    'Dallas','San Jose','Austin','Jacksonville','Fort Worth','Columbus','Charlotte','Indianapolis',
+    'San Francisco','Seattle','Denver','Nashville','London','Paris','Berlin','Tokyo','Sydney',
+    'Toronto','Amsterdam','Madrid','Rome','Barcelona','Vienna','Zurich','Singapore','Dubai','Seoul',
+    'Melbourne','Dublin','Stockholm','Oslo','Copenhagen','Helsinki','Brussels','Prague','Warsaw'
+  ];
+  const COUNTRIES = [
+    'United States','United Kingdom','Canada','Australia','Germany','France','Spain','Italy',
+    'Netherlands','Sweden','Norway','Denmark','Finland','Switzerland','Austria','Belgium',
+    'Japan','South Korea','Singapore','Australia','Brazil','Mexico','Argentina','India',
+    'China','New Zealand','Ireland','Portugal','Poland','Czech Republic','Hungary','Romania'
+  ];
+  const STREET_NAMES = [
+    'Main St','Oak Ave','Maple Dr','Cedar Ln','Elm St','Pine Rd','Washington Blvd','Park Ave',
+    'Lake Dr','Hill Rd','River Rd','Forest Ave','Valley Ln','Sunset Blvd','Highland Ave',
+    'Church St','School St','Mill Rd','Bridge St','Market St','Water St','Front St',
+    'North St','South St','East St','West St','Lincoln Ave','Madison Ave','Jefferson St','Adams Rd'
+  ];
+  const LOREM_WORDS = [
+    'lorem','ipsum','dolor','sit','amet','consectetur','adipiscing','elit','sed','do',
+    'eiusmod','tempor','incididunt','labore','dolore','magna','aliqua','enim','ad','minim',
+    'veniam','quis','nostrud','exercitation','ullamco','laboris','nisi','aliquip','ex','ea',
+    'commodo','consequat','duis','aute','irure','in','reprehenderit','voluptate','velit',
+    'esse','cillum','fugiat','nulla','pariatur','excepteur','sint','occaecat','cupidatat',
+    'non','proident','sunt','culpa','qui','officia','deserunt','mollit','anim','id','est',
+    'perspiciatis','unde','omnis','iste','natus','error','accusantium','doloremque','laudantium',
+    'totam','rem','aperiam','eaque','ipsa','quae','ab','illo','inventore','veritatis','et',
+    'quasi','architecto','beatae','vitae','dicta','explicabo','nemo','ipsam','quia','voluptas',
+    'aspernatur','odit','fugit','aut','consequuntur','magni','dolores','eos','ratione','sequi',
+    'nesciunt','neque','porro','quisquam','est','qui','dolorem','adipisci','numquam','eius',
+    'modi','tempora','incidunt','labore','magnam','quaerat','voluptatem','ut','enim','minima',
+    'veniam','exercitationem','ullam','corporis','suscipit','quis','autem','vel','eum','iure',
+    'reprehenderit','quo','voluptas','nulla','pariatur','at','vero','eos','accusamus','iusto'
+  ];
+  const LOREM_START = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
+
+  const EMAIL_DOMAINS = ['gmail.com','yahoo.com','outlook.com','icloud.com','proton.me','hotmail.com','example.com','mail.com','fastmail.com'];
+  const TLD_LIST = ['com','net','org','io','co','dev','app','tech'];
+  const COLOR_NAMES = null; // we generate hex directly
+
+  // =========================================================
+  // CRYPTO RANDOM
+  // =========================================================
+  function rndInt(max) {
+    if (max <= 0) return 0;
+    const limit = Math.floor(0xFFFFFFFF / max) * max;
+    const arr = new Uint32Array(1);
+    let v;
+    do { crypto.getRandomValues(arr); v = arr[0]; } while (v >= limit);
+    return v % max;
+  }
+  function pick(arr) { return arr[rndInt(arr.length)]; }
+  function rndFloat(min, max) {
+    // [min, max) using crypto
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return min + (arr[0] / 0x100000000) * (max - min);
+  }
+
+  // =========================================================
+  // LOREM IPSUM GENERATOR
+  // =========================================================
+  function loremWords(n) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(pick(LOREM_WORDS));
+    return out;
+  }
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function buildSentence(wordCount) {
+    const words = loremWords(wordCount);
+    return capitalize(words.join(' ')) + '.';
+  }
+
+  function buildParagraph(sentenceCount, isFirst, useLoremStart) {
+    const sentences = [];
+    for (let i = 0; i < sentenceCount; i++) {
+      if (i === 0 && isFirst && useLoremStart) {
+        sentences.push(LOREM_START);
+      } else {
+        const wc = rndInt(10) + 8; // 8-17 words
+        sentences.push(buildSentence(wc));
+      }
+    }
+    return sentences.join(' ');
+  }
+
+  function generateLorem() {
+    const mode = loremMode;
+    const count = parseInt(document.getElementById('lorem-count').value, 10);
+    const useLoremStart = document.getElementById('opt-lorem-start').checked;
+    const spp = parseInt(document.getElementById('spp-count').value, 10);
+
+    let output = '';
+
+    if (mode === 'paragraphs') {
+      const paras = [];
+      for (let i = 0; i < count; i++) {
+        paras.push(buildParagraph(spp, i === 0, useLoremStart));
+      }
+      output = paras.join('\n\n');
+    } else if (mode === 'sentences') {
+      const sents = [];
+      for (let i = 0; i < count; i++) {
+        if (i === 0 && useLoremStart) {
+          sents.push(LOREM_START);
+        } else {
+          const wc = rndInt(10) + 8;
+          sents.push(buildSentence(wc));
+        }
+      }
+      output = sents.join(' ');
+    } else { // words
+      const words = [];
+      if (useLoremStart) {
+        const startWords = LOREM_START.replace(/[.,]/g, '').toLowerCase().split(' ');
+        for (let i = 0; i < Math.min(count, startWords.length); i++) words.push(startWords[i]);
+        const remaining = count - words.length;
+        for (let i = 0; i < remaining; i++) words.push(pick(LOREM_WORDS));
+      } else {
+        for (let i = 0; i < count; i++) words.push(pick(LOREM_WORDS));
+      }
+      output = words.join(' ');
+    }
+
+    const el = document.getElementById('lorem-output');
+    el.textContent = output;
+    const wordCount = output.split(/\s+/).filter(Boolean).length;
+    const charCount = output.length;
+    document.getElementById('lorem-stats').textContent = `${wordCount} words · ${charCount} characters`;
+  }
+
+  // =========================================================
+  // FAKE DATA GENERATOR
+  // =========================================================
+  const FIELD_DEFS = [
+    { id: 'first_name',    label: 'First Name' },
+    { id: 'last_name',     label: 'Last Name' },
+    { id: 'full_name',     label: 'Full Name' },
+    { id: 'email',         label: 'Email' },
+    { id: 'username',      label: 'Username' },
+    { id: 'phone',         label: 'Phone' },
+    { id: 'street_address',label: 'Street Address' },
+    { id: 'city',          label: 'City' },
+    { id: 'country',       label: 'Country' },
+    { id: 'company',       label: 'Company' },
+    { id: 'job_title',     label: 'Job Title' },
+    { id: 'uuid',          label: 'UUID' },
+    { id: 'ipv4',          label: 'IPv4' },
+    { id: 'date',          label: 'Date' },
+    { id: 'integer',       label: 'Integer' },
+    { id: 'price',         label: 'Price' },
+    { id: 'boolean',       label: 'Boolean' },
+    { id: 'color_hex',     label: 'Color Hex' },
+    { id: 'lorem_sentence',label: 'Lorem Sentence' },
+  ];
+
+  let activeFields = new Set(['first_name','last_name','email','username','phone','city','country']);
+  let fakeFormat = 'table';
+  let fakeData = [];
+
+  function genUUID() {
+    // RFC 4122 v4
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const hex = Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
+
+  function genIPv4() {
+    return `${rndInt(223)+1}.${rndInt(256)}.${rndInt(256)}.${rndInt(254)+1}`;
+  }
+
+  function genDate() {
+    const start = new Date(1970, 0, 1).getTime();
+    const end   = new Date(2025, 11, 31).getTime();
+    const ms = Math.floor(rndFloat(start, end));
+    const d = new Date(ms);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function genUsername(first, last) {
+    const options = [
+      first.toLowerCase() + last.toLowerCase().slice(0,4) + rndInt(99),
+      first.toLowerCase().slice(0,3) + '_' + last.toLowerCase(),
+      last.toLowerCase() + rndInt(999),
+      first.toLowerCase() + rndInt(9999),
+    ];
+    return pick(options);
+  }
+
+  function genPhone() {
+    const area = rndInt(900) + 100;
+    const mid = rndInt(900) + 100;
+    const end = rndInt(9000) + 1000;
+    return `+1-${area}-${mid}-${end}`;
+  }
+
+  function genEmail(first, last) {
+    const opts = [
+      `${first.toLowerCase()}.${last.toLowerCase()}@${pick(EMAIL_DOMAINS)}`,
+      `${first.toLowerCase()}${rndInt(999)}@${pick(EMAIL_DOMAINS)}`,
+      `${last.toLowerCase()}.${first.toLowerCase().slice(0,2)}@${pick(EMAIL_DOMAINS)}`,
+    ];
+    return pick(opts);
+  }
+
+  function genLoremSentence() {
+    const wc = rndInt(8) + 8;
+    return buildSentence(wc);
+  }
+
+  function genRecord() {
+    const first = pick(FIRST_NAMES);
+    const last  = pick(LAST_NAMES);
+    const rec = {};
+    for (const fid of activeFields) {
+      switch (fid) {
+        case 'first_name':     rec[fid] = first; break;
+        case 'last_name':      rec[fid] = last; break;
+        case 'full_name':      rec[fid] = `${first} ${last}`; break;
+        case 'email':          rec[fid] = genEmail(first, last); break;
+        case 'username':       rec[fid] = genUsername(first, last); break;
+        case 'phone':          rec[fid] = genPhone(); break;
+        case 'street_address': rec[fid] = `${rndInt(9900)+100} ${pick(STREET_NAMES)}`; break;
+        case 'city':           rec[fid] = pick(CITIES); break;
+        case 'country':        rec[fid] = pick(COUNTRIES); break;
+        case 'company':        rec[fid] = pick(COMPANIES); break;
+        case 'job_title':      rec[fid] = pick(JOB_TITLES); break;
+        case 'uuid':           rec[fid] = genUUID(); break;
+        case 'ipv4':           rec[fid] = genIPv4(); break;
+        case 'date':           rec[fid] = genDate(); break;
+        case 'integer':        rec[fid] = rndInt(1000000) + 1; break;
+        case 'price':          rec[fid] = (rndFloat(0.99, 9999.99)).toFixed(2); break;
+        case 'boolean':        rec[fid] = rndInt(2) === 0 ? 'true' : 'false'; break;
+        case 'color_hex': {
+          const b = new Uint8Array(3);
+          crypto.getRandomValues(b);
+          rec[fid] = '#' + Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('').toUpperCase();
+          break;
+        }
+        case 'lorem_sentence': rec[fid] = genLoremSentence(); break;
+      }
+    }
+    return rec;
+  }
+
+  function generateFakeData() {
+    if (activeFields.size === 0) {
+      showFakeError('Select at least one field.');
+      return;
+    }
+    hideFakeError();
+    const count = parseInt(document.getElementById('row-count').value, 10);
+    fakeData = [];
+    for (let i = 0; i < count; i++) fakeData.push(genRecord());
+    renderFakeOutput();
+  }
+
+  function renderFakeOutput() {
+    if (fakeData.length === 0) return;
+    const fields = [...activeFields];
+    const labels = fields.map(fid => FIELD_DEFS.find(f => f.id === fid)?.label || fid);
+
+    document.getElementById('fake-stats').textContent = `${fakeData.length} rows · ${fields.length} columns`;
+
+    if (fakeFormat === 'table') {
+      document.getElementById('fake-table-wrap').classList.remove('hidden');
+      document.getElementById('fake-text-output').classList.add('hidden');
+      renderTable(fields, labels, fakeData);
+    } else {
+      document.getElementById('fake-table-wrap').classList.add('hidden');
+      const ta = document.getElementById('fake-text-output');
+      ta.classList.remove('hidden');
+      if (fakeFormat === 'json') {
+        ta.value = JSON.stringify(fakeData, null, 2);
+      } else if (fakeFormat === 'csv') {
+        ta.value = buildCSV(fields, labels, fakeData);
+      } else if (fakeFormat === 'sql') {
+        ta.value = buildSQL(fields, fakeData);
+      }
+    }
+  }
+
+  function renderTable(fields, labels, rows) {
+    const table = document.getElementById('fake-table');
+    // header
+    let html = '<thead><tr>';
+    html += '<th>#</th>';
+    labels.forEach(l => { html += `<th>${escHtml(l)}</th>`; });
+    html += '</tr></thead><tbody>';
+    const limit = Math.min(rows.length, 500); // cap preview to 500 for perf
+    for (let i = 0; i < limit; i++) {
+      html += '<tr>';
+      html += `<td class="text-gray-500">${i+1}</td>`;
+      fields.forEach(fid => { html += `<td title="${escHtml(String(rows[i][fid]))}">${escHtml(String(rows[i][fid]))}</td>`; });
+      html += '</tr>';
+    }
+    html += '</tbody>';
+    table.innerHTML = html;
+    if (rows.length > 500) {
+      document.getElementById('fake-stats').textContent += ` (showing first 500)`;
+    }
+  }
+
+  function buildCSV(fields, labels, rows) {
+    const escape = v => {
+      const s = String(v);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g,'""')}"`;
+      return s;
+    };
+    const lines = [labels.map(escape).join(',')];
+    rows.forEach(r => lines.push(fields.map(f => escape(r[f])).join(',')));
+    return lines.join('\n');
+  }
+
+  function buildSQL(fields, rows) {
+    const table = 'fake_data';
+    const cols = fields.join(', ');
+    const lines = [];
+    rows.forEach(r => {
+      const vals = fields.map(f => {
+        const v = r[f];
+        if (typeof v === 'number' || v === 'true' || v === 'false') return v;
+        return `'${String(v).replace(/'/g, "''")}'`;
+      }).join(', ');
+      lines.push(`INSERT INTO ${table} (${cols}) VALUES (${vals});`);
+    });
+    return lines.join('\n');
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showFakeError(msg) {
+    const el = document.getElementById('fake-error');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+  function hideFakeError() {
+    document.getElementById('fake-error').classList.add('hidden');
+  }
+
+  // =========================================================
+  // UI INIT
+  // =========================================================
+  let loremMode = 'paragraphs';
+
+  // Build field chips
+  function buildFieldChips() {
+    const container = document.getElementById('field-chips');
+    container.innerHTML = '';
+    FIELD_DEFS.forEach(fd => {
+      const btn = document.createElement('button');
+      btn.textContent = fd.label;
+      btn.dataset.field = fd.id;
+      btn.className = `field-chip px-3 py-1 text-xs rounded-full border cursor-pointer transition ${activeFields.has(fd.id) ? 'field-chip-active' : 'field-chip-inactive'}`;
+      btn.addEventListener('click', () => {
+        if (activeFields.has(fd.id)) activeFields.delete(fd.id);
+        else activeFields.add(fd.id);
+        btn.className = `field-chip px-3 py-1 text-xs rounded-full border cursor-pointer transition ${activeFields.has(fd.id) ? 'field-chip-active' : 'field-chip-inactive'}`;
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function refreshChips() {
+    document.querySelectorAll('.field-chip').forEach(btn => {
+      const fid = btn.dataset.field;
+      btn.className = `field-chip px-3 py-1 text-xs rounded-full border cursor-pointer transition ${activeFields.has(fid) ? 'field-chip-active' : 'field-chip-inactive'}`;
+    });
+  }
+
+  // Tab switching
+  function setTab(tab) {
+    const panelLorem = document.getElementById('panel-lorem');
+    const panelFake  = document.getElementById('panel-fake');
+    const tabLorem   = document.getElementById('tab-lorem');
+    const tabFake    = document.getElementById('tab-fake');
+    if (tab === 'lorem') {
+      panelLorem.classList.remove('hidden');
+      panelFake.classList.add('hidden');
+      tabLorem.className = 'flex-1 px-4 py-2.5 text-sm font-medium tab-active transition cursor-pointer text-center';
+      tabFake.className  = 'flex-1 px-4 py-2.5 text-sm font-medium tab-inactive transition cursor-pointer text-center';
+    } else {
+      panelLorem.classList.add('hidden');
+      panelFake.classList.remove('hidden');
+      tabLorem.className = 'flex-1 px-4 py-2.5 text-sm font-medium tab-inactive transition cursor-pointer text-center';
+      tabFake.className  = 'flex-1 px-4 py-2.5 text-sm font-medium tab-active transition cursor-pointer text-center';
+    }
+  }
+
+  // Lorem mode switching
+  function setLoremMode(m) {
+    loremMode = m;
+    document.querySelectorAll('.lorem-mode-btn').forEach(btn => {
+      if (btn.dataset.mode === m) {
+        btn.className = 'lorem-mode-btn px-4 py-1.5 text-sm rounded-lg bg-brand text-white transition cursor-pointer';
+      } else {
+        btn.className = 'lorem-mode-btn px-4 py-1.5 text-sm rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer';
+      }
+    });
+    const countLabel = document.getElementById('lorem-count-label');
+    const sppRow = document.getElementById('spp-row');
+    const slider = document.getElementById('lorem-count');
+    if (m === 'paragraphs') {
+      countLabel.textContent = 'Paragraphs';
+      slider.max = 20;
+      if (parseInt(slider.value) > 20) { slider.value = 20; document.getElementById('lorem-count-value').textContent = 20; }
+      sppRow.classList.remove('hidden');
+    } else if (m === 'sentences') {
+      countLabel.textContent = 'Sentences';
+      slider.max = 50;
+      sppRow.classList.add('hidden');
+    } else {
+      countLabel.textContent = 'Words';
+      slider.max = 500;
+      sppRow.classList.add('hidden');
+    }
+    generateLorem();
+  }
+
+  // Format switching
+  function setFakeFormat(fmt) {
+    fakeFormat = fmt;
+    document.querySelectorAll('.fake-fmt-btn').forEach(btn => {
+      if (btn.dataset.fmt === fmt) {
+        btn.className = 'fake-fmt-btn px-3 py-1.5 text-xs rounded-lg bg-brand text-white transition cursor-pointer';
+      } else {
+        btn.className = 'fake-fmt-btn px-3 py-1.5 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer';
+      }
+    });
+    if (fakeData.length > 0) renderFakeOutput();
+  }
+
+  // Copy helper
+  async function copyText(text, btn) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  }
+
+  // Download helper
+  function downloadText(text, filename) {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // =========================================================
+  // EVENT LISTENERS
+  // =========================================================
+  document.getElementById('tab-lorem').addEventListener('click', () => setTab('lorem'));
+  document.getElementById('tab-fake').addEventListener('click',  () => setTab('fake'));
+
+  document.querySelectorAll('.lorem-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => setLoremMode(btn.dataset.mode));
+  });
+
+  document.getElementById('lorem-count').addEventListener('input', e => {
+    document.getElementById('lorem-count-value').textContent = e.target.value;
+    generateLorem();
+  });
+  document.getElementById('spp-count').addEventListener('input', e => {
+    document.getElementById('spp-count-value').textContent = e.target.value;
+    generateLorem();
+  });
+  document.getElementById('opt-lorem-start').addEventListener('change', generateLorem);
+  document.getElementById('btn-lorem-generate').addEventListener('click', generateLorem);
+
+  document.getElementById('btn-lorem-copy').addEventListener('click', async () => {
+    const text = document.getElementById('lorem-output').textContent;
+    await copyText(text, document.getElementById('btn-lorem-copy'));
+  });
+
+  document.querySelectorAll('.fake-fmt-btn').forEach(btn => {
+    btn.addEventListener('click', () => setFakeFormat(btn.dataset.fmt));
+  });
+
+  document.getElementById('row-count').addEventListener('input', e => {
+    document.getElementById('row-count-value').textContent = e.target.value;
+  });
+
+  document.getElementById('btn-fake-generate').addEventListener('click', generateFakeData);
+
+  document.getElementById('btn-fields-all').addEventListener('click', () => {
+    FIELD_DEFS.forEach(fd => activeFields.add(fd.id));
+    refreshChips();
+  });
+  document.getElementById('btn-fields-none').addEventListener('click', () => {
+    activeFields.clear();
+    refreshChips();
+  });
+
+  document.getElementById('btn-fake-copy').addEventListener('click', async () => {
+    let text = '';
+    if (fakeFormat === 'table') {
+      // copy as CSV when in table view
+      const fields = [...activeFields];
+      const labels = fields.map(fid => FIELD_DEFS.find(f => f.id === fid)?.label || fid);
+      text = buildCSV(fields, labels, fakeData);
+    } else {
+      text = document.getElementById('fake-text-output').value;
+    }
+    await copyText(text, document.getElementById('btn-fake-copy'));
+  });
+
+  document.getElementById('btn-fake-download').addEventListener('click', () => {
+    let text = '';
+    let filename = 'fake-data';
+    if (fakeFormat === 'table') {
+      const fields = [...activeFields];
+      const labels = fields.map(fid => FIELD_DEFS.find(f => f.id === fid)?.label || fid);
+      text = buildCSV(fields, labels, fakeData);
+      filename += '.csv';
+    } else if (fakeFormat === 'json') {
+      text = document.getElementById('fake-text-output').value;
+      filename += '.json';
+    } else if (fakeFormat === 'csv') {
+      text = document.getElementById('fake-text-output').value;
+      filename += '.csv';
+    } else if (fakeFormat === 'sql') {
+      text = document.getElementById('fake-text-output').value;
+      filename += '.sql';
+    }
+    if (text) downloadText(text, filename);
+  });
+
+  // =========================================================
+  // INIT
+  // =========================================================
+  buildFieldChips();
+  generateLorem();
+  </script>
+</body>
+</html>

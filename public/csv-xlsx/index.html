@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV ↔ Excel Converter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .table-wrap table {
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      min-width: 100%;
+    }
+    .table-wrap th {
+      position: sticky;
+      top: 0;
+      background: #1e293b;
+      z-index: 2;
+      padding: 0.4rem 0.75rem;
+      text-align: left;
+      color: #94a3b8;
+      font-weight: 600;
+      border-bottom: 1px solid #334155;
+      white-space: nowrap;
+    }
+    .table-wrap td {
+      padding: 0.35rem 0.75rem;
+      color: #e2e8f0;
+      border-bottom: 1px solid #1e293b;
+      white-space: nowrap;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .table-wrap tr:nth-child(even) td {
+      background: #111827;
+    }
+    .table-wrap tr:hover td {
+      background: #1e3a5f;
+    }
+    .drop-zone-active {
+      border-color: #6366f1 !important;
+      background: rgba(99,102,241,0.07) !important;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">CSV ↔ Excel Converter</h1>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Upload / Paste tabs -->
+    <div class="flex rounded-lg border border-surface-lighter overflow-hidden">
+      <button id="btn-tab-file" class="flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center">Upload File</button>
+      <button id="btn-tab-paste" class="flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center">Paste CSV</button>
+    </div>
+
+    <!-- File upload panel -->
+    <div id="panel-file" class="flex flex-col gap-4">
+      <div
+        id="drop-zone"
+        class="bg-surface-light border-2 border-dashed border-surface-lighter rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition"
+        tabindex="0"
+        role="button"
+        aria-label="Drop a file or click to select"
+      >
+        <div class="text-4xl select-none">&#128196;</div>
+        <p class="text-gray-300 font-medium text-sm">Drop a file here, or <span class="text-brand-light underline">click to select</span></p>
+        <p class="text-xs text-gray-500">.xlsx, .xls, .ods (spreadsheet) &nbsp;or&nbsp; .csv</p>
+        <input id="file-input" type="file" accept=".xlsx,.xls,.ods,.csv" class="hidden">
+      </div>
+      <div id="file-info" class="hidden text-xs text-gray-400 flex flex-col gap-1"></div>
+    </div>
+
+    <!-- Paste CSV panel (hidden by default) -->
+    <div id="panel-paste" class="hidden flex flex-col gap-3">
+      <textarea
+        id="csv-paste"
+        rows="8"
+        placeholder="Paste CSV text here…"
+        class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none w-full resize-y"
+      ></textarea>
+      <div class="flex gap-3">
+        <button id="btn-parse-paste" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Parse CSV</button>
+        <button id="btn-clear-paste" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Clear</button>
+      </div>
+    </div>
+
+    <!-- Error card -->
+    <div id="error-card" class="hidden bg-surface-light border border-err/40 rounded-xl p-4 text-sm text-err"></div>
+
+    <!-- Loading spinner -->
+    <div id="loading" class="hidden flex flex-col items-center gap-3 py-8">
+      <svg class="animate-spin w-8 h-8 text-brand" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+      </svg>
+      <span class="text-sm text-gray-400">Processing…</span>
+    </div>
+
+    <!-- Results area -->
+    <div id="results" class="hidden flex flex-col gap-5">
+
+      <!-- Spreadsheet mode: sheet tabs + export -->
+      <div id="spreadsheet-panel" class="hidden flex flex-col gap-4">
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+            <div>
+              <div class="text-xs text-gray-500 mb-1">Sheets</div>
+              <div id="sheet-tabs" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button id="btn-export-sheet-csv" class="px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Export Sheet → CSV</button>
+              <button id="btn-export-all-csv" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Export All Sheets → ZIP</button>
+            </div>
+          </div>
+          <div id="sheet-stats" class="text-xs text-gray-500"></div>
+        </div>
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Preview</span>
+            <span id="preview-truncation-note" class="text-xs text-warn hidden">Showing first 200 rows — full data exported</span>
+          </div>
+          <div id="table-container" class="table-wrap rounded-lg border border-surface-lighter"></div>
+        </div>
+      </div>
+
+      <!-- CSV mode: preview + export to XLSX -->
+      <div id="csv-panel" class="hidden flex flex-col gap-4">
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+          <div id="csv-stats" class="text-sm text-gray-300"></div>
+          <div class="flex flex-wrap gap-2">
+            <button id="btn-export-xlsx" class="px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Export → XLSX</button>
+            <button id="btn-copy-csv" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy CSV</button>
+          </div>
+        </div>
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Preview</span>
+            <span id="csv-truncation-note" class="text-xs text-warn hidden">Showing first 200 rows — full data exported</span>
+          </div>
+          <div id="csv-table-container" class="table-wrap rounded-lg border border-surface-lighter"></div>
+        </div>
+      </div>
+
+    </div><!-- /results -->
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+  (() => {
+    'use strict';
+
+    const MAX_PREVIEW_ROWS = 200;
+
+    // --- State ---
+    let currentWorkbook = null;   // XLSX workbook object (for spreadsheet files)
+    let currentSheetName = null;  // selected sheet
+    let csvRows = null;           // 2D array for CSV mode
+    let currentCsvText = null;    // raw CSV for copy/export
+    let currentFileName = 'export';
+
+    // --- Element refs ---
+    const btnTabFile = document.getElementById('btn-tab-file');
+    const btnTabPaste = document.getElementById('btn-tab-paste');
+    const panelFile = document.getElementById('panel-file');
+    const panelPaste = document.getElementById('panel-paste');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileInfo = document.getElementById('file-info');
+    const csvPaste = document.getElementById('csv-paste');
+    const btnParsePaste = document.getElementById('btn-parse-paste');
+    const btnClearPaste = document.getElementById('btn-clear-paste');
+    const errorCard = document.getElementById('error-card');
+    const loading = document.getElementById('loading');
+    const results = document.getElementById('results');
+    const spreadsheetPanel = document.getElementById('spreadsheet-panel');
+    const csvPanel = document.getElementById('csv-panel');
+    const sheetTabs = document.getElementById('sheet-tabs');
+    const sheetStats = document.getElementById('sheet-stats');
+    const tableContainer = document.getElementById('table-container');
+    const previewTruncationNote = document.getElementById('preview-truncation-note');
+    const csvStats = document.getElementById('csv-stats');
+    const csvTableContainer = document.getElementById('csv-table-container');
+    const csvTruncationNote = document.getElementById('csv-truncation-note');
+    const btnExportSheetCsv = document.getElementById('btn-export-sheet-csv');
+    const btnExportAllCsv = document.getElementById('btn-export-all-csv');
+    const btnExportXlsx = document.getElementById('btn-export-xlsx');
+    const btnCopyCsv = document.getElementById('btn-copy-csv');
+
+    // --- Tab switching ---
+    function setTab(tab) {
+      if (tab === 'file') {
+        btnTabFile.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnTabPaste.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        panelFile.classList.remove('hidden');
+        panelPaste.classList.add('hidden');
+      } else {
+        btnTabPaste.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnTabFile.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        panelPaste.classList.remove('hidden');
+        panelFile.classList.add('hidden');
+      }
+      hideResults();
+      clearError();
+    }
+
+    btnTabFile.addEventListener('click', () => setTab('file'));
+    btnTabPaste.addEventListener('click', () => setTab('paste'));
+
+    // --- Error helpers ---
+    function showError(msg) {
+      errorCard.textContent = msg;
+      errorCard.classList.remove('hidden');
+    }
+    function clearError() {
+      errorCard.classList.add('hidden');
+      errorCard.textContent = '';
+    }
+
+    // --- Loading helpers ---
+    function showLoading() {
+      loading.classList.remove('hidden');
+      results.classList.add('hidden');
+    }
+    function hideLoading() {
+      loading.classList.add('hidden');
+    }
+
+    // --- Results helpers ---
+    function hideResults() {
+      results.classList.add('hidden');
+      spreadsheetPanel.classList.add('hidden');
+      csvPanel.classList.add('hidden');
+    }
+
+    // --- Format bytes ---
+    function fmtBytes(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    // --- Render HTML table ---
+    function renderTable(container, rows2d, truncated) {
+      if (!rows2d || rows2d.length === 0) {
+        container.innerHTML = '<div class="text-xs text-gray-500 p-4">No data to display.</div>';
+        return;
+      }
+      const header = rows2d[0];
+      const dataRows = rows2d.slice(1, truncated ? MAX_PREVIEW_ROWS + 1 : undefined);
+      let html = '<table><thead><tr>';
+      html += '<th style="color:#4b5563;font-size:0.7rem;min-width:2.5rem">#</th>';
+      for (const cell of header) {
+        html += `<th>${escHtml(String(cell ?? ''))}</th>`;
+      }
+      html += '</tr></thead><tbody>';
+      dataRows.forEach((row, i) => {
+        html += '<tr>';
+        html += `<td style="color:#4b5563;user-select:none;font-size:0.7rem">${i + 1}</td>`;
+        for (let c = 0; c < header.length; c++) {
+          html += `<td title="${escHtml(String(row[c] ?? ''))}">${escHtml(String(row[c] ?? ''))}</td>`;
+        }
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // --- SPREADSHEET FILE PROCESSING ---
+    function processSpreadsheet(data, fileName) {
+      clearError();
+      showLoading();
+      currentWorkbook = null;
+      currentSheetName = null;
+      currentFileName = fileName.replace(/\.[^.]+$/, '') || 'export';
+
+      setTimeout(() => {
+        try {
+          const wb = XLSX.read(data, { type: 'array' });
+          currentWorkbook = wb;
+
+          // Build sheet tabs
+          sheetTabs.innerHTML = '';
+          wb.SheetNames.forEach((name, idx) => {
+            const btn = document.createElement('button');
+            btn.textContent = name;
+            btn.className = idx === 0
+              ? 'px-3 py-1 text-xs rounded-md bg-brand text-white cursor-pointer transition'
+              : 'px-3 py-1 text-xs rounded-md bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light cursor-pointer transition';
+            btn.addEventListener('click', () => selectSheet(name));
+            sheetTabs.appendChild(btn);
+          });
+
+          selectSheet(wb.SheetNames[0]);
+          hideLoading();
+          results.classList.remove('hidden');
+          spreadsheetPanel.classList.remove('hidden');
+          csvPanel.classList.add('hidden');
+        } catch (e) {
+          hideLoading();
+          showError('Could not read file: ' + (e.message || e));
+        }
+      }, 30);
+    }
+
+    function selectSheet(name) {
+      currentSheetName = name;
+      // Update tab button styles
+      Array.from(sheetTabs.children).forEach(btn => {
+        btn.className = btn.textContent === name
+          ? 'px-3 py-1 text-xs rounded-md bg-brand text-white cursor-pointer transition'
+          : 'px-3 py-1 text-xs rounded-md bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light cursor-pointer transition';
+      });
+
+      const ws = currentWorkbook.Sheets[name];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      const colCount = rows.length > 0 ? Math.max(...rows.map(r => r.length)) : 0;
+      const rowCount = Math.max(0, rows.length - 1); // exclude header
+
+      sheetStats.textContent = `${rows.length} rows × ${colCount} columns`;
+
+      const isTruncated = rows.length > MAX_PREVIEW_ROWS + 1;
+      if (isTruncated) {
+        previewTruncationNote.classList.remove('hidden');
+      } else {
+        previewTruncationNote.classList.add('hidden');
+      }
+
+      renderTable(tableContainer, rows, isTruncated);
+    }
+
+    // --- CSV FILE / TEXT PROCESSING ---
+    function processCsvText(text, fileName) {
+      clearError();
+      showLoading();
+      csvRows = null;
+      currentCsvText = text;
+      currentFileName = (fileName || 'export').replace(/\.[^.]+$/, '') || 'export';
+
+      setTimeout(() => {
+        try {
+          const rows = parseCsv(text);
+          if (!rows || rows.length === 0) {
+            hideLoading();
+            showError('The CSV appears to be empty or could not be parsed.');
+            return;
+          }
+          csvRows = rows;
+          const colCount = rows.length > 0 ? Math.max(...rows.map(r => r.length)) : 0;
+          const dataRows = Math.max(0, rows.length - 1);
+          csvStats.textContent = `${dataRows.toLocaleString()} data rows × ${colCount} columns`;
+
+          const isTruncated = rows.length > MAX_PREVIEW_ROWS + 1;
+          if (isTruncated) {
+            csvTruncationNote.classList.remove('hidden');
+          } else {
+            csvTruncationNote.classList.add('hidden');
+          }
+
+          renderTable(csvTableContainer, rows, isTruncated);
+          hideLoading();
+          results.classList.remove('hidden');
+          csvPanel.classList.remove('hidden');
+          spreadsheetPanel.classList.add('hidden');
+        } catch (e) {
+          hideLoading();
+          showError('CSV parse error: ' + (e.message || e));
+        }
+      }, 30);
+    }
+
+    // --- Minimal CSV parser (handles quoted fields, \r\n and \n) ---
+    function parseCsv(text) {
+      text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const rows = [];
+      let row = [];
+      let i = 0;
+      const n = text.length;
+
+      while (i < n) {
+        if (text[i] === '"') {
+          // Quoted field
+          i++;
+          let field = '';
+          while (i < n) {
+            if (text[i] === '"') {
+              if (text[i + 1] === '"') {
+                field += '"';
+                i += 2;
+              } else {
+                i++;
+                break;
+              }
+            } else {
+              field += text[i++];
+            }
+          }
+          row.push(field);
+          // skip separator or newline
+          if (i < n && text[i] === ',') i++;
+          else if (i < n && text[i] === '\n') { rows.push(row); row = []; i++; }
+        } else {
+          // Unquoted field
+          let j = i;
+          while (j < n && text[j] !== ',' && text[j] !== '\n') j++;
+          row.push(text.slice(i, j));
+          i = j;
+          if (i < n && text[i] === ',') i++;
+          else if (i < n && text[i] === '\n') { rows.push(row); row = []; i++; }
+        }
+      }
+      if (row.length > 0 || (rows.length > 0 && text[text.length - 1] !== '\n')) {
+        // Only push trailing row if it has content
+        if (row.some(c => c !== '')) rows.push(row);
+      }
+      return rows;
+    }
+
+    // --- FILE INPUT / DROP ---
+    function handleFile(file) {
+      clearError();
+      hideResults();
+      fileInfo.classList.remove('hidden');
+      fileInfo.innerHTML = `<span>&#128196; <strong class="text-gray-200">${escHtml(file.name)}</strong> &nbsp; <span class="text-gray-500">${fmtBytes(file.size)}</span></span>`;
+
+      const ext = file.name.split('.').pop().toLowerCase();
+      const isSpreadsheet = ['xlsx', 'xls', 'ods'].includes(ext);
+      const isCsv = ext === 'csv';
+
+      if (!isSpreadsheet && !isCsv) {
+        showError('Unsupported file type. Please use .xlsx, .xls, .ods, or .csv.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        if (isCsv) {
+          // Read as text
+          const text = e.target.result;
+          processCsvText(text, file.name);
+        } else {
+          // Read as ArrayBuffer
+          const data = new Uint8Array(e.target.result);
+          processSpreadsheet(data, file.name);
+        }
+      };
+      reader.onerror = () => showError('Could not read file.');
+      if (isCsv) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsArrayBuffer(file);
+      }
+    }
+
+    // Drop zone events
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drop-zone-active'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone-active'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drop-zone-active');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) handleFile(file);
+      fileInput.value = '';
+    });
+
+    // --- PASTE CSV ---
+    btnParsePaste.addEventListener('click', () => {
+      const text = csvPaste.value.trim();
+      if (!text) { showError('Paste some CSV text first.'); return; }
+      processCsvText(text, 'pasted');
+    });
+
+    btnClearPaste.addEventListener('click', () => {
+      csvPaste.value = '';
+      hideResults();
+      clearError();
+    });
+
+    // Also parse on Ctrl+Enter
+    csvPaste.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') btnParsePaste.click();
+    });
+
+    // --- EXPORT: Selected sheet → CSV ---
+    btnExportSheetCsv.addEventListener('click', () => {
+      if (!currentWorkbook || !currentSheetName) return;
+      try {
+        const ws = currentWorkbook.Sheets[currentSheetName];
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        downloadText(csv, (currentFileName || 'sheet') + '_' + currentSheetName + '.csv', 'text/csv');
+      } catch (e) {
+        showError('Export failed: ' + (e.message || e));
+      }
+    });
+
+    // --- EXPORT: All sheets → ZIP of CSVs ---
+    btnExportAllCsv.addEventListener('click', async () => {
+      if (!currentWorkbook) return;
+      // If single sheet, just download that one
+      if (currentWorkbook.SheetNames.length === 1) {
+        btnExportSheetCsv.click();
+        return;
+      }
+      // Build a zip using JSZip if available, otherwise fallback to multiple downloads
+      try {
+        // Try to load JSZip dynamically
+        if (typeof JSZip === 'undefined') {
+          await loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+        }
+        const zip = new JSZip();
+        for (const name of currentWorkbook.SheetNames) {
+          const ws = currentWorkbook.Sheets[name];
+          const csv = XLSX.utils.sheet_to_csv(ws);
+          const safeName = name.replace(/[\\/:*?"<>|]/g, '_');
+          zip.file(safeName + '.csv', csv);
+        }
+        const blob = await zip.generateAsync({ type: 'blob' });
+        downloadBlob(blob, (currentFileName || 'sheets') + '_all_sheets.zip');
+      } catch (e) {
+        // Fallback: download each CSV separately
+        for (const name of currentWorkbook.SheetNames) {
+          const ws = currentWorkbook.Sheets[name];
+          const csv = XLSX.utils.sheet_to_csv(ws);
+          const safeName = name.replace(/[\\/:*?"<>|]/g, '_');
+          downloadText(csv, (currentFileName || 'export') + '_' + safeName + '.csv', 'text/csv');
+          await delay(200);
+        }
+      }
+    });
+
+    // --- EXPORT: CSV → XLSX ---
+    btnExportXlsx.addEventListener('click', () => {
+      if (!csvRows || csvRows.length === 0) return;
+      try {
+        const ws = XLSX.utils.aoa_to_sheet(csvRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        XLSX.writeFile(wb, (currentFileName || 'export') + '.xlsx');
+      } catch (e) {
+        showError('Export failed: ' + (e.message || e));
+      }
+    });
+
+    // --- Copy CSV ---
+    btnCopyCsv.addEventListener('click', async () => {
+      const text = currentCsvText || '';
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btnCopyCsv.textContent;
+        btnCopyCsv.textContent = 'Copied!';
+        setTimeout(() => { btnCopyCsv.textContent = orig; }, 1500);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const orig = btnCopyCsv.textContent;
+        btnCopyCsv.textContent = 'Copied!';
+        setTimeout(() => { btnCopyCsv.textContent = orig; }, 1500);
+      }
+    });
+
+    // --- Download helpers ---
+    function downloadText(text, filename, mime) {
+      const blob = new Blob([text], { type: mime || 'text/plain' });
+      downloadBlob(blob, filename);
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    function delay(ms) {
+      return new Promise(r => setTimeout(r, ms));
+    }
+
+  })();
+  </script>
+</body>
+</html>

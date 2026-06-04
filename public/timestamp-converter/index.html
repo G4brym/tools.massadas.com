@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timestamp &amp; Timezone Converter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Timestamp &amp; Timezone Converter</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Live Unix time display -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Current Unix Time</h2>
+        <span class="text-xs text-gray-500">updates every second</span>
+      </div>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="flex-1 flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500 w-20">Seconds</span>
+            <span id="live-seconds" class="font-mono text-xl text-brand-light select-all"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500 w-20">Milliseconds</span>
+            <span id="live-ms" class="font-mono text-sm text-gray-300 select-all"></span>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button id="btn-copy-seconds" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy s</button>
+          <button id="btn-copy-ms" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy ms</button>
+          <button id="btn-use-now" class="px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Use ↓</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timestamp parser -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Parse Timestamp or Date</h2>
+      </div>
+      <div class="flex gap-2 mb-4">
+        <input
+          id="ts-input"
+          type="text"
+          placeholder="Unix timestamp (s or ms) or ISO / human date…"
+          class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono placeholder:font-sans placeholder:text-gray-500"
+        />
+        <button id="btn-now-parse" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer whitespace-nowrap">Now</button>
+      </div>
+
+      <!-- Error -->
+      <div id="parse-error" class="hidden mb-3 px-3 py-2 rounded-lg bg-err/10 border border-err/30 text-sm text-err"></div>
+
+      <!-- Results -->
+      <div id="parse-results" class="hidden flex flex-col gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div class="bg-surface rounded-lg px-3 py-2.5 border border-surface-lighter">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">ISO 8601 (UTC)</div>
+            <div class="flex items-center gap-2">
+              <span id="out-iso" class="font-mono text-sm text-gray-100 flex-1 break-all"></span>
+              <button data-copy="out-iso" class="copy-btn flex-shrink-0 text-xs text-gray-500 hover:text-brand-light transition cursor-pointer">Copy</button>
+            </div>
+          </div>
+          <div class="bg-surface rounded-lg px-3 py-2.5 border border-surface-lighter">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Local Time</div>
+            <div class="flex items-center gap-2">
+              <span id="out-local" class="font-mono text-sm text-gray-100 flex-1 break-all"></span>
+              <button data-copy="out-local" class="copy-btn flex-shrink-0 text-xs text-gray-500 hover:text-brand-light transition cursor-pointer">Copy</button>
+            </div>
+          </div>
+          <div class="bg-surface rounded-lg px-3 py-2.5 border border-surface-lighter">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Relative</div>
+            <div class="flex items-center gap-2">
+              <span id="out-relative" class="font-mono text-sm text-gray-100 flex-1"></span>
+            </div>
+          </div>
+          <div class="bg-surface rounded-lg px-3 py-2.5 border border-surface-lighter">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Day of Week</div>
+            <div class="flex items-center gap-2">
+              <span id="out-weekday" class="font-mono text-sm text-gray-100 flex-1"></span>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+          <div class="bg-surface rounded-lg px-3 py-2.5 border border-surface-lighter">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Unix (seconds)</div>
+            <div class="flex items-center gap-2">
+              <span id="out-unix-s" class="font-mono text-sm text-brand-light flex-1"></span>
+              <button data-copy="out-unix-s" class="copy-btn flex-shrink-0 text-xs text-gray-500 hover:text-brand-light transition cursor-pointer">Copy</button>
+            </div>
+          </div>
+          <div class="bg-surface rounded-lg px-3 py-2.5 border border-surface-lighter">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Unix (milliseconds)</div>
+            <div class="flex items-center gap-2">
+              <span id="out-unix-ms" class="font-mono text-sm text-brand-light flex-1"></span>
+              <button data-copy="out-unix-ms" class="copy-btn flex-shrink-0 text-xs text-gray-500 hover:text-brand-light transition cursor-pointer">Copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-1">
+          <span id="out-detected" class="text-xs text-gray-500"></span>
+          <button id="btn-use-in-tz" class="text-xs text-brand-light hover:text-brand transition cursor-pointer">Use in Timezone Converter ↓</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timezone converter -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Timezone Converter</h2>
+      </div>
+
+      <!-- Source date/time + timezone -->
+      <div class="flex flex-col gap-3 mb-4">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            id="tz-datetime"
+            type="datetime-local"
+            class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono"
+          />
+          <button id="btn-tz-now" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer whitespace-nowrap">Now</button>
+        </div>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <label class="text-sm text-gray-400 whitespace-nowrap sm:w-28">Source timezone</label>
+          <div class="flex-1 relative w-full">
+            <input
+              id="tz-source-search"
+              type="text"
+              placeholder="Search timezone…"
+              autocomplete="off"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none"
+            />
+            <div id="tz-source-dropdown" class="hidden absolute z-40 top-full mt-1 left-0 right-0 bg-surface-light border border-surface-lighter rounded-lg shadow-xl max-h-52 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conversion results -->
+      <div id="tz-results" class="flex flex-col gap-2 mb-4"></div>
+
+      <!-- Add target timezone -->
+      <div class="border-t border-surface-lighter pt-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <label class="text-sm text-gray-400 whitespace-nowrap sm:w-28">Add timezone</label>
+          <div class="flex-1 relative w-full">
+            <input
+              id="tz-target-search"
+              type="text"
+              placeholder="Search and add a target timezone…"
+              autocomplete="off"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none"
+            />
+            <div id="tz-target-dropdown" class="hidden absolute z-40 top-full mt-1 left-0 right-0 bg-surface-light border border-surface-lighter rounded-lg shadow-xl max-h-52 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ── Utility: copy to clipboard with transient feedback ──────────────────
+    async function copyText(text, btn) {
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      }
+    }
+
+    // ── Live Unix time display ───────────────────────────────────────────────
+    const liveSeconds = document.getElementById('live-seconds');
+    const liveMs = document.getElementById('live-ms');
+
+    function tickLiveClock() {
+      const now = Date.now();
+      const s = Math.floor(now / 1000);
+      liveSeconds.textContent = s;
+      liveMs.textContent = now;
+    }
+    tickLiveClock();
+    setInterval(tickLiveClock, 1000);
+
+    document.getElementById('btn-copy-seconds').addEventListener('click', function () {
+      copyText(liveSeconds.textContent, this);
+    });
+    document.getElementById('btn-copy-ms').addEventListener('click', function () {
+      copyText(liveMs.textContent, this);
+    });
+    document.getElementById('btn-use-now').addEventListener('click', () => {
+      document.getElementById('ts-input').value = Math.floor(Date.now() / 1000).toString();
+      parseInput();
+      document.getElementById('ts-input').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    // ── Relative time formatter ──────────────────────────────────────────────
+    function relativeTime(ms) {
+      const diff = ms - Date.now();
+      const abs = Math.abs(diff);
+      const future = diff > 0;
+
+      if (abs < 1000) return 'just now';
+
+      const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+      const units = [
+        [60, 'second'],
+        [3600, 'minute'],
+        [86400, 'hour'],
+        [86400 * 7, 'day'],
+        [86400 * 30, 'week'],
+        [86400 * 365, 'month'],
+        [Infinity, 'year'],
+      ];
+
+      const seconds = abs / 1000;
+      let unit = 'second', value = seconds;
+
+      for (let i = 0; i < units.length - 1; i++) {
+        if (seconds < units[i][0]) {
+          const prev = i === 0 ? 1 : units[i - 1][0];
+          value = Math.round(seconds / prev);
+          unit = units[i][1];
+          break;
+        }
+        if (i === units.length - 2) {
+          value = Math.round(seconds / units[i][0]);
+          unit = units[i + 1][1];
+        }
+      }
+
+      return rtf.format(future ? value : -value, unit);
+    }
+
+    // ── Timestamp / date parser ──────────────────────────────────────────────
+    const tsInput = document.getElementById('ts-input');
+    const parseError = document.getElementById('parse-error');
+    const parseResults = document.getElementById('parse-results');
+
+    let parsedMs = null; // currently parsed epoch in ms
+
+    function parseInput() {
+      const raw = tsInput.value.trim();
+      parseError.classList.add('hidden');
+      parseResults.classList.add('hidden');
+      parsedMs = null;
+
+      if (!raw) return;
+
+      let ms = null;
+      let detectedAs = '';
+
+      // 1. Pure numeric → unix timestamp
+      if (/^\d+$/.test(raw)) {
+        const n = parseInt(raw, 10);
+        // Heuristic: ≥ 13 digits → milliseconds; otherwise seconds
+        if (raw.length >= 13) {
+          ms = n;
+          detectedAs = 'Detected as: Unix milliseconds';
+        } else {
+          ms = n * 1000;
+          detectedAs = 'Detected as: Unix seconds';
+        }
+      }
+
+      // 2. Try ISO / human date string
+      if (ms === null) {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          ms = d.getTime();
+          detectedAs = 'Detected as: date string';
+        }
+      }
+
+      // 3. Try numeric with decimal (e.g. 1234567890.123)
+      if (ms === null && /^\d+\.\d+$/.test(raw)) {
+        const n = parseFloat(raw);
+        ms = Math.round(n * 1000);
+        detectedAs = 'Detected as: Unix seconds (decimal)';
+      }
+
+      if (ms === null || isNaN(ms)) {
+        parseError.textContent = 'Could not parse "' + raw + '". Try a Unix timestamp (s/ms), ISO 8601, or a natural date string.';
+        parseError.classList.remove('hidden');
+        return;
+      }
+
+      parsedMs = ms;
+      const d = new Date(ms);
+
+      document.getElementById('out-iso').textContent = d.toISOString();
+      document.getElementById('out-local').textContent = d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        timeZoneName: 'short'
+      });
+      document.getElementById('out-relative').textContent = relativeTime(ms);
+      document.getElementById('out-weekday').textContent = d.toLocaleDateString(undefined, { weekday: 'long' });
+      document.getElementById('out-unix-s').textContent = Math.floor(ms / 1000);
+      document.getElementById('out-unix-ms').textContent = ms;
+      document.getElementById('out-detected').textContent = detectedAs;
+      parseResults.classList.remove('hidden');
+    }
+
+    tsInput.addEventListener('input', parseInput);
+    document.getElementById('btn-now-parse').addEventListener('click', () => {
+      tsInput.value = Math.floor(Date.now() / 1000).toString();
+      parseInput();
+    });
+
+    // Delegate copy buttons inside parse-results
+    document.getElementById('parse-results').addEventListener('click', e => {
+      const btn = e.target.closest('[data-copy]');
+      if (!btn) return;
+      const el = document.getElementById(btn.dataset.copy);
+      if (el) copyText(el.textContent, btn);
+    });
+
+    // "Use in Timezone Converter" button
+    document.getElementById('btn-use-in-tz').addEventListener('click', () => {
+      if (parsedMs == null) return;
+      const d = new Date(parsedMs);
+      // Format as local datetime-local value (YYYY-MM-DDTHH:mm)
+      const pad = n => String(n).padStart(2, '0');
+      const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      document.getElementById('tz-datetime').value = val;
+      renderTzResults();
+      document.getElementById('tz-datetime').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    // ── Timezone converter ───────────────────────────────────────────────────
+    const ALL_TIMEZONES = (() => {
+      try {
+        return Intl.supportedValuesOf('timeZone');
+      } catch {
+        // Fallback list for browsers that don't support supportedValuesOf
+        return [
+          'UTC','America/New_York','America/Chicago','America/Denver','America/Los_Angeles',
+          'America/Anchorage','America/Honolulu','America/Sao_Paulo','America/Buenos_Aires',
+          'America/Toronto','America/Vancouver','America/Mexico_City','America/Bogota',
+          'America/Lima','America/Santiago','Europe/London','Europe/Dublin','Europe/Lisbon',
+          'Europe/Paris','Europe/Berlin','Europe/Madrid','Europe/Rome','Europe/Amsterdam',
+          'Europe/Brussels','Europe/Zurich','Europe/Vienna','Europe/Warsaw','Europe/Prague',
+          'Europe/Budapest','Europe/Bucharest','Europe/Helsinki','Europe/Stockholm',
+          'Europe/Oslo','Europe/Copenhagen','Europe/Athens','Europe/Istanbul',
+          'Europe/Moscow','Europe/Kiev','Africa/Cairo','Africa/Johannesburg','Africa/Lagos',
+          'Africa/Nairobi','Asia/Dubai','Asia/Karachi','Asia/Kolkata','Asia/Dhaka',
+          'Asia/Bangkok','Asia/Ho_Chi_Minh','Asia/Jakarta','Asia/Singapore','Asia/Kuala_Lumpur',
+          'Asia/Manila','Asia/Shanghai','Asia/Hong_Kong','Asia/Taipei','Asia/Seoul',
+          'Asia/Tokyo','Asia/Vladivostok','Australia/Perth','Australia/Adelaide',
+          'Australia/Sydney','Australia/Melbourne','Pacific/Auckland','Pacific/Fiji',
+          'Pacific/Honolulu','Pacific/Midway',
+        ];
+      }
+    })();
+
+    // Default target timezones
+    let targetTimezones = ['UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo'];
+    // Remove duplicates and ensure validity
+    targetTimezones = [...new Set(targetTimezones)].filter(tz => ALL_TIMEZONES.includes(tz));
+
+    // Source timezone: try to detect user's local tz
+    let sourceTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+    const tzDatetimeInput = document.getElementById('tz-datetime');
+    const tzSourceSearch = document.getElementById('tz-source-search');
+    const tzSourceDropdown = document.getElementById('tz-source-dropdown');
+    const tzTargetSearch = document.getElementById('tz-target-search');
+    const tzTargetDropdown = document.getElementById('tz-target-dropdown');
+    const tzResults = document.getElementById('tz-results');
+
+    // Pre-fill datetime-local with now
+    function setTzNow() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      tzDatetimeInput.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+    setTzNow();
+    tzSourceSearch.value = sourceTz;
+
+    document.getElementById('btn-tz-now').addEventListener('click', () => {
+      setTzNow();
+      renderTzResults();
+    });
+
+    // ── Timezone search dropdown helper ─────────────────────────────────────
+    function buildDropdown(container, query, onSelect) {
+      const q = query.toLowerCase().replace(/\s+/g, '_');
+      const matches = ALL_TIMEZONES.filter(tz =>
+        tz.toLowerCase().includes(q) ||
+        tz.toLowerCase().replace(/_/g, ' ').includes(query.toLowerCase())
+      ).slice(0, 40);
+
+      container.innerHTML = '';
+      if (matches.length === 0) {
+        container.classList.add('hidden');
+        return;
+      }
+
+      matches.forEach(tz => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-surface-lighter transition cursor-pointer';
+        item.textContent = tz;
+        item.addEventListener('mousedown', e => {
+          e.preventDefault(); // keep focus
+          onSelect(tz);
+          container.classList.add('hidden');
+        });
+        container.appendChild(item);
+      });
+      container.classList.remove('hidden');
+    }
+
+    // Source timezone search
+    tzSourceSearch.addEventListener('input', () => {
+      buildDropdown(tzSourceDropdown, tzSourceSearch.value, tz => {
+        sourceTz = tz;
+        tzSourceSearch.value = tz;
+        renderTzResults();
+      });
+    });
+    tzSourceSearch.addEventListener('focus', () => {
+      if (tzSourceSearch.value) buildDropdown(tzSourceDropdown, tzSourceSearch.value, tz => {
+        sourceTz = tz;
+        tzSourceSearch.value = tz;
+        tzSourceDropdown.classList.add('hidden');
+        renderTzResults();
+      });
+    });
+    tzSourceSearch.addEventListener('blur', () => {
+      setTimeout(() => tzSourceDropdown.classList.add('hidden'), 150);
+    });
+
+    // Target timezone search
+    tzTargetSearch.addEventListener('input', () => {
+      buildDropdown(tzTargetDropdown, tzTargetSearch.value, tz => {
+        tzTargetSearch.value = '';
+        if (!targetTimezones.includes(tz)) {
+          targetTimezones.push(tz);
+          renderTzResults();
+        }
+      });
+    });
+    tzTargetSearch.addEventListener('focus', () => {
+      if (tzTargetSearch.value) buildDropdown(tzTargetDropdown, tzTargetSearch.value, tz => {
+        tzTargetSearch.value = '';
+        tzTargetDropdown.classList.add('hidden');
+        if (!targetTimezones.includes(tz)) {
+          targetTimezones.push(tz);
+          renderTzResults();
+        }
+      });
+    });
+    tzTargetSearch.addEventListener('blur', () => {
+      setTimeout(() => tzTargetDropdown.classList.add('hidden'), 150);
+    });
+
+    // ── Render timezone conversion results ───────────────────────────────────
+    function parseDatetimeInTz(localStr, tz) {
+      // localStr is like "2025-06-04T14:30" — treat it as wall-clock time in `tz`.
+      // Strategy: parse it as UTC, then compute the offset of `tz` at that approximate
+      // moment and adjust.
+      if (!localStr) return null;
+
+      // First parse as naive local
+      const [datePart, timePart] = localStr.split('T');
+      if (!datePart) return null;
+      const [yr, mo, dy] = datePart.split('-').map(Number);
+      const [hr = 0, mi = 0] = (timePart || '00:00').split(':').map(Number);
+
+      // Construct a UTC candidate
+      const utcCandidate = Date.UTC(yr, mo - 1, dy, hr, mi, 0);
+
+      // Find the UTC offset of `tz` at approximately that time
+      // We do this by formatting a known UTC time in the target TZ and comparing
+      function getOffsetMs(ts, tz) {
+        try {
+          // Format the UTC timestamp in the given timezone
+          const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false,
+          }).formatToParts(ts);
+          const p = {};
+          parts.forEach(({ type, value }) => { p[type] = value; });
+          // en-CA gives YYYY-MM-DD
+          const localMs = Date.UTC(
+            parseInt(p.year, 10),
+            parseInt(p.month, 10) - 1,
+            parseInt(p.day, 10),
+            parseInt(p.hour, 10),
+            parseInt(p.minute, 10),
+            parseInt(p.second, 10)
+          );
+          return localMs - ts; // positive if tz is ahead of UTC
+        } catch {
+          return 0;
+        }
+      }
+
+      const offset = getOffsetMs(utcCandidate, tz);
+      const epochMs = utcCandidate - offset;
+      return epochMs;
+    }
+
+    function formatInTz(epochMs, tz) {
+      try {
+        return new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          year: 'numeric', month: 'short', day: 'numeric',
+          weekday: 'short',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false,
+          timeZoneName: 'short',
+        }).format(new Date(epochMs));
+      } catch {
+        return 'Error formatting';
+      }
+    }
+
+    function getOffsetLabel(epochMs, tz) {
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          timeZoneName: 'longOffset',
+        }).formatToParts(new Date(epochMs));
+        const tzPart = parts.find(p => p.type === 'timeZoneName');
+        return tzPart ? tzPart.value : '';
+      } catch {
+        return '';
+      }
+    }
+
+    function renderTzResults() {
+      const localStr = tzDatetimeInput.value;
+      tzResults.innerHTML = '';
+
+      if (!localStr) {
+        tzResults.innerHTML = '<p class="text-sm text-gray-500 italic">Enter a date and time above.</p>';
+        return;
+      }
+
+      const epochMs = parseDatetimeInTz(localStr, sourceTz);
+      if (epochMs == null || isNaN(epochMs)) {
+        tzResults.innerHTML = '<p class="text-sm text-err">Invalid date/time.</p>';
+        return;
+      }
+
+      // Show source summary
+      const srcLabel = getOffsetLabel(epochMs, sourceTz);
+      const summaryDiv = document.createElement('div');
+      summaryDiv.className = 'text-xs text-gray-400 mb-1';
+      summaryDiv.textContent = `Source: ${sourceTz} (${srcLabel}) — Unix: ${Math.floor(epochMs / 1000)}`;
+      tzResults.appendChild(summaryDiv);
+
+      if (targetTimezones.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'text-sm text-gray-500 italic';
+        empty.textContent = 'Add target timezones below to see conversions.';
+        tzResults.appendChild(empty);
+        return;
+      }
+
+      targetTimezones.forEach((tz, idx) => {
+        const formatted = formatInTz(epochMs, tz);
+        const offsetLabel = getOffsetLabel(epochMs, tz);
+
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3 bg-surface rounded-lg px-3 py-2.5 border border-surface-lighter';
+
+        const left = document.createElement('div');
+        left.className = 'flex-1 min-w-0';
+
+        const tzName = document.createElement('div');
+        tzName.className = 'flex items-center gap-2';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'text-xs font-medium text-brand-light';
+        nameSpan.textContent = tz;
+        const offsetSpan = document.createElement('span');
+        offsetSpan.className = 'text-xs text-gray-500';
+        offsetSpan.textContent = offsetLabel;
+        tzName.appendChild(nameSpan);
+        tzName.appendChild(offsetSpan);
+
+        const tzValue = document.createElement('div');
+        tzValue.className = 'font-mono text-sm text-gray-100 mt-0.5 truncate';
+        tzValue.textContent = formatted;
+
+        left.appendChild(tzName);
+        left.appendChild(tzValue);
+
+        const actions = document.createElement('div');
+        actions.className = 'flex gap-1.5 flex-shrink-0';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'text-xs px-2 py-1 rounded bg-surface-lighter text-gray-400 hover:text-brand-light transition cursor-pointer';
+        copyBtn.textContent = 'Copy';
+        copyBtn.addEventListener('click', () => copyText(formatted, copyBtn));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'text-xs px-2 py-1 rounded bg-surface-lighter text-gray-400 hover:text-err transition cursor-pointer';
+        removeBtn.textContent = '✕';
+        removeBtn.title = `Remove ${tz}`;
+        removeBtn.addEventListener('click', () => {
+          targetTimezones.splice(idx, 1);
+          renderTzResults();
+        });
+
+        actions.appendChild(copyBtn);
+        actions.appendChild(removeBtn);
+
+        row.appendChild(left);
+        row.appendChild(actions);
+        tzResults.appendChild(row);
+      });
+    }
+
+    tzDatetimeInput.addEventListener('input', renderTzResults);
+
+    // Initial render
+    renderTzResults();
+  </script>
+
+</body>
+</html>

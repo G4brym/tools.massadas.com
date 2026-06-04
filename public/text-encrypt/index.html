@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Encrypt / Decrypt — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Text Encrypt / Decrypt</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Info card -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+      <div class="flex items-start gap-3">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-brand/15 text-brand-light text-lg shrink-0 mt-0.5">
+          &#128274;
+        </div>
+        <div>
+          <p class="text-sm text-gray-300 leading-relaxed">
+            Encrypts text with <span class="text-brand-light font-medium">AES-256-GCM</span> authenticated encryption. Your password is strengthened via <span class="text-brand-light font-medium">PBKDF2-SHA-256</span> (250,000 iterations) with a random salt. Everything runs <span class="text-brand-light font-medium">100% in your browser</span> — no data is ever sent anywhere.
+          </p>
+          <p class="text-sm text-gray-500 mt-1.5">
+            &#9888; If you lose your password, the data cannot be recovered. There is no backdoor.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode toggle -->
+    <div class="flex rounded-lg border border-surface-lighter overflow-hidden">
+      <button id="btn-mode-encrypt" class="flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center">Encrypt</button>
+      <button id="btn-mode-decrypt" class="flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center">Decrypt</button>
+    </div>
+
+    <!-- Input card -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+
+      <!-- Input label -->
+      <div>
+        <label id="input-label" class="block text-sm font-medium text-gray-300 mb-2">Plaintext</label>
+        <textarea
+          id="input-text"
+          rows="6"
+          placeholder="Enter the text to encrypt…"
+          class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono resize-y"
+        ></textarea>
+      </div>
+
+      <!-- Password field -->
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+        <div class="relative">
+          <input
+            type="password"
+            id="password-input"
+            placeholder="Enter a strong password…"
+            class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 pr-20 text-sm text-gray-100 focus:border-brand focus:outline-none"
+          />
+          <button
+            id="btn-toggle-password"
+            type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-brand-light transition cursor-pointer px-2 py-1 rounded"
+          >Show</button>
+        </div>
+      </div>
+
+      <!-- Action button -->
+      <button
+        id="btn-action"
+        class="w-full sm:w-auto px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer flex items-center justify-center gap-2"
+      >
+        <span id="btn-action-label">Encrypt</span>
+        <span id="btn-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+      </button>
+    </div>
+
+    <!-- Error card -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/40 rounded-xl p-4">
+      <p class="text-sm text-err font-medium" id="error-message"></p>
+    </div>
+
+    <!-- Output card -->
+    <div id="output-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <label id="output-label" class="text-sm font-medium text-gray-300">Encrypted output</label>
+        <span id="output-size" class="text-xs text-gray-500"></span>
+      </div>
+      <textarea
+        id="output-text"
+        rows="6"
+        readonly
+        class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono resize-y focus:border-brand focus:outline-none"
+      ></textarea>
+      <div class="flex gap-3">
+        <button
+          id="btn-copy"
+          class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer"
+        >Copy</button>
+        <button
+          id="btn-use-as-input"
+          class="hidden px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer"
+        >Use as input</button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ---- State ----
+    let mode = 'encrypt'; // 'encrypt' | 'decrypt'
+
+    // ---- Element refs ----
+    const btnModeEncrypt  = document.getElementById('btn-mode-encrypt');
+    const btnModeDecrypt  = document.getElementById('btn-mode-decrypt');
+    const inputLabel      = document.getElementById('input-label');
+    const inputText       = document.getElementById('input-text');
+    const passwordInput   = document.getElementById('password-input');
+    const btnTogglePass   = document.getElementById('btn-toggle-password');
+    const btnAction       = document.getElementById('btn-action');
+    const btnActionLabel  = document.getElementById('btn-action-label');
+    const btnSpinner      = document.getElementById('btn-spinner');
+    const errorCard       = document.getElementById('error-card');
+    const errorMessage    = document.getElementById('error-message');
+    const outputCard      = document.getElementById('output-card');
+    const outputLabel     = document.getElementById('output-label');
+    const outputSize      = document.getElementById('output-size');
+    const outputText      = document.getElementById('output-text');
+    const btnCopy         = document.getElementById('btn-copy');
+    const btnUseAsInput   = document.getElementById('btn-use-as-input');
+
+    // ---- Helpers ----
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorCard.classList.remove('hidden');
+      outputCard.classList.add('hidden');
+    }
+
+    function clearError() {
+      errorCard.classList.add('hidden');
+    }
+
+    function setLoading(on) {
+      btnAction.disabled = on;
+      btnSpinner.classList.toggle('hidden', !on);
+      btnAction.classList.toggle('opacity-60', on);
+      btnAction.classList.toggle('cursor-not-allowed', on);
+    }
+
+    // ---- Crypto helpers ----
+
+    // Derive a 256-bit AES key from password + salt using PBKDF2-SHA-256
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: 250000,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+
+    // Base64 helpers (URL-safe not required, standard is fine)
+    function bufToBase64(buf) {
+      let binary = '';
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    function base64ToBuf(b64) {
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    // Pack: salt(16) || iv(12) || ciphertext → Base64
+    function packPayload(salt, iv, ciphertext) {
+      const saltArr  = new Uint8Array(salt);
+      const ivArr    = new Uint8Array(iv);
+      const ctArr    = new Uint8Array(ciphertext);
+      const combined = new Uint8Array(saltArr.length + ivArr.length + ctArr.length);
+      combined.set(saltArr, 0);
+      combined.set(ivArr, saltArr.length);
+      combined.set(ctArr, saltArr.length + ivArr.length);
+      return bufToBase64(combined.buffer);
+    }
+
+    // Unpack Base64 → { salt, iv, ciphertext }
+    function unpackPayload(b64) {
+      let buf;
+      try {
+        buf = new Uint8Array(base64ToBuf(b64));
+      } catch {
+        throw new Error('Invalid Base64 — the input does not appear to be a valid encrypted blob.');
+      }
+      if (buf.length < 16 + 12 + 1) {
+        throw new Error('Input too short — not a valid encrypted blob.');
+      }
+      const salt       = buf.slice(0, 16).buffer;
+      const iv         = buf.slice(16, 28).buffer;
+      const ciphertext = buf.slice(28).buffer;
+      return { salt, iv, ciphertext };
+    }
+
+    // ---- Encrypt ----
+    async function doEncrypt() {
+      const plaintext = inputText.value;
+      const password  = passwordInput.value;
+
+      if (!plaintext.trim()) {
+        showError('Please enter some text to encrypt.');
+        return;
+      }
+      if (!password) {
+        showError('Please enter a password.');
+        return;
+      }
+
+      clearError();
+      setLoading(true);
+
+      try {
+        const salt = crypto.getRandomValues(new Uint8Array(16)).buffer;
+        const iv   = crypto.getRandomValues(new Uint8Array(12)).buffer;
+        const key  = await deriveKey(password, salt);
+        const enc  = new TextEncoder();
+        const ciphertext = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          enc.encode(plaintext)
+        );
+        const b64 = packPayload(salt, iv, ciphertext);
+
+        outputText.value = b64;
+        outputLabel.textContent = 'Encrypted output (Base64)';
+        outputSize.textContent = b64.length + ' chars';
+        btnUseAsInput.classList.add('hidden');
+        outputCard.classList.remove('hidden');
+      } catch (err) {
+        showError('Encryption failed: ' + (err.message || err));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // ---- Decrypt ----
+    async function doDecrypt() {
+      const blob     = inputText.value.trim();
+      const password = passwordInput.value;
+
+      if (!blob) {
+        showError('Please paste the encrypted Base64 blob to decrypt.');
+        return;
+      }
+      if (!password) {
+        showError('Please enter the password used to encrypt this data.');
+        return;
+      }
+
+      clearError();
+      setLoading(true);
+
+      try {
+        const { salt, iv, ciphertext } = unpackPayload(blob);
+        const key = await deriveKey(password, salt);
+        let decrypted;
+        try {
+          decrypted = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv },
+            key,
+            ciphertext
+          );
+        } catch {
+          // AES-GCM auth tag failure means wrong password or corrupted data
+          showError('Decryption failed — wrong password or corrupted data.');
+          return;
+        }
+        const dec = new TextDecoder();
+        const plaintext = dec.decode(decrypted);
+
+        outputText.value = plaintext;
+        outputLabel.textContent = 'Decrypted plaintext';
+        outputSize.textContent = plaintext.length + ' chars';
+        btnUseAsInput.classList.remove('hidden');
+        outputCard.classList.remove('hidden');
+      } catch (err) {
+        showError(err.message || 'Decryption failed.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // ---- Mode switch ----
+    function setMode(newMode) {
+      mode = newMode;
+      clearError();
+      outputCard.classList.add('hidden');
+      inputText.value = '';
+      passwordInput.value = '';
+
+      if (mode === 'encrypt') {
+        btnModeEncrypt.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnModeDecrypt.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        inputLabel.textContent = 'Plaintext';
+        inputText.placeholder  = 'Enter the text to encrypt…';
+        btnActionLabel.textContent = 'Encrypt';
+      } else {
+        btnModeDecrypt.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnModeEncrypt.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        inputLabel.textContent = 'Encrypted blob (Base64)';
+        inputText.placeholder  = 'Paste the encrypted Base64 string here…';
+        btnActionLabel.textContent = 'Decrypt';
+      }
+    }
+
+    // ---- Event listeners ----
+    btnModeEncrypt.addEventListener('click', () => setMode('encrypt'));
+    btnModeDecrypt.addEventListener('click', () => setMode('decrypt'));
+
+    btnTogglePass.addEventListener('click', () => {
+      const isHidden = passwordInput.type === 'password';
+      passwordInput.type = isHidden ? 'text' : 'password';
+      btnTogglePass.textContent = isHidden ? 'Hide' : 'Show';
+    });
+
+    btnAction.addEventListener('click', () => {
+      if (mode === 'encrypt') doEncrypt();
+      else doDecrypt();
+    });
+
+    // Allow Ctrl+Enter / Cmd+Enter in textareas to trigger action
+    inputText.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (mode === 'encrypt') doEncrypt();
+        else doDecrypt();
+      }
+    });
+
+    btnCopy.addEventListener('click', async () => {
+      const text = outputText.value;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopy.textContent;
+      btnCopy.textContent = 'Copied!';
+      setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+    });
+
+    btnUseAsInput.addEventListener('click', () => {
+      const text = outputText.value;
+      setMode('encrypt');
+      inputText.value = text;
+      inputText.focus();
+    });
+  </script>
+</body>
+</html>

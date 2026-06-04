@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X.509 Certificate Decoder — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">X.509 Certificate Decoder</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Input area -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-300">Paste PEM or drop a certificate file</h2>
+        <button id="btn-clear" class="text-xs text-gray-500 hover:text-gray-300 transition cursor-pointer">Clear</button>
+      </div>
+
+      <!-- Drag & drop zone -->
+      <div
+        id="drop-zone"
+        class="border-2 border-dashed border-surface-lighter rounded-lg p-6 text-center cursor-pointer transition hover:border-brand hover:bg-brand/5"
+        role="button"
+        tabindex="0"
+        aria-label="Drop certificate file here"
+      >
+        <p class="text-sm text-gray-400">Drop <code class="text-brand-light">.pem</code>, <code class="text-brand-light">.crt</code>, or <code class="text-brand-light">.cer</code> file here</p>
+        <p class="text-xs text-gray-600 mt-1">or click to browse</p>
+        <input type="file" id="file-input" accept=".pem,.crt,.cer,.der" class="hidden">
+      </div>
+
+      <textarea
+        id="pem-input"
+        class="bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono resize-y min-h-[140px] w-full placeholder-gray-600"
+        placeholder="-----BEGIN CERTIFICATE-----&#10;MIIDz...&#10;-----END CERTIFICATE-----"
+        spellcheck="false"
+      ></textarea>
+
+      <div class="flex items-center gap-3">
+        <button id="btn-decode" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Decode</button>
+        <span id="file-name" class="text-xs text-gray-500 hidden"></span>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/40 rounded-xl p-4">
+      <p class="text-sm text-red-400 font-medium" id="error-msg"></p>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="hidden flex items-center gap-3 text-sm text-gray-400 px-1">
+      <svg class="animate-spin h-4 w-4 text-brand" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+      Decoding…
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="flex flex-col gap-6"></div>
+
+  </main>
+
+  <script type="module">
+    import { X509Certificate } from 'https://cdn.jsdelivr.net/npm/@peculiar/x509@1/+esm';
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    function bufToHex(buf, sep = ':') {
+      return Array.from(new Uint8Array(buf))
+        .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+        .join(sep);
+    }
+
+    async function sha(algo, buf) {
+      const digest = await crypto.subtle.digest(algo, buf);
+      return bufToHex(digest, ':');
+    }
+
+    function formatDN(dn) {
+      // dn is a string like "CN=foo, O=bar, C=US"
+      try {
+        return dn || '—';
+      } catch { return '—'; }
+    }
+
+    function fmtDate(d) {
+      if (!d) return '—';
+      return d.toUTCString().replace('GMT', 'UTC');
+    }
+
+    function validityBadge(cert) {
+      const now = new Date();
+      if (now < cert.notBefore) {
+        return { text: 'Not yet valid', cls: 'bg-warn/20 text-yellow-300 border border-warn/40' };
+      }
+      if (now > cert.notAfter) {
+        return { text: 'Expired', cls: 'bg-err/20 text-red-300 border border-err/40' };
+      }
+      return { text: 'Valid', cls: 'bg-ok/20 text-green-300 border border-ok/40' };
+    }
+
+    function daysUntilExpiry(cert) {
+      const now = new Date();
+      const diff = Math.round((cert.notAfter - now) / 86400000);
+      if (diff < 0) return `Expired ${Math.abs(diff)} day${Math.abs(diff) !== 1 ? 's' : ''} ago`;
+      if (diff === 0) return 'Expires today';
+      return `${diff} day${diff !== 1 ? 's' : ''} until expiry`;
+    }
+
+    function hexSerial(serial) {
+      // serial is a hex string from the library
+      try {
+        return serial ? serial.toUpperCase().replace(/(.{2})/g, '$1:').replace(/:$/, '') : '—';
+      } catch { return serial || '—'; }
+    }
+
+    // Extract raw DER bytes from X509Certificate
+    function certDer(cert) {
+      return cert.rawData;
+    }
+
+    // Get extension by OID
+    function getExt(cert, oid) {
+      try {
+        return cert.getExtension(oid);
+      } catch { return null; }
+    }
+
+    // Subject Alternative Names
+    function getSANs(cert) {
+      try {
+        const san = cert.getExtension('2.5.29.17');
+        if (!san) return null;
+        const names = [];
+        // san.names is an array of GeneralName
+        if (san.names && san.names.length) {
+          for (const n of san.names) {
+            if (n.type === 2) names.push({ type: 'DNS', value: n.value }); // dNSName
+            else if (n.type === 7) names.push({ type: 'IP', value: n.value }); // iPAddress
+            else if (n.type === 1) names.push({ type: 'Email', value: n.value });
+            else if (n.type === 6) names.push({ type: 'URI', value: n.value });
+            else names.push({ type: `Type ${n.type}`, value: n.value });
+          }
+        }
+        return names.length ? names : null;
+      } catch { return null; }
+    }
+
+    // Key Usage
+    function getKeyUsage(cert) {
+      try {
+        const ku = cert.getExtension('2.5.29.15');
+        if (!ku) return null;
+        const usages = [];
+        if (ku.digitalSignature) usages.push('Digital Signature');
+        if (ku.nonRepudiation) usages.push('Non-Repudiation');
+        if (ku.keyEncipherment) usages.push('Key Encipherment');
+        if (ku.dataEncipherment) usages.push('Data Encipherment');
+        if (ku.keyAgreement) usages.push('Key Agreement');
+        if (ku.keyCertSign) usages.push('Key Cert Sign');
+        if (ku.cRLSign) usages.push('CRL Sign');
+        if (ku.encipherOnly) usages.push('Encipher Only');
+        if (ku.decipherOnly) usages.push('Decipher Only');
+        return usages.length ? usages : null;
+      } catch { return null; }
+    }
+
+    // Extended Key Usage
+    function getEKU(cert) {
+      try {
+        const eku = cert.getExtension('2.5.29.37');
+        if (!eku) return null;
+        const map = {
+          '1.3.6.1.5.5.7.3.1': 'TLS Web Server Authentication',
+          '1.3.6.1.5.5.7.3.2': 'TLS Web Client Authentication',
+          '1.3.6.1.5.5.7.3.3': 'Code Signing',
+          '1.3.6.1.5.5.7.3.4': 'Email Protection',
+          '1.3.6.1.5.5.7.3.8': 'Time Stamping',
+          '1.3.6.1.5.5.7.3.9': 'OCSP Signing',
+        };
+        const usages = (eku.usages || []).map(oid => map[oid] || oid);
+        return usages.length ? usages : null;
+      } catch { return null; }
+    }
+
+    // Basic Constraints
+    function getBasicConstraints(cert) {
+      try {
+        const bc = cert.getExtension('2.5.29.19');
+        if (!bc) return null;
+        return { ca: !!bc.cA, pathLen: bc.pathLenConstraint };
+      } catch { return null; }
+    }
+
+    // Is self-signed (simplified: compare subject and issuer strings)
+    function isSelfSigned(cert) {
+      try {
+        return cert.subject === cert.issuer;
+      } catch { return false; }
+    }
+
+    // Key algorithm label
+    function keyAlgoLabel(cert) {
+      try {
+        const alg = cert.publicKey?.algorithm;
+        if (!alg) return '—';
+        const name = alg.name || '';
+        if (name === 'RSA-PSS' || name === 'RSASSA-PKCS1-v1_5' || name.includes('RSA')) {
+          const bits = alg.modulusLength;
+          return bits ? `RSA ${bits}-bit` : 'RSA';
+        }
+        if (name === 'EC' || name === 'ECDSA' || name === 'ECDH') {
+          const curve = alg.namedCurve || '';
+          return curve ? `EC (${curve})` : 'EC';
+        }
+        if (name === 'Ed25519') return 'Ed25519';
+        if (name === 'Ed448') return 'Ed448';
+        return name;
+      } catch { return '—'; }
+    }
+
+    // Signature algorithm friendly name
+    function sigAlgoLabel(cert) {
+      try {
+        const alg = cert.signatureAlgorithm?.name || '';
+        const map = {
+          'SHA-1': 'SHA-1',
+          'SHA-256': 'SHA-256',
+          'SHA-384': 'SHA-384',
+          'SHA-512': 'SHA-512',
+        };
+        const hash = cert.signatureAlgorithm?.hash?.name || '';
+        const base = cert.signatureAlgorithm?.name || '';
+        if (base && hash) return `${base} with ${hash}`;
+        return alg || '—';
+      } catch { return '—'; }
+    }
+
+    // ── PEM parsing ──────────────────────────────────────────────────────────
+
+    function extractPemBlocks(text) {
+      const re = /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g;
+      return text.match(re) || [];
+    }
+
+    // ── Rendering ────────────────────────────────────────────────────────────
+
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function rowHtml(label, value, mono = false) {
+      return `
+        <div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-3 py-2.5 border-b border-surface-lighter/50 last:border-0">
+          <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide sm:w-44 shrink-0 pt-0.5">${escHtml(label)}</dt>
+          <dd class="text-sm text-gray-200 break-all ${mono ? 'font-mono text-xs leading-relaxed' : ''}">${value}</dd>
+        </div>
+      `;
+    }
+
+    function tagHtml(text, extraCls = '') {
+      return `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-medium ${extraCls}">${escHtml(text)}</span>`;
+    }
+
+    function sectionHtml(title, rows) {
+      if (!rows.length) return '';
+      return `
+        <div>
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">${escHtml(title)}</h3>
+          <dl class="flex flex-col">${rows.join('')}</dl>
+        </div>
+      `;
+    }
+
+    async function renderCert(pem, index, total) {
+      let cert;
+      try {
+        cert = new X509Certificate(pem);
+      } catch (e) {
+        return `
+          <div class="bg-err/10 border border-err/40 rounded-xl p-4">
+            <p class="text-sm text-red-400 font-medium">Certificate #${index + 1}: Failed to parse — ${escHtml(e.message)}</p>
+          </div>`;
+      }
+
+      // Compute fingerprints
+      const der = certDer(cert);
+      const [fp1, fp256] = await Promise.all([
+        sha('SHA-1', der),
+        sha('SHA-256', der),
+      ]);
+
+      const badge = validityBadge(cert);
+      const selfSigned = isSelfSigned(cert);
+      const sans = getSANs(cert);
+      const keyUsages = getKeyUsage(cert);
+      const ekus = getEKU(cert);
+      const bc = getBasicConstraints(cert);
+
+      // Card title
+      let cn = '—';
+      try {
+        const subjectStr = cert.subject || '';
+        const cnMatch = subjectStr.match(/CN=([^,]+)/i);
+        cn = cnMatch ? cnMatch[1].trim() : (subjectStr || `Certificate #${index + 1}`);
+      } catch {}
+
+      // Build rows
+      const identityRows = [
+        rowHtml('Subject', escHtml(cert.subject || '—'), true),
+        rowHtml('Issuer', escHtml(cert.issuer || '—'), true),
+        rowHtml('Serial Number', `<span class="font-mono text-xs">${escHtml(hexSerial(cert.serialNumber))}</span>`),
+        rowHtml('Version', escHtml(String(cert.version || '—'))),
+      ];
+
+      const validityRows = [
+        rowHtml('Not Before', escHtml(fmtDate(cert.notBefore))),
+        rowHtml('Not After', escHtml(fmtDate(cert.notAfter))),
+        rowHtml('Status',
+          `${tagHtml(badge.text, badge.cls)} <span class="ml-2 text-xs text-gray-400">${escHtml(daysUntilExpiry(cert))}</span>`
+        ),
+      ];
+
+      const keyRows = [
+        rowHtml('Signature Algorithm', escHtml(sigAlgoLabel(cert))),
+        rowHtml('Public Key Algorithm', escHtml(keyAlgoLabel(cert))),
+      ];
+
+      const fpRows = [
+        rowHtml('SHA-1', `<span class="font-mono text-xs">${escHtml(fp1)}</span>`),
+        rowHtml('SHA-256', `<span class="font-mono text-xs">${escHtml(fp256)}</span>`),
+      ];
+
+      const extRows = [];
+      if (sans) {
+        const sanTags = sans.map(n =>
+          `<span class="inline-block px-2 py-0.5 rounded-md text-xs font-mono mr-1 mb-1 ${n.type === 'IP' ? 'bg-brand/20 text-brand-light border border-brand/30' : 'bg-surface border border-surface-lighter text-gray-300'}">${escHtml(n.type + ': ' + n.value)}</span>`
+        ).join('');
+        extRows.push(rowHtml('Subject Alt Names', `<div class="flex flex-wrap gap-0">${sanTags}</div>`));
+      }
+      if (keyUsages) {
+        extRows.push(rowHtml('Key Usage', keyUsages.map(u => tagHtml(u, 'bg-surface border border-surface-lighter text-gray-300 mr-1 mb-1')).join('')));
+      }
+      if (ekus) {
+        extRows.push(rowHtml('Extended Key Usage', ekus.map(u => tagHtml(u, 'bg-surface border border-surface-lighter text-gray-300 mr-1 mb-1')).join('')));
+      }
+      if (bc !== null) {
+        const caTag = bc.ca
+          ? tagHtml('CA: true', 'bg-warn/20 text-yellow-300 border border-warn/40 mr-1')
+          : tagHtml('CA: false', 'bg-surface border border-surface-lighter text-gray-300 mr-1');
+        const pl = bc.pathLen != null ? `<span class="text-xs text-gray-400 ml-2">Path length: ${bc.pathLen}</span>` : '';
+        extRows.push(rowHtml('Basic Constraints', caTag + pl));
+      }
+
+      // Badges in header
+      const headerBadges = [
+        selfSigned ? tagHtml('Self-signed', 'bg-surface-lighter text-gray-300 border border-surface-lighter') : '',
+        bc?.ca ? tagHtml('CA', 'bg-warn/20 text-yellow-300 border border-warn/40') : '',
+        tagHtml(badge.text, badge.cls),
+      ].filter(Boolean).join(' ');
+
+      // Copy fingerprint buttons
+      const cardId = `cert-card-${index}`;
+
+      return `
+        <div id="${escHtml(cardId)}" class="bg-surface-light border border-surface-lighter rounded-xl overflow-hidden">
+          <!-- Card header -->
+          <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-surface-lighter bg-surface-light/60">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                ${total > 1 ? `<span class="text-xs font-mono text-gray-500">#${index + 1}/${total}</span>` : ''}
+                <span class="text-sm font-semibold text-gray-100 break-all">${escHtml(cn)}</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-2">${headerBadges}</div>
+            </div>
+          </div>
+          <!-- Card body -->
+          <div class="px-5 py-4 flex flex-col gap-6">
+            ${sectionHtml('Identity', identityRows)}
+            ${sectionHtml('Validity', validityRows)}
+            ${sectionHtml('Algorithm & Key', keyRows)}
+            ${extRows.length ? sectionHtml('Extensions', extRows) : ''}
+            ${sectionHtml('Fingerprints', fpRows)}
+          </div>
+          <!-- Copy fingerprints -->
+          <div class="px-5 pb-4 flex flex-wrap gap-2">
+            <button
+              class="copy-fp-btn px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer"
+              data-fp="${escHtml(fp256)}"
+              data-label="SHA-256"
+            >Copy SHA-256</button>
+            <button
+              class="copy-fp-btn px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer"
+              data-fp="${escHtml(fp1)}"
+              data-label="SHA-1"
+            >Copy SHA-1</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Main decode flow ─────────────────────────────────────────────────────
+
+    const pemInput = document.getElementById('pem-input');
+    const btnDecode = document.getElementById('btn-decode');
+    const btnClear = document.getElementById('btn-clear');
+    const results = document.getElementById('results');
+    const errorCard = document.getElementById('error-card');
+    const errorMsg = document.getElementById('error-msg');
+    const loading = document.getElementById('loading');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileNameEl = document.getElementById('file-name');
+
+    function showError(msg) {
+      errorCard.classList.remove('hidden');
+      errorMsg.textContent = msg;
+    }
+
+    function hideError() {
+      errorCard.classList.add('hidden');
+      errorMsg.textContent = '';
+    }
+
+    async function decode() {
+      const text = pemInput.value.trim();
+      hideError();
+      results.innerHTML = '';
+
+      if (!text) {
+        showError('Please paste a PEM certificate or drop a file.');
+        return;
+      }
+
+      const blocks = extractPemBlocks(text);
+      if (!blocks.length) {
+        showError('No valid PEM certificate blocks found. Make sure the text includes -----BEGIN CERTIFICATE----- / -----END CERTIFICATE----- markers.');
+        return;
+      }
+
+      loading.classList.remove('hidden');
+      btnDecode.disabled = true;
+
+      try {
+        const cards = await Promise.all(blocks.map((pem, i) => renderCert(pem, i, blocks.length)));
+        results.innerHTML = cards.join('');
+
+        // Wire up copy-fingerprint buttons
+        results.querySelectorAll('.copy-fp-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const fp = btn.dataset.fp;
+            const label = btn.dataset.label;
+            const orig = btn.textContent;
+            try {
+              await navigator.clipboard.writeText(fp);
+            } catch {
+              const ta = document.createElement('textarea');
+              ta.value = fp;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
+          });
+        });
+      } finally {
+        loading.classList.add('hidden');
+        btnDecode.disabled = false;
+      }
+    }
+
+    btnDecode.addEventListener('click', decode);
+
+    btnClear.addEventListener('click', () => {
+      pemInput.value = '';
+      results.innerHTML = '';
+      hideError();
+      fileNameEl.classList.add('hidden');
+      fileNameEl.textContent = '';
+    });
+
+    // Auto-decode on paste
+    pemInput.addEventListener('paste', () => {
+      setTimeout(decode, 50);
+    });
+
+    // ── File drag & drop ─────────────────────────────────────────────────────
+
+    function handleFile(file) {
+      if (!file) return;
+      const allowed = ['application/x-pem-file', 'application/pkix-cert', 'application/x-x509-ca-cert', ''];
+      fileNameEl.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      fileNameEl.classList.remove('hidden');
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        // If it's binary (DER), we can't handle it easily — check for PEM markers
+        if (text.includes('-----BEGIN CERTIFICATE-----')) {
+          pemInput.value = text;
+          decode();
+        } else {
+          // Try to treat as DER: convert to base64 and wrap
+          try {
+            const binaryReader = new FileReader();
+            binaryReader.onload = (ev) => {
+              const arr = new Uint8Array(ev.target.result);
+              const b64 = btoa(String.fromCharCode(...arr));
+              const pem = `-----BEGIN CERTIFICATE-----\n${b64.match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----`;
+              pemInput.value = pem;
+              decode();
+            };
+            binaryReader.readAsArrayBuffer(file);
+          } catch {
+            showError('Could not read file. Please ensure it is a PEM or DER certificate.');
+          }
+        }
+      };
+      reader.onerror = () => showError('Failed to read file.');
+      reader.readAsText(file);
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('border-brand', 'bg-brand/10');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-brand', 'bg-brand/10');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand', 'bg-brand/10');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+  </script>
+</body>
+</html>

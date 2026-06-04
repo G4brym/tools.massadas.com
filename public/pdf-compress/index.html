@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Compressor — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      animation: spin 0.8s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">PDF Compressor</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Drop zone -->
+    <div
+      id="drop-zone"
+      class="bg-surface-light border-2 border-dashed border-surface-lighter rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition hover:border-brand group"
+    >
+      <div class="w-14 h-14 rounded-xl bg-surface border border-surface-lighter flex items-center justify-center text-2xl text-gray-500 group-hover:border-brand group-hover:text-brand-light transition">
+        &#128196;
+      </div>
+      <p class="text-sm text-gray-300 font-medium">Drop a PDF here, or click to select</p>
+      <p class="text-xs text-gray-500">All processing runs 100% in your browser — nothing is uploaded</p>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" class="hidden">
+    </div>
+
+    <!-- File info (hidden until file selected) -->
+    <div id="file-info" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex items-center gap-4">
+      <div class="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center text-brand-light font-bold text-xs flex-shrink-0">PDF</div>
+      <div class="min-w-0 flex-1">
+        <p id="file-name" class="text-sm font-medium text-gray-200 truncate"></p>
+        <p id="file-size-orig" class="text-xs text-gray-400 mt-0.5"></p>
+      </div>
+      <button id="btn-clear" class="text-xs text-gray-500 hover:text-gray-200 transition cursor-pointer flex-shrink-0">Change</button>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+      <p class="text-xs text-warn flex items-start gap-2">
+        <span class="flex-shrink-0 mt-0.5">&#9888;</span>
+        <span>This tool rasterises each page to a JPEG image — text will no longer be selectable or searchable in the output PDF.</span>
+      </p>
+
+      <!-- Quality slider -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label for="quality-slider" class="text-sm font-medium text-gray-300">JPEG quality</label>
+          <span id="quality-value" class="text-sm font-mono text-brand-light">0.75</span>
+        </div>
+        <input type="range" id="quality-slider" min="0.3" max="0.95" step="0.01" value="0.75" class="w-full">
+        <div class="flex justify-between mt-1">
+          <span class="text-[10px] text-gray-600">Smaller (0.30)</span>
+          <span class="text-[10px] text-gray-600">Sharper (0.95)</span>
+        </div>
+      </div>
+
+      <!-- Scale/DPI selector -->
+      <div>
+        <label class="text-sm font-medium text-gray-300 mb-2 block">Render scale / DPI</label>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="scale-buttons">
+          <button data-scale="0.75" class="scale-btn px-3 py-2 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">0.75× ~55 DPI</button>
+          <button data-scale="1.0"  class="scale-btn px-3 py-2 text-xs rounded-lg bg-brand text-white transition cursor-pointer">1.0× ~72 DPI</button>
+          <button data-scale="1.5"  class="scale-btn px-3 py-2 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">1.5× ~108 DPI</button>
+          <button data-scale="2.0"  class="scale-btn px-3 py-2 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">2.0× ~144 DPI</button>
+        </div>
+      </div>
+
+      <!-- Grayscale toggle -->
+      <label class="flex items-center gap-3 cursor-pointer border-t border-surface-lighter pt-4">
+        <input type="checkbox" id="grayscale-toggle" class="w-4 h-4 rounded border-surface-lighter accent-brand cursor-pointer">
+        <span class="text-sm text-gray-300">Convert to grayscale <span class="text-gray-500">(extra size reduction)</span></span>
+      </label>
+
+      <!-- Compress button -->
+      <button id="btn-compress" class="px-5 py-2.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start">
+        Compress PDF
+      </button>
+    </div>
+
+    <!-- Progress (hidden until processing) -->
+    <div id="progress-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-6 flex flex-col items-center gap-4">
+      <svg class="spinner w-8 h-8 text-brand" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+      </svg>
+      <p id="progress-text" class="text-sm text-gray-300 font-medium">Preparing…</p>
+      <div class="w-full bg-surface-lighter rounded-full h-1.5">
+        <div id="progress-bar" class="h-1.5 rounded-full bg-brand transition-all duration-300" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Result (hidden until done) -->
+    <div id="result-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <h2 class="text-sm font-semibold text-gray-200">Compression result</h2>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="bg-surface rounded-lg p-3 border border-surface-lighter">
+          <p class="text-xs text-gray-500 mb-1">Original</p>
+          <p id="result-orig" class="text-base font-semibold text-gray-200">—</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3 border border-surface-lighter">
+          <p class="text-xs text-gray-500 mb-1">Compressed</p>
+          <p id="result-compressed" class="text-base font-semibold text-gray-200">—</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3 border border-ok/20">
+          <p class="text-xs text-gray-500 mb-1">Saved</p>
+          <p id="result-saved" class="text-base font-semibold text-ok">—</p>
+        </div>
+      </div>
+      <button id="btn-download" class="px-5 py-2.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start">
+        Download compressed PDF
+      </button>
+    </div>
+
+    <!-- Error (hidden until error) -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/40 rounded-xl p-4 flex items-start gap-3">
+      <span class="text-err text-lg flex-shrink-0 mt-0.5">&#10006;</span>
+      <div>
+        <p class="text-sm font-medium text-err">Error</p>
+        <p id="error-msg" class="text-sm text-gray-300 mt-0.5"></p>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    // ---- pdf.js ES module ----
+    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.worker.min.mjs';
+
+    // ---- State ----
+    let pdfFile = null;
+    let compressedBytes = null;
+    let selectedScale = 1.0;
+
+    // ---- Elements ----
+    const dropZone    = document.getElementById('drop-zone');
+    const fileInput   = document.getElementById('file-input');
+    const fileInfoEl  = document.getElementById('file-info');
+    const fileNameEl  = document.getElementById('file-name');
+    const fileSizeEl  = document.getElementById('file-size-orig');
+    const btnClear    = document.getElementById('btn-clear');
+    const controlsEl  = document.getElementById('controls');
+    const qualitySlider = document.getElementById('quality-slider');
+    const qualityValue  = document.getElementById('quality-value');
+    const scaleBtns   = document.querySelectorAll('.scale-btn');
+    const grayscale   = document.getElementById('grayscale-toggle');
+    const btnCompress = document.getElementById('btn-compress');
+    const progressCard = document.getElementById('progress-card');
+    const progressText = document.getElementById('progress-text');
+    const progressBar  = document.getElementById('progress-bar');
+    const resultCard   = document.getElementById('result-card');
+    const resultOrig   = document.getElementById('result-orig');
+    const resultComp   = document.getElementById('result-compressed');
+    const resultSaved  = document.getElementById('result-saved');
+    const btnDownload  = document.getElementById('btn-download');
+    const errorCard    = document.getElementById('error-card');
+    const errorMsg     = document.getElementById('error-msg');
+
+    // ---- Helpers ----
+    function fmtBytes(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorCard.classList.remove('hidden');
+      progressCard.classList.add('hidden');
+    }
+
+    function hideError() {
+      errorCard.classList.add('hidden');
+    }
+
+    function setProgress(current, total, label) {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      progressBar.style.width = pct + '%';
+      progressText.textContent = label || `Page ${current} / ${total}`;
+    }
+
+    // ---- File handling ----
+    function loadFile(file) {
+      if (!file || file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+        showError('Please select a valid PDF file.');
+        return;
+      }
+      pdfFile = file;
+      compressedBytes = null;
+      hideError();
+      resultCard.classList.add('hidden');
+      fileNameEl.textContent = file.name;
+      fileSizeEl.textContent = fmtBytes(file.size) + ' original';
+      fileInfoEl.classList.remove('hidden');
+      controlsEl.classList.remove('hidden');
+      dropZone.classList.add('hidden');
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('border-brand');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-brand');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand');
+      const file = e.dataTransfer.files[0];
+      if (file) loadFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) loadFile(fileInput.files[0]);
+    });
+
+    btnClear.addEventListener('click', () => {
+      pdfFile = null;
+      compressedBytes = null;
+      fileInput.value = '';
+      fileInfoEl.classList.add('hidden');
+      controlsEl.classList.add('hidden');
+      resultCard.classList.add('hidden');
+      progressCard.classList.add('hidden');
+      hideError();
+      dropZone.classList.remove('hidden');
+    });
+
+    // ---- Quality slider ----
+    qualitySlider.addEventListener('input', () => {
+      qualityValue.textContent = parseFloat(qualitySlider.value).toFixed(2);
+    });
+
+    // ---- Scale buttons ----
+    scaleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedScale = parseFloat(btn.dataset.scale);
+        scaleBtns.forEach(b => {
+          if (parseFloat(b.dataset.scale) === selectedScale) {
+            b.className = 'scale-btn px-3 py-2 text-xs rounded-lg bg-brand text-white transition cursor-pointer';
+          } else {
+            b.className = 'scale-btn px-3 py-2 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer';
+          }
+        });
+      });
+    });
+
+    // ---- Compress ----
+    btnCompress.addEventListener('click', async () => {
+      if (!pdfFile) return;
+      hideError();
+      resultCard.classList.add('hidden');
+      progressCard.classList.remove('hidden');
+      setProgress(0, 1, 'Loading PDF…');
+      btnCompress.disabled = true;
+      btnCompress.classList.add('opacity-50', 'cursor-not-allowed');
+
+      try {
+        const quality   = parseFloat(qualitySlider.value);
+        const scale     = selectedScale;
+        const useGray   = grayscale.checked;
+
+        // 1. Read file bytes
+        const arrayBuf  = await pdfFile.arrayBuffer();
+        const uint8     = new Uint8Array(arrayBuf);
+
+        // 2. Load with pdf.js
+        const loadingTask = pdfjsLib.getDocument({ data: uint8 });
+        const pdfDoc = await loadingTask.promise;
+        const numPages = pdfDoc.numPages;
+
+        // 3. Create new pdf-lib document
+        const { PDFDocument } = window.PDFLib;
+        const newPdf = await PDFDocument.create();
+
+        // 4. Render each page
+        for (let i = 1; i <= numPages; i++) {
+          setProgress(i - 1, numPages, `Rendering page ${i} / ${numPages}…`);
+          // Small yield to allow UI updates
+          await new Promise(r => setTimeout(r, 0));
+
+          const page = await pdfDoc.getPage(i);
+          const viewport = page.getViewport({ scale });
+
+          // Create offscreen canvas
+          const canvas = document.createElement('canvas');
+          canvas.width  = Math.round(viewport.width);
+          canvas.height = Math.round(viewport.height);
+          const ctx = canvas.getContext('2d');
+
+          if (useGray) {
+            ctx.filter = 'grayscale(1)';
+          }
+
+          await page.render({ canvasContext: ctx, viewport }).promise;
+
+          // JPEG data URL
+          const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
+          const jpegBase64  = jpegDataUrl.split(',')[1];
+          const jpegBytes   = Uint8Array.from(atob(jpegBase64), c => c.charCodeAt(0));
+
+          // Original page dimensions in PDF points (1 pt = 1/72 inch)
+          const origViewport = page.getViewport({ scale: 1 });
+          const pWidth  = origViewport.width;
+          const pHeight = origViewport.height;
+
+          const jpegImage = await newPdf.embedJpg(jpegBytes);
+          const newPage   = newPdf.addPage([pWidth, pHeight]);
+          newPage.drawImage(jpegImage, { x: 0, y: 0, width: pWidth, height: pHeight });
+
+          setProgress(i, numPages, `Page ${i} / ${numPages} done`);
+        }
+
+        setProgress(numPages, numPages, 'Finalising…');
+        await new Promise(r => setTimeout(r, 0));
+
+        compressedBytes = await newPdf.save();
+
+        // 5. Show results
+        const origSize = pdfFile.size;
+        const compSize = compressedBytes.byteLength;
+        const saved    = origSize > compSize ? Math.round((1 - compSize / origSize) * 100) : 0;
+
+        resultOrig.textContent      = fmtBytes(origSize);
+        resultComp.textContent      = fmtBytes(compSize);
+        resultSaved.textContent     = saved > 0 ? `${saved}% saved` : 'No reduction';
+        resultSaved.className       = saved > 0
+          ? 'text-base font-semibold text-ok'
+          : 'text-base font-semibold text-warn';
+
+        progressCard.classList.add('hidden');
+        resultCard.classList.remove('hidden');
+
+      } catch (err) {
+        console.error(err);
+        showError(err.message || 'Failed to compress PDF. Make sure it is a valid, non-encrypted PDF.');
+      } finally {
+        btnCompress.disabled = false;
+        btnCompress.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+
+    // ---- Download ----
+    btnDownload.addEventListener('click', () => {
+      if (!compressedBytes) return;
+      const blob = new Blob([compressedBytes], { type: 'application/pdf' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      const baseName = pdfFile.name.replace(/\.pdf$/i, '');
+      a.href     = url;
+      a.download = `${baseName}-compressed.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>

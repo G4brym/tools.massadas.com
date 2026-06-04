@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Generator — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      opacity: 0.5;
+    }
+
+    /* Print styles */
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 32px;
+        background: white;
+        color: #111;
+      }
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Invoice Generator</h1>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Two-column layout: form left, preview right -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- LEFT: Form -->
+      <div class="flex flex-col gap-5">
+
+        <!-- Your Business -->
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">Your Business</h2>
+          <div class="flex flex-col gap-3">
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Business Name</label>
+              <input id="from-name" type="text" placeholder="Acme Studio LLC"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Address</label>
+              <textarea id="from-address" rows="2" placeholder="123 Main St&#10;New York, NY 10001"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none resize-none"></textarea>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Email</label>
+              <input id="from-email" type="email" placeholder="hello@acme.com"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Logo (optional)</label>
+              <div id="logo-drop" class="border border-dashed border-surface-lighter rounded-lg px-3 py-3 text-sm text-gray-500 text-center cursor-pointer hover:border-brand hover:text-brand-light transition">
+                Click or drop an image
+              </div>
+              <input id="logo-input" type="file" accept="image/*" class="hidden">
+              <div id="logo-preview-wrap" class="hidden mt-2 flex items-center gap-2">
+                <img id="logo-preview" class="h-12 object-contain rounded" alt="Logo preview">
+                <button id="logo-remove" class="text-xs text-err hover:text-red-300 transition cursor-pointer">Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bill To -->
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">Bill To</h2>
+          <div class="flex flex-col gap-3">
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Client Name</label>
+              <input id="to-name" type="text" placeholder="GlobalCorp Inc."
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Client Address</label>
+              <textarea id="to-address" rows="2" placeholder="456 Corporate Ave&#10;San Francisco, CA 94105"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none resize-none"></textarea>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Client Email</label>
+              <input id="to-email" type="email" placeholder="billing@globalcorp.com"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Invoice Details -->
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">Invoice Details</h2>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Invoice #</label>
+              <input id="inv-number" type="text" placeholder="INV-001"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Currency</label>
+              <select id="inv-currency"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none cursor-pointer">
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="CAD">CAD (CA$)</option>
+                <option value="AUD">AUD (A$)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="CHF">CHF (Fr)</option>
+                <option value="INR">INR (₹)</option>
+                <option value="BRL">BRL (R$)</option>
+                <option value="MXN">MXN (MX$)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Issue Date</label>
+              <input id="inv-date" type="date"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Due Date</label>
+              <input id="inv-due" type="date"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Line Items -->
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">Line Items</h2>
+          <div id="items-container" class="flex flex-col gap-2 mb-3">
+            <!-- Items are added here dynamically -->
+          </div>
+          <button id="btn-add-item"
+            class="text-sm text-brand-light hover:text-brand transition cursor-pointer flex items-center gap-1">
+            <span class="text-lg leading-none">+</span> Add item
+          </button>
+        </div>
+
+        <!-- Totals -->
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">Adjustments</h2>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <label class="text-sm text-gray-400 w-24 shrink-0">Tax (%)</label>
+              <input id="tax-rate" type="number" min="0" max="100" step="0.1" placeholder="0"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none">
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="text-sm text-gray-400 w-24 shrink-0">Discount (%)</label>
+              <input id="discount-rate" type="number" min="0" max="100" step="0.1" placeholder="0"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes & Terms -->
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+          <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-4">Notes & Terms</h2>
+          <div class="flex flex-col gap-3">
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Notes</label>
+              <textarea id="inv-notes" rows="2" placeholder="Thank you for your business!"
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none resize-none"></textarea>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 mb-1 block">Payment Terms</label>
+              <textarea id="inv-terms" rows="2" placeholder="Payment due within 30 days. Late payments may incur a 1.5% monthly fee."
+                class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none resize-none"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3 flex-wrap">
+          <button id="btn-download-pdf"
+            class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+            Download PDF
+          </button>
+          <button id="btn-print"
+            class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+            Print
+          </button>
+          <button id="btn-reset"
+            class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-err hover:text-err transition cursor-pointer">
+            Reset
+          </button>
+        </div>
+
+      </div><!-- end left col -->
+
+      <!-- RIGHT: Live Preview -->
+      <div class="lg:sticky lg:top-16 lg:self-start">
+        <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide">Preview</h2>
+            <span class="text-xs text-gray-500">Updates live</span>
+          </div>
+
+          <!-- Invoice preview area (white paper) -->
+          <div id="print-area">
+            <div id="invoice-preview"
+              style="background:white; color:#111; font-family: Georgia, 'Times New Roman', serif; padding:40px; border-radius:4px; font-size:13px; line-height:1.5; min-height:600px;">
+              <!-- dynamically updated -->
+            </div>
+          </div>
+        </div>
+      </div><!-- end right col -->
+
+    </div><!-- end grid -->
+
+    <!-- Error display -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/30 rounded-xl p-4 text-sm text-red-300"></div>
+
+  </main>
+
+  <!-- jsPDF + autotable -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+  (() => {
+    // ─── Currency helpers ─────────────────────────────────────────────────────
+    const CURRENCY_SYMBOLS = {
+      USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', AUD: 'A$',
+      JPY: '¥', CHF: 'Fr', INR: '₹', BRL: 'R$', MXN: 'MX$'
+    };
+
+    function currencySymbol() {
+      return CURRENCY_SYMBOLS[document.getElementById('inv-currency').value] || '$';
+    }
+
+    function fmt(n) {
+      const code = document.getElementById('inv-currency').value;
+      if (code === 'JPY') return currencySymbol() + Math.round(n).toLocaleString();
+      return currencySymbol() + n.toFixed(2);
+    }
+
+    // ─── Items state ──────────────────────────────────────────────────────────
+    let items = [];
+    let logoDataUrl = null;
+
+    function addItem(desc = '', qty = 1, price = 0) {
+      items.push({ id: Date.now() + Math.random(), desc, qty, price });
+      renderItems();
+      updateAll();
+    }
+
+    function removeItem(id) {
+      items = items.filter(i => i.id !== id);
+      renderItems();
+      updateAll();
+    }
+
+    function itemTotal(item) {
+      return (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
+    }
+
+    function subtotal() {
+      return items.reduce((s, i) => s + itemTotal(i), 0);
+    }
+
+    function taxAmt() {
+      const r = parseFloat(document.getElementById('tax-rate').value) || 0;
+      return subtotal() * (r / 100);
+    }
+
+    function discountAmt() {
+      const r = parseFloat(document.getElementById('discount-rate').value) || 0;
+      return subtotal() * (r / 100);
+    }
+
+    function grandTotal() {
+      return subtotal() - discountAmt() + taxAmt();
+    }
+
+    // ─── Render items in form ─────────────────────────────────────────────────
+    function renderItems() {
+      const container = document.getElementById('items-container');
+      container.innerHTML = '';
+
+      if (items.length === 0) {
+        container.innerHTML = '<p class="text-xs text-gray-600 italic">No items yet.</p>';
+        return;
+      }
+
+      items.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex gap-2 items-start';
+        row.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <input type="text" placeholder="Description"
+              data-id="${item.id}" data-field="desc" value="${escAttr(item.desc)}"
+              class="w-full bg-surface border border-surface-lighter rounded-lg px-2 py-1.5 text-xs text-gray-100 focus:border-brand focus:outline-none mb-1">
+            <div class="flex gap-1">
+              <input type="number" min="0" step="1" placeholder="Qty"
+                data-id="${item.id}" data-field="qty" value="${item.qty}"
+                class="w-16 bg-surface border border-surface-lighter rounded-lg px-2 py-1 text-xs text-gray-100 font-mono focus:border-brand focus:outline-none">
+              <input type="number" min="0" step="0.01" placeholder="Unit price"
+                data-id="${item.id}" data-field="price" value="${item.price}"
+                class="flex-1 bg-surface border border-surface-lighter rounded-lg px-2 py-1 text-xs text-gray-100 font-mono focus:border-brand focus:outline-none">
+              <span class="text-xs text-gray-400 self-center whitespace-nowrap font-mono">${fmt(itemTotal(item))}</span>
+            </div>
+          </div>
+          <button data-remove="${item.id}"
+            class="text-gray-600 hover:text-err transition cursor-pointer text-lg leading-none mt-1">&#10005;</button>
+        `;
+        container.appendChild(row);
+      });
+
+      // Bind events
+      container.querySelectorAll('input[data-field]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const id = parseFloat(inp.dataset.id);
+          const field = inp.dataset.field;
+          const item = items.find(i => i.id == inp.dataset.id);
+          if (!item) return;
+          item[field] = field === 'desc' ? inp.value : parseFloat(inp.value) || 0;
+          // Update just the total span without full re-render
+          const span = inp.closest('.flex.gap-1').querySelector('span');
+          if (span) span.textContent = fmt(itemTotal(item));
+          updateAll();
+        });
+      });
+
+      container.querySelectorAll('button[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => removeItem(parseFloat(btn.dataset.remove)));
+      });
+    }
+
+    // ─── Escape helpers ───────────────────────────────────────────────────────
+    function esc(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function escAttr(str) {
+      return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function nl2br(str) {
+      return esc(str).replace(/\n/g, '<br>');
+    }
+
+    // ─── Build preview HTML ───────────────────────────────────────────────────
+    function buildPreviewHtml() {
+      const fromName  = document.getElementById('from-name').value;
+      const fromAddr  = document.getElementById('from-address').value;
+      const fromEmail = document.getElementById('from-email').value;
+      const toName    = document.getElementById('to-name').value;
+      const toAddr    = document.getElementById('to-address').value;
+      const toEmail   = document.getElementById('to-email').value;
+      const invNum    = document.getElementById('inv-number').value;
+      const invDate   = document.getElementById('inv-date').value;
+      const invDue    = document.getElementById('inv-due').value;
+      const notes     = document.getElementById('inv-notes').value;
+      const terms     = document.getElementById('inv-terms').value;
+      const taxRate   = parseFloat(document.getElementById('tax-rate').value) || 0;
+      const discRate  = parseFloat(document.getElementById('discount-rate').value) || 0;
+      const currency  = document.getElementById('inv-currency').value;
+
+      const sub  = subtotal();
+      const disc = discountAmt();
+      const tax  = taxAmt();
+      const grand = grandTotal();
+
+      const logoHtml = logoDataUrl
+        ? `<img src="${logoDataUrl}" style="max-height:64px; max-width:160px; object-fit:contain; display:block; margin-bottom:8px;" alt="logo">`
+        : '';
+
+      const formatDate = (d) => {
+        if (!d) return '';
+        const [y, m, day] = d.split('-');
+        return new Date(+y, +m - 1, +day).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+      };
+
+      const itemRows = items.map(i => `
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:8px 6px;">${esc(i.desc) || '<span style="color:#aaa;font-style:italic">—</span>'}</td>
+          <td style="padding:8px 6px; text-align:right; font-family:monospace;">${parseFloat(i.qty) || 0}</td>
+          <td style="padding:8px 6px; text-align:right; font-family:monospace;">${fmt(parseFloat(i.price) || 0)}</td>
+          <td style="padding:8px 6px; text-align:right; font-family:monospace; font-weight:600;">${fmt(itemTotal(i))}</td>
+        </tr>
+      `).join('');
+
+      const totalRows = `
+        <tr>
+          <td colspan="3" style="text-align:right; padding:6px 6px 4px; color:#555;">Subtotal</td>
+          <td style="text-align:right; padding:6px 6px 4px; font-family:monospace;">${fmt(sub)}</td>
+        </tr>
+        ${discRate > 0 ? `<tr>
+          <td colspan="3" style="text-align:right; padding:4px 6px; color:#555;">Discount (${discRate}%)</td>
+          <td style="text-align:right; padding:4px 6px; font-family:monospace; color:#dc2626;">−${fmt(disc)}</td>
+        </tr>` : ''}
+        ${taxRate > 0 ? `<tr>
+          <td colspan="3" style="text-align:right; padding:4px 6px; color:#555;">Tax (${taxRate}%)</td>
+          <td style="text-align:right; padding:4px 6px; font-family:monospace;">${fmt(tax)}</td>
+        </tr>` : ''}
+        <tr style="border-top:2px solid #111;">
+          <td colspan="3" style="text-align:right; padding:10px 6px 6px; font-weight:700; font-size:15px;">Total Due</td>
+          <td style="text-align:right; padding:10px 6px 6px; font-family:monospace; font-weight:700; font-size:16px; color:#4f46e5;">${fmt(grand)}</td>
+        </tr>
+      `;
+
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; gap:16px;">
+          <div>
+            ${logoHtml}
+            <div style="font-size:20px; font-weight:700; color:#111;">${esc(fromName) || '<span style="color:#aaa">Your Business</span>'}</div>
+            <div style="color:#555; font-size:12px; margin-top:4px; white-space:pre-line;">${nl2br(fromAddr)}</div>
+            ${fromEmail ? `<div style="color:#555; font-size:12px;">${esc(fromEmail)}</div>` : ''}
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:26px; font-weight:800; color:#4f46e5; letter-spacing:-0.5px;">INVOICE</div>
+            ${invNum ? `<div style="font-size:13px; color:#555; margin-top:2px; font-family:monospace;">${esc(invNum)}</div>` : ''}
+            ${invDate ? `<div style="font-size:12px; color:#555; margin-top:6px;">Issued: ${formatDate(invDate)}</div>` : ''}
+            ${invDue ? `<div style="font-size:12px; color:#555;">Due: <strong>${formatDate(invDue)}</strong></div>` : ''}
+          </div>
+        </div>
+
+        <div style="display:flex; gap:24px; margin-bottom:28px;">
+          <div style="background:#f9fafb; border-radius:6px; padding:14px 16px; flex:1;">
+            <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280; margin-bottom:4px; font-family:sans-serif;">Bill To</div>
+            <div style="font-weight:600; font-size:14px;">${esc(toName) || '<span style="color:#aaa;font-style:italic">Client Name</span>'}</div>
+            <div style="color:#555; font-size:12px; margin-top:3px; white-space:pre-line;">${nl2br(toAddr)}</div>
+            ${toEmail ? `<div style="color:#555; font-size:12px;">${esc(toEmail)}</div>` : ''}
+          </div>
+          <div style="background:#f9fafb; border-radius:6px; padding:14px 16px; min-width:140px;">
+            <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280; margin-bottom:4px; font-family:sans-serif;">Details</div>
+            <div style="font-size:12px; color:#555;">Currency: <strong>${currency}</strong></div>
+            ${invDate ? `<div style="font-size:12px; color:#555;">Issued: <strong>${formatDate(invDate)}</strong></div>` : ''}
+            ${invDue ? `<div style="font-size:12px; color:#555;">Due: <strong>${formatDate(invDue)}</strong></div>` : ''}
+          </div>
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; margin-bottom:0;">
+          <thead>
+            <tr style="background:#111; color:#fff;">
+              <th style="text-align:left; padding:10px 6px; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; font-family:sans-serif; border-radius:4px 0 0 4px;">Description</th>
+              <th style="text-align:right; padding:10px 6px; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; font-family:sans-serif;">Qty</th>
+              <th style="text-align:right; padding:10px 6px; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; font-family:sans-serif;">Unit Price</th>
+              <th style="text-align:right; padding:10px 6px; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; font-family:sans-serif; border-radius:0 4px 4px 0;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.length ? itemRows : `<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa;font-style:italic;">No items added yet</td></tr>`}
+          </tbody>
+          <tfoot>
+            ${totalRows}
+          </tfoot>
+        </table>
+
+        ${(notes || terms) ? `
+          <div style="margin-top:28px; border-top:1px solid #e5e7eb; padding-top:16px; display:flex; gap:24px;">
+            ${notes ? `<div style="flex:1;">
+              <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280; margin-bottom:4px; font-family:sans-serif;">Notes</div>
+              <div style="font-size:12px; color:#555; white-space:pre-line;">${nl2br(notes)}</div>
+            </div>` : ''}
+            ${terms ? `<div style="flex:1;">
+              <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7280; margin-bottom:4px; font-family:sans-serif;">Payment Terms</div>
+              <div style="font-size:12px; color:#555; white-space:pre-line;">${nl2br(terms)}</div>
+            </div>` : ''}
+          </div>
+        ` : ''}
+      `;
+    }
+
+    // ─── Update preview ───────────────────────────────────────────────────────
+    function updatePreview() {
+      document.getElementById('invoice-preview').innerHTML = buildPreviewHtml();
+    }
+
+    function updateAll() {
+      updatePreview();
+      persist();
+    }
+
+    // ─── Persist to localStorage ──────────────────────────────────────────────
+    const LS_KEY = 'invoice-gen-v1';
+
+    function persist() {
+      try {
+        const data = {
+          fromName:  document.getElementById('from-name').value,
+          fromAddr:  document.getElementById('from-address').value,
+          fromEmail: document.getElementById('from-email').value,
+          toName:    document.getElementById('to-name').value,
+          toAddr:    document.getElementById('to-address').value,
+          toEmail:   document.getElementById('to-email').value,
+          invNum:    document.getElementById('inv-number').value,
+          invDate:   document.getElementById('inv-date').value,
+          invDue:    document.getElementById('inv-due').value,
+          currency:  document.getElementById('inv-currency').value,
+          taxRate:   document.getElementById('tax-rate').value,
+          discRate:  document.getElementById('discount-rate').value,
+          notes:     document.getElementById('inv-notes').value,
+          terms:     document.getElementById('inv-terms').value,
+          items:     items,
+          logo:      logoDataUrl,
+        };
+        localStorage.setItem(LS_KEY, JSON.stringify(data));
+      } catch(e) { /* quota exceeded etc */ }
+    }
+
+    function restore() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return false;
+        const d = JSON.parse(raw);
+        document.getElementById('from-name').value  = d.fromName  || '';
+        document.getElementById('from-address').value = d.fromAddr || '';
+        document.getElementById('from-email').value = d.fromEmail || '';
+        document.getElementById('to-name').value    = d.toName    || '';
+        document.getElementById('to-address').value = d.toAddr    || '';
+        document.getElementById('to-email').value   = d.toEmail   || '';
+        document.getElementById('inv-number').value = d.invNum    || '';
+        document.getElementById('inv-date').value   = d.invDate   || '';
+        document.getElementById('inv-due').value    = d.invDue    || '';
+        document.getElementById('inv-currency').value = d.currency || 'USD';
+        document.getElementById('tax-rate').value   = d.taxRate   || '';
+        document.getElementById('discount-rate').value = d.discRate || '';
+        document.getElementById('inv-notes').value  = d.notes     || '';
+        document.getElementById('inv-terms').value  = d.terms     || '';
+        items = Array.isArray(d.items) ? d.items : [];
+        if (d.logo) {
+          logoDataUrl = d.logo;
+          showLogo(d.logo);
+        }
+        return true;
+      } catch(e) { return false; }
+    }
+
+    // ─── Logo handling ────────────────────────────────────────────────────────
+    function showLogo(dataUrl) {
+      document.getElementById('logo-preview').src = dataUrl;
+      document.getElementById('logo-preview-wrap').classList.remove('hidden');
+      document.getElementById('logo-drop').classList.add('hidden');
+    }
+
+    function hideLogo() {
+      logoDataUrl = null;
+      document.getElementById('logo-preview').src = '';
+      document.getElementById('logo-preview-wrap').classList.add('hidden');
+      document.getElementById('logo-drop').classList.remove('hidden');
+    }
+
+    function handleLogoFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        logoDataUrl = e.target.result;
+        showLogo(logoDataUrl);
+        updateAll();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ─── PDF download ─────────────────────────────────────────────────────────
+    function downloadPdf() {
+      showError('');
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+        const fromName  = document.getElementById('from-name').value || 'Your Business';
+        const fromAddr  = document.getElementById('from-address').value;
+        const fromEmail = document.getElementById('from-email').value;
+        const toName    = document.getElementById('to-name').value || 'Client';
+        const toAddr    = document.getElementById('to-address').value;
+        const toEmail   = document.getElementById('to-email').value;
+        const invNum    = document.getElementById('inv-number').value;
+        const invDate   = document.getElementById('inv-date').value;
+        const invDue    = document.getElementById('inv-due').value;
+        const notes     = document.getElementById('inv-notes').value;
+        const terms     = document.getElementById('inv-terms').value;
+        const taxRate   = parseFloat(document.getElementById('tax-rate').value) || 0;
+        const discRate  = parseFloat(document.getElementById('discount-rate').value) || 0;
+
+        const W = doc.internal.pageSize.getWidth();
+        const margin = 48;
+        let y = margin;
+
+        const formatDate = (d) => {
+          if (!d) return '';
+          const [yr, m, day] = d.split('-');
+          return new Date(+yr, +m - 1, +day).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+        };
+
+        // ── Logo ──
+        if (logoDataUrl) {
+          try {
+            const ext = logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+            doc.addImage(logoDataUrl, ext === 'JPG' ? 'JPEG' : (ext === 'SVG' ? 'PNG' : ext), margin, y, 120, 40, '', 'FAST');
+            y += 48;
+          } catch(e) { /* skip bad logo */ }
+        }
+
+        // ── Header band ──
+        doc.setFillColor(79, 70, 229); // indigo-600
+        doc.rect(0, 0, W, 8, 'F');
+
+        // ── Business name ──
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(17, 24, 39);
+        doc.text(fromName, margin, y + 4);
+
+        // ── INVOICE label top-right ──
+        doc.setFontSize(28);
+        doc.setTextColor(79, 70, 229);
+        doc.text('INVOICE', W - margin, y + 4, { align: 'right' });
+        y += 22;
+
+        // ── From details ──
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128);
+        if (fromAddr) {
+          fromAddr.split('\n').forEach(line => {
+            doc.text(line, margin, y);
+            y += 14;
+          });
+        }
+        if (fromEmail) { doc.text(fromEmail, margin, y); y += 14; }
+
+        // ── Invoice meta (right side) ──
+        let metaY = y - (fromAddr ? fromAddr.split('\n').length * 14 : 0) - (fromEmail ? 14 : 0);
+        doc.setTextColor(107, 114, 128);
+        if (invNum) { doc.text(`Invoice: ${invNum}`, W - margin, metaY, { align: 'right' }); metaY += 14; }
+        if (invDate) { doc.text(`Issued: ${formatDate(invDate)}`, W - margin, metaY, { align: 'right' }); metaY += 14; }
+        if (invDue)  { doc.setTextColor(17,24,39); doc.setFont('helvetica', 'bold'); doc.text(`Due: ${formatDate(invDue)}`, W - margin, metaY, { align: 'right' }); metaY += 14; doc.setFont('helvetica', 'normal'); }
+
+        y += 24;
+
+        // ── Bill To box ──
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(margin, y, (W - margin * 2) * 0.5, 70, 4, 4, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(107, 114, 128);
+        doc.setFont('helvetica', 'bold');
+        doc.text('BILL TO', margin + 12, y + 14);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(17, 24, 39);
+        doc.text(toName, margin + 12, y + 28);
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128);
+        let billY = y + 42;
+        if (toAddr) toAddr.split('\n').forEach(line => {
+          if (billY < y + 70) { doc.text(line, margin + 12, billY); billY += 13; }
+        });
+        if (toEmail && billY < y + 70) doc.text(toEmail, margin + 12, billY);
+
+        y += 82;
+
+        // ── Items table ──
+        const tableBody = items.map(i => [
+          i.desc || '',
+          String(parseFloat(i.qty) || 0),
+          fmt(parseFloat(i.price) || 0),
+          fmt(itemTotal(i))
+        ]);
+
+        const sub  = subtotal();
+        const disc = discountAmt();
+        const tax  = taxAmt();
+        const grand = grandTotal();
+
+        // Subtotal rows
+        const footRows = [];
+        footRows.push(['', '', 'Subtotal', fmt(sub)]);
+        if (discRate > 0) footRows.push(['', '', `Discount (${discRate}%)`, `-${fmt(disc)}`]);
+        if (taxRate > 0)  footRows.push(['', '', `Tax (${taxRate}%)`, fmt(tax)]);
+        footRows.push(['', '', 'TOTAL DUE', fmt(grand)]);
+
+        doc.autoTable({
+          startY: y,
+          head: [['Description', 'Qty', 'Unit Price', 'Total']],
+          body: tableBody.length ? tableBody : [['No items', '', '', '']],
+          foot: footRows,
+          margin: { left: margin, right: margin },
+          headStyles: {
+            fillColor: [17, 24, 39],
+            textColor: 255,
+            fontStyle: 'bold',
+            fontSize: 10,
+          },
+          bodyStyles: { fontSize: 10, textColor: [55, 65, 81] },
+          footStyles: { textColor: [55, 65, 81], fontSize: 10 },
+          columnStyles: {
+            0: { cellWidth: 'auto' },
+            1: { halign: 'right', cellWidth: 50 },
+            2: { halign: 'right', cellWidth: 80 },
+            3: { halign: 'right', cellWidth: 80, fontStyle: 'bold' },
+          },
+          didParseCell: (data) => {
+            // Highlight grand total row
+            if (data.section === 'foot' && data.row.index === footRows.length - 1) {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fontSize = 12;
+              if (data.column.index === 3) {
+                data.cell.styles.textColor = [79, 70, 229];
+              }
+              if (data.row.index === footRows.length - 1) {
+                data.cell.styles.lineWidth = { top: 1 };
+                data.cell.styles.lineColor = [17, 24, 39];
+              }
+            }
+          },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          theme: 'plain',
+        });
+
+        let finalY = doc.lastAutoTable.finalY + 24;
+
+        // ── Notes & Terms ──
+        if (notes || terms) {
+          const colW = (W - margin * 2 - 16) / 2;
+          if (notes) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(107, 114, 128);
+            doc.text('NOTES', margin, finalY);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(85, 85, 85);
+            const noteLines = doc.splitTextToSize(notes, colW);
+            doc.text(noteLines, margin, finalY + 13);
+          }
+          if (terms) {
+            const tx = notes ? margin + colW + 16 : margin;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(107, 114, 128);
+            doc.text('PAYMENT TERMS', tx, finalY);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(85, 85, 85);
+            const termLines = doc.splitTextToSize(terms, colW);
+            doc.text(termLines, tx, finalY + 13);
+          }
+        }
+
+        // ── Footer accent ──
+        doc.setFillColor(79, 70, 229);
+        const ph = doc.internal.pageSize.getHeight();
+        doc.rect(0, ph - 8, W, 8, 'F');
+
+        const filename = (invNum ? `Invoice-${invNum}` : 'invoice') + '.pdf';
+        doc.save(filename);
+      } catch(err) {
+        showError('PDF generation failed: ' + err.message);
+      }
+    }
+
+    // ─── Error display ────────────────────────────────────────────────────────
+    function showError(msg) {
+      const el = document.getElementById('error-card');
+      if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    // ─── Defaults ─────────────────────────────────────────────────────────────
+    function loadDefaults() {
+      const today = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+      const dueDate = new Date(today);
+      dueDate.setDate(dueDate.getDate() + 30);
+      const dueStr = `${dueDate.getFullYear()}-${pad(dueDate.getMonth()+1)}-${pad(dueDate.getDate())}`;
+
+      document.getElementById('from-name').value  = 'Acme Studio LLC';
+      document.getElementById('from-address').value = '123 Main Street\nNew York, NY 10001';
+      document.getElementById('from-email').value = 'hello@acme.com';
+      document.getElementById('to-name').value    = 'GlobalCorp Inc.';
+      document.getElementById('to-address').value = '456 Corporate Ave\nSan Francisco, CA 94105';
+      document.getElementById('to-email').value   = 'billing@globalcorp.com';
+      document.getElementById('inv-number').value = 'INV-001';
+      document.getElementById('inv-date').value   = todayStr;
+      document.getElementById('inv-due').value    = dueStr;
+      document.getElementById('tax-rate').value   = '10';
+      document.getElementById('discount-rate').value = '';
+      document.getElementById('inv-notes').value  = 'Thank you for your business! We look forward to working with you again.';
+      document.getElementById('inv-terms').value  = 'Payment due within 30 days. Please include the invoice number on your payment.';
+
+      items = [
+        { id: 1, desc: 'Website Design & Development', qty: 1, price: 3500 },
+        { id: 2, desc: 'Brand Identity Package', qty: 1, price: 1200 },
+        { id: 3, desc: 'Monthly Maintenance (hours)', qty: 5, price: 150 },
+      ];
+    }
+
+    // ─── Wire up all inputs ───────────────────────────────────────────────────
+    function bindInputs() {
+      const ids = ['from-name','from-address','from-email','to-name','to-address','to-email',
+                   'inv-number','inv-date','inv-due','inv-currency','tax-rate','discount-rate',
+                   'inv-notes','inv-terms'];
+      ids.forEach(id => {
+        document.getElementById(id).addEventListener('input', updateAll);
+        document.getElementById(id).addEventListener('change', updateAll);
+      });
+    }
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    function init() {
+      const restored = restore();
+      if (!restored) loadDefaults();
+
+      renderItems();
+      updatePreview();
+      bindInputs();
+
+      // Add item button
+      document.getElementById('btn-add-item').addEventListener('click', () => {
+        addItem('', 1, 0);
+      });
+
+      // Logo drop zone
+      const logoDrop = document.getElementById('logo-drop');
+      const logoInput = document.getElementById('logo-input');
+
+      logoDrop.addEventListener('click', () => logoInput.click());
+      logoDrop.addEventListener('dragover', e => { e.preventDefault(); logoDrop.classList.add('border-brand'); });
+      logoDrop.addEventListener('dragleave', () => logoDrop.classList.remove('border-brand'));
+      logoDrop.addEventListener('drop', e => {
+        e.preventDefault();
+        logoDrop.classList.remove('border-brand');
+        handleLogoFile(e.dataTransfer.files[0]);
+      });
+      logoInput.addEventListener('change', () => handleLogoFile(logoInput.files[0]));
+      document.getElementById('logo-remove').addEventListener('click', () => {
+        hideLogo();
+        updateAll();
+      });
+
+      // PDF download
+      document.getElementById('btn-download-pdf').addEventListener('click', downloadPdf);
+
+      // Print
+      document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+      // Reset
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        localStorage.removeItem(LS_KEY);
+        logoDataUrl = null;
+        hideLogo();
+        loadDefaults();
+        renderItems();
+        updatePreview();
+      });
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>

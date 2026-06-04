@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON ↔ CSV Converter — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    .preview-table { border-collapse: collapse; width: 100%; }
+    .preview-table th, .preview-table td {
+      border: 1px solid var(--color-surface-lighter);
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .preview-table th {
+      background: var(--color-surface-lighter);
+      color: #cbd5e1;
+      font-weight: 600;
+      text-align: left;
+    }
+    .preview-table td { color: #94a3b8; }
+    .preview-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">JSON ↔ CSV Converter</h1>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Direction toggle -->
+    <div class="flex rounded-lg border border-surface-lighter overflow-hidden w-full sm:w-80">
+      <button id="btn-json-to-csv" class="flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center">JSON → CSV</button>
+      <button id="btn-csv-to-json" class="flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center">CSV → JSON</button>
+    </div>
+
+    <!-- Options row -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-wrap gap-4 items-center">
+      <!-- Delimiter -->
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-400">Delimiter:</span>
+        <div class="flex gap-1.5">
+          <button data-delim="," class="delim-btn px-3 py-1 text-xs font-mono rounded-lg bg-brand text-white transition cursor-pointer">Comma</button>
+          <button data-delim=";" class="delim-btn px-3 py-1 text-xs font-mono rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">Semicolon</button>
+          <button data-delim="	" class="delim-btn px-3 py-1 text-xs font-mono rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">Tab</button>
+        </div>
+      </div>
+
+      <!-- CSV→JSON options (shown in that mode) -->
+      <label id="opt-dynamic-typing-label" class="hidden flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="opt-dynamic-typing" checked class="w-4 h-4 rounded accent-brand cursor-pointer">
+        <span class="text-sm text-gray-300">Dynamic typing</span>
+      </label>
+
+      <label id="opt-unflatten-label" class="hidden flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="opt-unflatten" class="w-4 h-4 rounded accent-brand cursor-pointer">
+        <span class="text-sm text-gray-300">Unflatten dot-notation keys</span>
+      </label>
+    </div>
+
+    <!-- Two-column layout: input + output -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Input panel -->
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span id="input-label" class="text-xs font-semibold text-gray-400 uppercase tracking-wider">JSON Input</span>
+          <button id="btn-load-sample" class="text-xs text-brand-light hover:text-brand transition cursor-pointer">Load sample</button>
+        </div>
+        <textarea
+          id="input-area"
+          spellcheck="false"
+          rows="16"
+          placeholder="Paste your JSON here…"
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none resize-y w-full leading-relaxed"
+        ></textarea>
+        <button id="btn-convert" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Convert</button>
+        <!-- Error -->
+        <div id="error-box" class="hidden bg-err/10 border border-err/40 rounded-lg px-4 py-3 text-sm text-err"></div>
+      </div>
+
+      <!-- Output panel -->
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span id="output-label" class="text-xs font-semibold text-gray-400 uppercase tracking-wider">CSV Output</span>
+          <div class="flex gap-2">
+            <button id="btn-copy" class="hidden px-3 py-1 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+            <button id="btn-download" class="hidden px-3 py-1 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Download</button>
+          </div>
+        </div>
+        <textarea
+          id="output-area"
+          spellcheck="false"
+          rows="16"
+          readonly
+          placeholder="Output appears here…"
+          class="bg-surface border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none resize-y w-full leading-relaxed"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- Preview table -->
+    <div id="preview-section" class="hidden flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Preview <span id="preview-count" class="text-gray-600 ml-1 normal-case font-normal"></span></span>
+      </div>
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-4 overflow-x-auto">
+        <div id="preview-table-wrapper"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────
+    let direction = 'json-to-csv'; // 'json-to-csv' | 'csv-to-json'
+    let delimiter = ',';
+
+    // ── Sample data ─────────────────────────────────────────────────────────
+    const SAMPLE_JSON = JSON.stringify([
+      { id: 1, name: "Alice", role: "engineer", address: { city: "Paris", country: "France" }, scores: [98, 85] },
+      { id: 2, name: "Bob",   role: "designer", address: { city: "Berlin", country: "Germany" }, scores: [72, 90] },
+      { id: 3, name: "Carol", role: "manager",  address: { city: "Tokyo", country: "Japan" },   scores: [88] }
+    ], null, 2);
+
+    const SAMPLE_CSV = `id,name,role,city,country
+1,Alice,engineer,Paris,France
+2,Bob,designer,Berlin,Germany
+3,Carol,manager,Tokyo,Japan`;
+
+    // ── Elements ─────────────────────────────────────────────────────────────
+    const btnJsonToCsv = document.getElementById('btn-json-to-csv');
+    const btnCsvToJson = document.getElementById('btn-csv-to-json');
+    const inputArea    = document.getElementById('input-area');
+    const outputArea   = document.getElementById('output-area');
+    const inputLabel   = document.getElementById('input-label');
+    const outputLabel  = document.getElementById('output-label');
+    const errorBox     = document.getElementById('error-box');
+    const btnConvert   = document.getElementById('btn-convert');
+    const btnCopy      = document.getElementById('btn-copy');
+    const btnDownload  = document.getElementById('btn-download');
+    const btnLoadSample = document.getElementById('btn-load-sample');
+    const previewSection = document.getElementById('preview-section');
+    const previewTableWrapper = document.getElementById('preview-table-wrapper');
+    const previewCount = document.getElementById('preview-count');
+    const optDynamicTypingLabel = document.getElementById('opt-dynamic-typing-label');
+    const optUnflattenLabel = document.getElementById('opt-unflatten-label');
+    const optDynamicTyping = document.getElementById('opt-dynamic-typing');
+    const optUnflatten = document.getElementById('opt-unflatten');
+    const delimBtns = document.querySelectorAll('.delim-btn');
+
+    // ── Flatten a nested object using dot notation ────────────────────────────
+    function flattenObject(obj, prefix = '', result = {}) {
+      for (const key of Object.keys(obj)) {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const val = obj[key];
+        if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+          flattenObject(val, fullKey, result);
+        } else if (Array.isArray(val)) {
+          // Flatten arrays with index notation
+          val.forEach((item, i) => {
+            const arrKey = `${fullKey}.${i}`;
+            if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
+              flattenObject(item, arrKey, result);
+            } else {
+              result[arrKey] = item;
+            }
+          });
+        } else {
+          result[fullKey] = val;
+        }
+      }
+      return result;
+    }
+
+    // ── Unflatten dot-notation keys into nested objects ───────────────────────
+    function unflattenObject(obj) {
+      const result = {};
+      for (const [flatKey, value] of Object.entries(obj)) {
+        const keys = flatKey.split('.');
+        let cur = result;
+        for (let i = 0; i < keys.length - 1; i++) {
+          const k = keys[i];
+          if (cur[k] === undefined || typeof cur[k] !== 'object') {
+            cur[k] = {};
+          }
+          cur = cur[k];
+        }
+        cur[keys[keys.length - 1]] = value;
+      }
+      return result;
+    }
+
+    // ── JSON → CSV ────────────────────────────────────────────────────────────
+    function convertJsonToCsv(jsonText) {
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch (e) {
+        throw new Error(`JSON parse error: ${e.message}`);
+      }
+
+      // Wrap single object in array
+      if (!Array.isArray(parsed)) {
+        if (typeof parsed === 'object' && parsed !== null) {
+          parsed = [parsed];
+        } else {
+          throw new Error('Input must be a JSON array of objects or a single object.');
+        }
+      }
+      if (parsed.length === 0) throw new Error('Array is empty.');
+      if (typeof parsed[0] !== 'object' || parsed[0] === null) {
+        throw new Error('Array items must be objects.');
+      }
+
+      // Flatten each row and union all keys
+      const flatRows = parsed.map(row => flattenObject(row));
+      const allKeys = [];
+      const keySet = new Set();
+      for (const row of flatRows) {
+        for (const k of Object.keys(row)) {
+          if (!keySet.has(k)) { keySet.add(k); allKeys.push(k); }
+        }
+      }
+
+      const csv = Papa.unparse(flatRows, {
+        delimiter,
+        columns: allKeys,
+        header: true,
+        newline: '\n',
+      });
+
+      return { csv, rows: flatRows, columns: allKeys };
+    }
+
+    // ── CSV → JSON ────────────────────────────────────────────────────────────
+    function convertCsvToJson(csvText) {
+      const result = Papa.parse(csvText.trim(), {
+        header: true,
+        delimiter,
+        skipEmptyLines: true,
+        dynamicTyping: optDynamicTyping.checked,
+      });
+
+      if (result.errors && result.errors.length > 0) {
+        // Show non-fatal errors as warnings but continue
+        const fatal = result.errors.filter(e => e.type === 'Delimiter' || !result.data.length);
+        if (fatal.length > 0) {
+          const msg = fatal.map(e => `Row ${e.row ?? '?'}: ${e.message}`).join('; ');
+          throw new Error(msg);
+        }
+      }
+
+      if (!result.data || result.data.length === 0) {
+        throw new Error('No data rows found. Make sure the CSV has a header row.');
+      }
+
+      let rows = result.data;
+      if (optUnflatten.checked) {
+        rows = rows.map(row => unflattenObject(row));
+      }
+
+      return {
+        json: JSON.stringify(rows, null, 2),
+        rows,
+        columns: result.meta.fields || [],
+        warnings: result.errors,
+      };
+    }
+
+    // ── Preview table ─────────────────────────────────────────────────────────
+    function renderPreview(rows, columns) {
+      const maxRows = 10;
+      const displayRows = rows.slice(0, maxRows);
+      const total = rows.length;
+
+      // Flatten preview rows if they are nested (csv-to-json with unflatten)
+      const flatDisplay = displayRows.map(r =>
+        (typeof r === 'object' && !Array.isArray(r)) ? flattenObject(r) : r
+      );
+
+      // Use provided columns or derive from flattened rows
+      const cols = columns && columns.length
+        ? columns
+        : (() => {
+            const s = new Set();
+            const arr = [];
+            for (const row of flatDisplay) for (const k of Object.keys(row)) {
+              if (!s.has(k)) { s.add(k); arr.push(k); }
+            }
+            return arr;
+          })();
+
+      let html = '<table class="preview-table"><thead><tr>';
+      for (const col of cols) {
+        html += `<th title="${escHtml(col)}">${escHtml(col)}</th>`;
+      }
+      html += '</tr></thead><tbody>';
+      for (const row of flatDisplay) {
+        html += '<tr>';
+        for (const col of cols) {
+          const val = row[col] === undefined ? '' : String(row[col]);
+          html += `<td title="${escHtml(val)}">${escHtml(val)}</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+
+      previewTableWrapper.innerHTML = html;
+      previewCount.textContent = total > maxRows
+        ? `(showing first ${maxRows} of ${total} rows)`
+        : `(${total} row${total !== 1 ? 's' : ''})`;
+      previewSection.classList.remove('hidden');
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Error display ─────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+    function clearError() {
+      errorBox.textContent = '';
+      errorBox.classList.add('hidden');
+    }
+
+    // ── Main convert handler ──────────────────────────────────────────────────
+    function convert() {
+      clearError();
+      const input = inputArea.value.trim();
+      if (!input) {
+        showError('Input is empty. Paste some data or click "Load sample".');
+        return;
+      }
+
+      try {
+        if (direction === 'json-to-csv') {
+          const { csv, rows, columns } = convertJsonToCsv(input);
+          outputArea.value = csv;
+          renderPreview(rows, columns);
+          btnCopy.classList.remove('hidden');
+          btnDownload.classList.remove('hidden');
+        } else {
+          const { json, rows, columns, warnings } = convertCsvToJson(input);
+          outputArea.value = json;
+          renderPreview(rows, columns);
+          btnCopy.classList.remove('hidden');
+          btnDownload.classList.remove('hidden');
+          if (warnings && warnings.length > 0) {
+            showError('Warning(s): ' + warnings.map(w => w.message).join('; '));
+            errorBox.classList.replace('text-err', 'text-warn');
+            errorBox.classList.replace('bg-err/10', 'bg-warn/10');
+            errorBox.classList.replace('border-err/40', 'border-warn/40');
+          }
+        }
+      } catch (e) {
+        showError(e.message);
+        outputArea.value = '';
+        previewSection.classList.add('hidden');
+        btnCopy.classList.add('hidden');
+        btnDownload.classList.add('hidden');
+      }
+    }
+
+    // ── Direction switch ─────────────────────────────────────────────────────
+    function setDirection(dir) {
+      direction = dir;
+      // Update toggle buttons
+      if (dir === 'json-to-csv') {
+        btnJsonToCsv.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnCsvToJson.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        inputLabel.textContent = 'JSON Input';
+        outputLabel.textContent = 'CSV Output';
+        inputArea.placeholder = 'Paste your JSON here…';
+        outputArea.placeholder = 'Output appears here…';
+        optDynamicTypingLabel.classList.add('hidden');
+        optUnflattenLabel.classList.add('hidden');
+      } else {
+        btnCsvToJson.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-brand text-white transition cursor-pointer text-center';
+        btnJsonToCsv.className = 'flex-1 px-4 py-2.5 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer text-center';
+        inputLabel.textContent = 'CSV Input';
+        outputLabel.textContent = 'JSON Output';
+        inputArea.placeholder = 'Paste your CSV here…';
+        outputArea.placeholder = 'Output appears here…';
+        optDynamicTypingLabel.classList.remove('hidden');
+        optUnflattenLabel.classList.remove('hidden');
+      }
+      // Clear state
+      inputArea.value = '';
+      outputArea.value = '';
+      clearError();
+      previewSection.classList.add('hidden');
+      btnCopy.classList.add('hidden');
+      btnDownload.classList.add('hidden');
+      // Reset warning styling
+      errorBox.classList.remove('text-warn','bg-warn/10','border-warn/40');
+      errorBox.classList.add('text-err','bg-err/10','border-err/40');
+    }
+
+    // ── Delimiter switch ──────────────────────────────────────────────────────
+    function setDelimiter(delim) {
+      delimiter = delim;
+      delimBtns.forEach(btn => {
+        if (btn.dataset.delim === delim) {
+          btn.className = 'delim-btn px-3 py-1 text-xs font-mono rounded-lg bg-brand text-white transition cursor-pointer';
+        } else {
+          btn.className = 'delim-btn px-3 py-1 text-xs font-mono rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer';
+        }
+      });
+    }
+
+    // ── Copy to clipboard ─────────────────────────────────────────────────────
+    async function copyOutput() {
+      const text = outputArea.value;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopy.textContent;
+      btnCopy.textContent = 'Copied!';
+      setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+    }
+
+    // ── Download ──────────────────────────────────────────────────────────────
+    function downloadOutput() {
+      const text = outputArea.value;
+      if (!text) return;
+      const ext = direction === 'json-to-csv' ? 'csv' : 'json';
+      const mime = direction === 'json-to-csv' ? 'text/csv' : 'application/json';
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `converted.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ── Event listeners ────────────────────────────────────────────────────────
+    btnJsonToCsv.addEventListener('click', () => setDirection('json-to-csv'));
+    btnCsvToJson.addEventListener('click', () => setDirection('csv-to-json'));
+    btnConvert.addEventListener('click', convert);
+    btnCopy.addEventListener('click', copyOutput);
+    btnDownload.addEventListener('click', downloadOutput);
+
+    btnLoadSample.addEventListener('click', () => {
+      inputArea.value = direction === 'json-to-csv' ? SAMPLE_JSON : SAMPLE_CSV;
+      clearError();
+      outputArea.value = '';
+      previewSection.classList.add('hidden');
+      btnCopy.classList.add('hidden');
+      btnDownload.classList.add('hidden');
+    });
+
+    delimBtns.forEach(btn => {
+      btn.addEventListener('click', () => setDelimiter(btn.dataset.delim));
+    });
+
+    // Ctrl+Enter to convert
+    inputArea.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        convert();
+      }
+    });
+
+    // ── Init: load sample ─────────────────────────────────────────────────────
+    inputArea.value = SAMPLE_JSON;
+  </script>
+</body>
+</html>

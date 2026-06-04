@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Converter &amp; Trimmer — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    .tab-active {
+      background-color: var(--color-brand);
+      color: white;
+    }
+    .tab-inactive {
+      background-color: transparent;
+      color: rgb(156 163 175);
+    }
+    .tab-inactive:hover {
+      color: rgb(229 231 235);
+    }
+    #log-area {
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Video Converter &amp; Trimmer</h1>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Privacy note -->
+    <p class="text-xs text-gray-500 text-center">Everything runs locally in your browser — no files are uploaded anywhere.</p>
+
+    <!-- Drop zone -->
+    <div id="drop-zone" class="bg-surface-light border-2 border-dashed border-surface-lighter rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition hover:border-brand group">
+      <div class="text-4xl text-gray-500 group-hover:text-brand-light transition">&#127909;</div>
+      <div class="text-sm font-medium text-gray-300 group-hover:text-brand-light transition">Drop a video or audio file here</div>
+      <div class="text-xs text-gray-500">or click to select</div>
+      <input type="file" id="file-input" accept="video/*,audio/*" class="hidden">
+    </div>
+
+    <!-- File info -->
+    <div id="file-info" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-4 flex items-center gap-3">
+      <div class="text-2xl">&#127909;</div>
+      <div class="flex-1 min-w-0">
+        <div id="file-name" class="text-sm font-medium text-gray-200 truncate"></div>
+        <div id="file-size" class="text-xs text-gray-400 mt-0.5"></div>
+      </div>
+      <button id="clear-file" class="text-gray-500 hover:text-err transition text-lg leading-none px-2">&times;</button>
+    </div>
+
+    <!-- Operation tabs -->
+    <div id="operations" class="hidden flex flex-col gap-6">
+
+      <div class="bg-surface-light border border-surface-lighter rounded-xl overflow-hidden">
+        <!-- Tab bar -->
+        <div class="flex border-b border-surface-lighter">
+          <button class="tab-btn tab-active flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer" data-tab="convert">Convert</button>
+          <button class="tab-btn tab-inactive flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer border-l border-surface-lighter" data-tab="trim">Trim</button>
+          <button class="tab-btn tab-inactive flex-1 px-4 py-2.5 text-sm font-medium transition cursor-pointer border-l border-surface-lighter" data-tab="gif">Make GIF</button>
+        </div>
+
+        <!-- Convert tab -->
+        <div id="tab-convert" class="p-5 flex flex-col gap-4">
+          <div>
+            <label class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-2">Output Format</label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="format-btns">
+              <button class="format-btn format-active px-4 py-2.5 text-sm font-medium rounded-lg border transition cursor-pointer" data-format="mp4">MP4 (H.264)</button>
+              <button class="format-btn format-inactive px-4 py-2.5 text-sm font-medium rounded-lg border transition cursor-pointer" data-format="webm">WebM</button>
+              <button class="format-btn format-inactive px-4 py-2.5 text-sm font-medium rounded-lg border transition cursor-pointer" data-format="gif-convert">GIF</button>
+              <button class="format-btn format-inactive px-4 py-2.5 text-sm font-medium rounded-lg border transition cursor-pointer" data-format="mp3">Extract MP3</button>
+              <button class="format-btn format-inactive px-4 py-2.5 text-sm font-medium rounded-lg border transition cursor-pointer" data-format="wav">Extract WAV</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trim tab -->
+        <div id="tab-trim" class="p-5 flex-col gap-4 hidden">
+          <p class="text-xs text-gray-400">Enter times as seconds (e.g. <code class="text-brand-light">30</code>) or mm:ss (e.g. <code class="text-brand-light">1:30</code>). Output keeps the original format.</p>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="trim-start" class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-1.5">Start time</label>
+              <input type="text" id="trim-start" placeholder="0 or 0:00" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono">
+            </div>
+            <div>
+              <label for="trim-end" class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-1.5">End time</label>
+              <input type="text" id="trim-end" placeholder="e.g. 1:30" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono">
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-2">Output Format</label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="trim-format-btns">
+              <button class="trim-fmt-btn trim-fmt-active px-3 py-2 text-sm font-medium rounded-lg border transition cursor-pointer" data-fmt="mp4">MP4 (H.264)</button>
+              <button class="trim-fmt-btn trim-fmt-inactive px-3 py-2 text-sm font-medium rounded-lg border transition cursor-pointer" data-fmt="webm">WebM</button>
+              <button class="trim-fmt-btn trim-fmt-inactive px-3 py-2 text-sm font-medium rounded-lg border transition cursor-pointer" data-fmt="same">Same as input</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- GIF tab -->
+        <div id="tab-gif" class="p-5 flex-col gap-4 hidden">
+          <p class="text-xs text-gray-400">Create an animated GIF from a time range of the video.</p>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="gif-start" class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-1.5">Start time</label>
+              <input type="text" id="gif-start" placeholder="0 or 0:00" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono">
+            </div>
+            <div>
+              <label for="gif-end" class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-1.5">End time</label>
+              <input type="text" id="gif-end" placeholder="e.g. 0:05" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="gif-fps" class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-1.5">FPS</label>
+              <input type="number" id="gif-fps" value="10" min="1" max="30" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono">
+            </div>
+            <div>
+              <label for="gif-width" class="text-xs font-medium text-gray-400 uppercase tracking-wide block mb-1.5">Width (px, -1 = auto)</label>
+              <input type="number" id="gif-width" value="480" min="-1" max="1920" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none font-mono">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Run button -->
+      <button id="run-btn" class="px-5 py-2.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer w-full sm:w-auto self-start">
+        Run
+      </button>
+
+    </div>
+
+    <!-- Loading state (ffmpeg load) -->
+    <div id="loading-ffmpeg" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-6 flex flex-col items-center gap-4 text-center">
+      <div class="text-3xl animate-spin">&#9696;</div>
+      <div>
+        <div class="text-sm font-medium text-gray-200 mb-1">Loading ffmpeg (~30 MB, one-time)…</div>
+        <div class="text-xs text-gray-400">The ffmpeg WebAssembly core is being fetched and compiled. This only happens once per session.</div>
+      </div>
+      <div id="load-progress-bar-wrap" class="w-full h-2 bg-surface-lighter rounded-full overflow-hidden">
+        <div id="load-progress-bar" class="h-full bg-brand rounded-full transition-all duration-300" style="width: 5%"></div>
+      </div>
+    </div>
+
+    <!-- Processing state -->
+    <div id="processing" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-gray-200">Processing…</span>
+        <span id="progress-pct" class="text-sm font-mono text-brand-light">0%</span>
+      </div>
+      <div class="w-full h-2 bg-surface-lighter rounded-full overflow-hidden">
+        <div id="progress-bar" class="h-full bg-brand rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+      <!-- Collapsible log -->
+      <details class="group">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-200 transition select-none list-none flex items-center gap-1">
+          <span class="group-open:hidden">&#9654;</span><span class="hidden group-open:inline">&#9660;</span>
+          <span>Show log</span>
+        </summary>
+        <div id="log-area" class="mt-2 max-h-48 overflow-y-auto bg-surface rounded-lg p-3 text-gray-400 text-xs"></div>
+      </details>
+    </div>
+
+    <!-- Error card -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/40 rounded-xl p-4 flex items-start gap-3">
+      <span class="text-err text-lg">&#9888;</span>
+      <div>
+        <div class="text-sm font-medium text-err mb-1">Error</div>
+        <div id="error-msg" class="text-sm text-gray-300"></div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="result-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <div class="text-sm font-medium text-gray-200">Done</div>
+      <div id="preview-wrap"></div>
+      <div class="flex gap-3 flex-wrap">
+        <a id="download-btn" href="#" download class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">
+          Download
+        </a>
+        <button id="reset-btn" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+          Convert another
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+    import { toBlobURL, fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+    // ── State ──────────────────────────────────────────────────────────────
+    let ffmpeg = null;
+    let ffmpegLoaded = false;
+    let currentFile = null;
+    let activeTab = 'convert';
+    let selectedFormat = 'mp4';
+    let selectedTrimFmt = 'mp4';
+    let outputURL = null;
+
+    // ── DOM refs ───────────────────────────────────────────────────────────
+    const dropZone        = document.getElementById('drop-zone');
+    const fileInput       = document.getElementById('file-input');
+    const fileInfoEl      = document.getElementById('file-info');
+    const fileNameEl      = document.getElementById('file-name');
+    const fileSizeEl      = document.getElementById('file-size');
+    const clearFileBtn    = document.getElementById('clear-file');
+    const operationsEl    = document.getElementById('operations');
+    const runBtn          = document.getElementById('run-btn');
+    const loadingFfmpeg   = document.getElementById('loading-ffmpeg');
+    const loadBar         = document.getElementById('load-progress-bar');
+    const processingEl    = document.getElementById('processing');
+    const progressBar     = document.getElementById('progress-bar');
+    const progressPct     = document.getElementById('progress-pct');
+    const logArea         = document.getElementById('log-area');
+    const errorCard       = document.getElementById('error-card');
+    const errorMsg        = document.getElementById('error-msg');
+    const resultCard      = document.getElementById('result-card');
+    const previewWrap     = document.getElementById('preview-wrap');
+    const downloadBtn     = document.getElementById('download-btn');
+    const resetBtn        = document.getElementById('reset-btn');
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function formatBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function showError(msg) {
+      errorCard.classList.remove('hidden');
+      errorMsg.textContent = msg;
+    }
+
+    function hideError() {
+      errorCard.classList.add('hidden');
+    }
+
+    function parseTime(str) {
+      // Returns seconds (float) or null on invalid
+      str = str.trim();
+      if (!str) return null;
+      if (/^\d+(\.\d+)?$/.test(str)) return parseFloat(str);
+      const m = str.match(/^(\d+):(\d{2})(\.\d+)?$/);
+      if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10) + parseFloat(m[3] || '0');
+      return null;
+    }
+
+    function appendLog(line) {
+      logArea.textContent += line + '\n';
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // ── File handling ──────────────────────────────────────────────────────
+    function setFile(file) {
+      currentFile = file;
+      fileNameEl.textContent = file.name;
+      fileSizeEl.textContent = formatBytes(file.size);
+      fileInfoEl.classList.remove('hidden');
+      operationsEl.classList.remove('hidden');
+      hideError();
+      resultCard.classList.add('hidden');
+    }
+
+    function clearFile() {
+      currentFile = null;
+      fileInfoEl.classList.add('hidden');
+      operationsEl.classList.add('hidden');
+      hideError();
+      resultCard.classList.add('hidden');
+      processingEl.classList.add('hidden');
+      if (outputURL) { URL.revokeObjectURL(outputURL); outputURL = null; }
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-brand'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-brand'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand');
+      const f = e.dataTransfer.files[0];
+      if (f) setFile(f);
+    });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+    clearFileBtn.addEventListener('click', clearFile);
+
+    // ── Tabs ───────────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeTab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.toggle('tab-active', b === btn);
+          b.classList.toggle('tab-inactive', b !== btn);
+        });
+        ['convert', 'trim', 'gif'].forEach(t => {
+          const el = document.getElementById('tab-' + t);
+          el.classList.toggle('hidden', t !== activeTab);
+          el.classList.toggle('flex', t === activeTab);
+        });
+      });
+    });
+    // Init first tab visible
+    document.getElementById('tab-convert').classList.add('flex');
+
+    // ── Format buttons ─────────────────────────────────────────────────────
+    function bindFormatBtns(selector, activeClass, inactiveClass, setFn) {
+      document.querySelectorAll(selector).forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll(selector).forEach(b => {
+            b.classList.toggle(activeClass, b === btn);
+            b.classList.toggle(inactiveClass, b !== btn);
+          });
+          setFn(btn.dataset.format || btn.dataset.fmt);
+        });
+      });
+    }
+
+    // Inject Tailwind classes dynamically for format buttons
+    function applyFormatBtnStyles() {
+      document.querySelectorAll('.format-btn').forEach(btn => {
+        if (btn.classList.contains('format-active')) {
+          btn.className = 'format-btn format-active px-4 py-2.5 text-sm font-medium rounded-lg border border-brand bg-brand/20 text-brand-light transition cursor-pointer';
+        } else {
+          btn.className = 'format-btn format-inactive px-4 py-2.5 text-sm font-medium rounded-lg border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer';
+        }
+      });
+      document.querySelectorAll('.trim-fmt-btn').forEach(btn => {
+        if (btn.classList.contains('trim-fmt-active')) {
+          btn.className = 'trim-fmt-btn trim-fmt-active px-3 py-2 text-sm font-medium rounded-lg border border-brand bg-brand/20 text-brand-light transition cursor-pointer';
+        } else {
+          btn.className = 'trim-fmt-btn trim-fmt-inactive px-3 py-2 text-sm font-medium rounded-lg border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer';
+        }
+      });
+    }
+
+    applyFormatBtnStyles();
+
+    document.querySelectorAll('.format-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedFormat = btn.dataset.format;
+        document.querySelectorAll('.format-btn').forEach(b => {
+          b.classList.toggle('format-active', b === btn);
+          b.classList.toggle('format-inactive', b !== btn);
+        });
+        applyFormatBtnStyles();
+      });
+    });
+
+    document.querySelectorAll('.trim-fmt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedTrimFmt = btn.dataset.fmt;
+        document.querySelectorAll('.trim-fmt-btn').forEach(b => {
+          b.classList.toggle('trim-fmt-active', b === btn);
+          b.classList.toggle('trim-fmt-inactive', b !== btn);
+        });
+        applyFormatBtnStyles();
+      });
+    });
+
+    // ── Load ffmpeg ────────────────────────────────────────────────────────
+    async function ensureFFmpegLoaded() {
+      if (ffmpegLoaded) return;
+      loadingFfmpeg.classList.remove('hidden');
+      processingEl.classList.add('hidden');
+      resultCard.classList.add('hidden');
+      hideError();
+
+      // Animate load bar to give visual feedback during fetch
+      let fake = 5;
+      const fakeInterval = setInterval(() => {
+        fake = Math.min(fake + 2, 80);
+        loadBar.style.width = fake + '%';
+      }, 400);
+
+      try {
+        ffmpeg = new FFmpeg();
+        ffmpeg.on('log', ({ message }) => appendLog(message));
+        ffmpeg.on('progress', ({ progress }) => {
+          const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
+          progressBar.style.width = pct + '%';
+          progressPct.textContent = pct + '%';
+        });
+
+        await ffmpeg.load({
+          coreURL: await toBlobURL(
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+            'text/javascript'
+          ),
+          wasmURL: await toBlobURL(
+            'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm',
+            'application/wasm'
+          ),
+        });
+
+        clearInterval(fakeInterval);
+        loadBar.style.width = '100%';
+        ffmpegLoaded = true;
+      } catch (e) {
+        clearInterval(fakeInterval);
+        throw e;
+      } finally {
+        loadingFfmpeg.classList.add('hidden');
+      }
+    }
+
+    // ── Run ────────────────────────────────────────────────────────────────
+    runBtn.addEventListener('click', async () => {
+      if (!currentFile) { showError('Please select a file first.'); return; }
+      hideError();
+      if (outputURL) { URL.revokeObjectURL(outputURL); outputURL = null; }
+      resultCard.classList.add('hidden');
+      logArea.textContent = '';
+      progressBar.style.width = '0%';
+      progressPct.textContent = '0%';
+
+      try {
+        await ensureFFmpegLoaded();
+      } catch (e) {
+        showError('Failed to load ffmpeg: ' + e.message);
+        return;
+      }
+
+      processingEl.classList.remove('hidden');
+
+      try {
+        const inputName = 'input' + getExt(currentFile.name);
+        await ffmpeg.writeFile(inputName, await fetchFile(currentFile));
+
+        let outputName, mimeType;
+        let args;
+
+        if (activeTab === 'convert') {
+          ({ outputName, mimeType, args } = buildConvertArgs(inputName));
+        } else if (activeTab === 'trim') {
+          ({ outputName, mimeType, args } = buildTrimArgs(inputName));
+          if (!args) return; // error already shown
+        } else {
+          ({ outputName, mimeType, args } = buildGifArgs(inputName));
+          if (!args) return;
+        }
+
+        appendLog('> ffmpeg ' + args.join(' '));
+        await ffmpeg.exec(args);
+
+        const data = await ffmpeg.readFile(outputName);
+        const blob = new Blob([data.buffer], { type: mimeType });
+        outputURL = URL.createObjectURL(blob);
+
+        // Cleanup input
+        await ffmpeg.deleteFile(inputName).catch(() => {});
+        await ffmpeg.deleteFile(outputName).catch(() => {});
+
+        // Show result
+        progressBar.style.width = '100%';
+        progressPct.textContent = '100%';
+        showResult(outputURL, outputName, mimeType, blob.size);
+
+      } catch (e) {
+        processingEl.classList.add('hidden');
+        showError('Processing failed: ' + (e.message || String(e)));
+      }
+    });
+
+    function getExt(filename) {
+      const m = filename.match(/(\.[^.]+)$/);
+      return m ? m[1].toLowerCase() : '';
+    }
+
+    function buildConvertArgs(inputName) {
+      switch (selectedFormat) {
+        case 'mp4':
+          return { outputName: 'output.mp4', mimeType: 'video/mp4', args: ['-i', inputName, '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', 'output.mp4'] };
+        case 'webm':
+          return { outputName: 'output.webm', mimeType: 'video/webm', args: ['-i', inputName, '-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-c:a', 'libopus', 'output.webm'] };
+        case 'gif-convert': {
+          return { outputName: 'output.gif', mimeType: 'image/gif', args: ['-i', inputName, '-vf', 'fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse', '-loop', '0', 'output.gif'] };
+        }
+        case 'mp3':
+          return { outputName: 'output.mp3', mimeType: 'audio/mpeg', args: ['-i', inputName, '-vn', '-c:a', 'libmp3lame', '-b:a', '192k', 'output.mp3'] };
+        case 'wav':
+          return { outputName: 'output.wav', mimeType: 'audio/wav', args: ['-i', inputName, '-vn', '-c:a', 'pcm_s16le', 'output.wav'] };
+        default:
+          return { outputName: 'output.mp4', mimeType: 'video/mp4', args: ['-i', inputName, '-c:v', 'libx264', '-c:a', 'aac', 'output.mp4'] };
+      }
+    }
+
+    function buildTrimArgs(inputName) {
+      const startStr = document.getElementById('trim-start').value;
+      const endStr   = document.getElementById('trim-end').value;
+
+      const start = parseTime(startStr);
+      const end   = parseTime(endStr);
+
+      if (startStr && start === null) { showError('Invalid start time format.'); processingEl.classList.add('hidden'); return { outputName: null, mimeType: null, args: null }; }
+      if (endStr && end === null)     { showError('Invalid end time format.'); processingEl.classList.add('hidden'); return { outputName: null, mimeType: null, args: null }; }
+      if (start !== null && end !== null && end <= start) {
+        showError('End time must be after start time.');
+        processingEl.classList.add('hidden');
+        return { outputName: null, mimeType: null, args: null };
+      }
+
+      let ext, mimeType, codecArgs;
+      if (selectedTrimFmt === 'mp4') {
+        ext = '.mp4'; mimeType = 'video/mp4';
+        codecArgs = ['-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac'];
+      } else if (selectedTrimFmt === 'webm') {
+        ext = '.webm'; mimeType = 'video/webm';
+        codecArgs = ['-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-c:a', 'libopus'];
+      } else {
+        // same as input
+        ext = getExt(currentFile.name) || '.mp4';
+        mimeType = currentFile.type || 'video/mp4';
+        codecArgs = ['-c', 'copy'];
+      }
+
+      const outputName = 'output' + ext;
+      const args = ['-i', inputName];
+      if (start !== null) args.push('-ss', String(start));
+      if (end   !== null) args.push('-to', String(end));
+      args.push(...codecArgs, outputName);
+
+      return { outputName, mimeType, args };
+    }
+
+    function buildGifArgs(inputName) {
+      const startStr = document.getElementById('gif-start').value;
+      const endStr   = document.getElementById('gif-end').value;
+      const fps      = parseInt(document.getElementById('gif-fps').value, 10) || 10;
+      const width    = parseInt(document.getElementById('gif-width').value, 10);
+
+      const start = parseTime(startStr);
+      const end   = parseTime(endStr);
+
+      if (startStr && start === null) { showError('Invalid start time format.'); processingEl.classList.add('hidden'); return { outputName: null, mimeType: null, args: null }; }
+      if (endStr && end === null)     { showError('Invalid end time format.'); processingEl.classList.add('hidden'); return { outputName: null, mimeType: null, args: null }; }
+      if (start !== null && end !== null && end <= start) {
+        showError('End time must be after start time.');
+        processingEl.classList.add('hidden');
+        return { outputName: null, mimeType: null, args: null };
+      }
+
+      const safeWidth = (!width || isNaN(width)) ? 480 : width;
+      const scale = safeWidth === -1 ? 'scale=-1:-1' : `scale=${safeWidth}:-1`;
+      const vf = `fps=${fps},${scale}:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`;
+
+      const args = ['-i', inputName];
+      if (start !== null) args.push('-ss', String(start));
+      if (end   !== null) args.push('-to', String(end));
+      args.push('-vf', vf, '-loop', '0', 'output.gif');
+
+      return { outputName: 'output.gif', mimeType: 'image/gif', args };
+    }
+
+    function showResult(url, filename, mimeType, size) {
+      processingEl.classList.add('hidden');
+      resultCard.classList.remove('hidden');
+
+      previewWrap.innerHTML = '';
+
+      if (mimeType.startsWith('video/')) {
+        const vid = document.createElement('video');
+        vid.src = url;
+        vid.controls = true;
+        vid.className = 'w-full rounded-lg max-h-72 bg-black';
+        previewWrap.appendChild(vid);
+      } else if (mimeType === 'image/gif') {
+        const img = document.createElement('img');
+        img.src = url;
+        img.className = 'max-w-full rounded-lg max-h-72 object-contain';
+        previewWrap.appendChild(img);
+      } else if (mimeType.startsWith('audio/')) {
+        const aud = document.createElement('audio');
+        aud.src = url;
+        aud.controls = true;
+        aud.className = 'w-full';
+        previewWrap.appendChild(aud);
+      }
+
+      const sizeNote = document.createElement('p');
+      sizeNote.className = 'text-xs text-gray-400 mt-2';
+      sizeNote.textContent = `Output: ${filename} — ${formatBytes(size)}`;
+      previewWrap.appendChild(sizeNote);
+
+      downloadBtn.href = url;
+      downloadBtn.download = filename;
+    }
+
+    resetBtn.addEventListener('click', () => {
+      clearFile();
+      dropZone.classList.remove('hidden');
+      fileInput.value = '';
+    });
+
+  </script>
+</body>
+</html>

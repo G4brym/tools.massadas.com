@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSONPath / JMESPath Playground — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    .json-key    { color: #93c5fd; }
+    .json-string { color: #86efac; }
+    .json-number { color: #fbbf24; }
+    .json-bool   { color: #f472b6; }
+    .json-null   { color: #94a3b8; }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">JSONPath / JMESPath Playground</h1>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Query bar -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+
+      <!-- Mode toggle + query input row -->
+      <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <!-- Mode toggle -->
+        <div class="flex rounded-lg border border-surface-lighter overflow-hidden shrink-0">
+          <button id="btn-jsonpath" class="px-4 py-2 text-sm font-medium bg-brand text-white transition cursor-pointer">JSONPath</button>
+          <button id="btn-jmespath" class="px-4 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer">JMESPath</button>
+        </div>
+
+        <!-- Query input -->
+        <input
+          id="query-input"
+          type="text"
+          placeholder="$.store.book[*].author"
+          spellcheck="false"
+          autocomplete="off"
+          class="flex-1 bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none placeholder-gray-600"
+        />
+
+        <!-- Paths toggle (JSONPath only) -->
+        <label id="paths-toggle-wrap" class="flex items-center gap-2 cursor-pointer shrink-0 select-none">
+          <input type="checkbox" id="paths-toggle" class="w-4 h-4 rounded border-surface-lighter accent-brand cursor-pointer">
+          <span class="text-sm text-gray-400">Show paths</span>
+        </label>
+      </div>
+
+      <!-- Query error -->
+      <div id="query-error" class="hidden text-sm text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2 font-mono"></div>
+    </div>
+
+    <!-- Split layout: Input | Output -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- LEFT: JSON input -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">JSON Input</span>
+          <button id="btn-load-sample" class="text-xs text-brand-light hover:text-brand transition cursor-pointer">Load sample</button>
+        </div>
+
+        <textarea
+          id="json-input"
+          spellcheck="false"
+          rows="20"
+          placeholder='Paste JSON here…'
+          class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2.5 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none resize-y placeholder-gray-600 leading-relaxed"
+        ></textarea>
+
+        <!-- JSON parse error -->
+        <div id="json-error" class="hidden text-sm text-err bg-err/10 border border-err/30 rounded-lg px-3 py-2 font-mono"></div>
+
+        <!-- JSON parse ok -->
+        <div id="json-ok" class="hidden text-sm text-ok bg-ok/10 border border-ok/30 rounded-lg px-3 py-2">JSON is valid</div>
+      </div>
+
+      <!-- RIGHT: Result -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Result</span>
+            <span id="match-count" class="text-xs text-gray-500"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-copy-result" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+            <button id="btn-download-result" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Download</button>
+          </div>
+        </div>
+
+        <!-- Result content -->
+        <div
+          id="result-container"
+          class="w-full min-h-48 bg-surface border border-surface-lighter rounded-lg px-3 py-2.5 text-sm font-mono overflow-auto leading-relaxed whitespace-pre flex-1"
+          style="max-height: 520px;"
+        >
+          <span class="text-gray-600">Run a query to see results…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Example queries -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Example Queries</span>
+      <div id="examples-container" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- Cheat sheet -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+      <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Quick Reference</span>
+      <div id="cheatsheet" class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+
+        <!-- JSONPath column -->
+        <div id="cheat-jsonpath">
+          <div class="text-xs font-semibold text-brand-light mb-3 uppercase tracking-wider">JSONPath</div>
+          <table class="w-full text-left text-xs leading-relaxed">
+            <tbody>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">$</td>
+                <td class="py-1.5 text-gray-400">Root element</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">.key</td>
+                <td class="py-1.5 text-gray-400">Child key</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">..key</td>
+                <td class="py-1.5 text-gray-400">Recursive descent — find key anywhere</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">.*</td>
+                <td class="py-1.5 text-gray-400">All children (wildcard)</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[0]</td>
+                <td class="py-1.5 text-gray-400">Array index (0-based)</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[-1]</td>
+                <td class="py-1.5 text-gray-400">Last array element</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[0,2]</td>
+                <td class="py-1.5 text-gray-400">Multiple indices</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[1:3]</td>
+                <td class="py-1.5 text-gray-400">Slice (from:to, exclusive)</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[*]</td>
+                <td class="py-1.5 text-gray-400">All array elements</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[?(@.x)]</td>
+                <td class="py-1.5 text-gray-400">Filter — elements that have key x</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[?(@.x&gt;5)]</td>
+                <td class="py-1.5 text-gray-400">Filter — x greater than 5</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- JMESPath column -->
+        <div id="cheat-jmespath">
+          <div class="text-xs font-semibold text-brand-light mb-3 uppercase tracking-wider">JMESPath</div>
+          <table class="w-full text-left text-xs leading-relaxed">
+            <tbody>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">key</td>
+                <td class="py-1.5 text-gray-400">Access a key</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">a.b</td>
+                <td class="py-1.5 text-gray-400">Nested key access</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">a[0]</td>
+                <td class="py-1.5 text-gray-400">Array index</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">a[*].b</td>
+                <td class="py-1.5 text-gray-400">Project key b from all elements</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">a[?b&gt;5]</td>
+                <td class="py-1.5 text-gray-400">Filter — b greater than 5</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">a[?b=='x']</td>
+                <td class="py-1.5 text-gray-400">Filter — b equals string x</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">{x: a, y: b}</td>
+                <td class="py-1.5 text-gray-400">Multi-select object</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">[a, b]</td>
+                <td class="py-1.5 text-gray-400">Multi-select list</td>
+              </tr>
+              <tr class="border-b border-surface-lighter">
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">a | b</td>
+                <td class="py-1.5 text-gray-400">Pipe — apply b to result of a</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 pr-3 font-mono text-ok whitespace-nowrap">length(a)</td>
+                <td class="py-1.5 text-gray-400">Built-in function</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    import { JSONPath } from 'https://cdn.jsdelivr.net/npm/jsonpath-plus@9/+esm';
+
+    // Load JMESPath as a UMD module into a namespace
+    let jmespath = null;
+    await new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/jmespath@0.16.0/jmespath.js';
+      s.onload = () => { jmespath = window.jmespath; resolve(); };
+      s.onerror = () => resolve();
+      document.head.appendChild(s);
+    });
+
+    // ─── Sample JSON document ─────────────────────────────────────────────────
+    const SAMPLE_JSON = {
+      "store": {
+        "name": "Book Emporium",
+        "open": true,
+        "book": [
+          { "category": "fiction",   "author": "J.R.R. Tolkien",    "title": "The Lord of the Rings", "price": 22.99, "rating": 4.9 },
+          { "category": "fiction",   "author": "Frank Herbert",      "title": "Dune",                  "price": 14.99, "rating": 4.8 },
+          { "category": "science",   "author": "Carl Sagan",         "title": "Cosmos",                "price": 12.50, "rating": 4.7 },
+          { "category": "fiction",   "author": "Isaac Asimov",       "title": "Foundation",            "price": 9.99,  "rating": 4.6 },
+          { "category": "history",   "author": "Yuval Noah Harari",  "title": "Sapiens",               "price": 16.00, "rating": 4.5 }
+        ],
+        "bicycle": { "color": "red", "price": 199.95, "inStock": true },
+        "tags": ["books", "literature", "reading"]
+      },
+      "meta": { "version": 2, "generated": "2026-06-04" }
+    };
+
+    // ─── Examples ─────────────────────────────────────────────────────────────
+    const JSONPATH_EXAMPLES = [
+      { label: 'All book authors',    query: '$.store.book[*].author' },
+      { label: 'All prices anywhere', query: '$..price' },
+      { label: 'First book',          query: '$.store.book[0]' },
+      { label: 'Last book',           query: '$.store.book[-1]' },
+      { label: 'Books 1–3 (slice)',   query: '$.store.book[0:3]' },
+      { label: 'Cheap books < $15',   query: '$.store.book[?(@.price < 15)]' },
+      { label: 'Fiction books',       query: '$.store.book[?(@.category == "fiction")]' },
+      { label: 'High rated (≥ 4.8)',  query: '$.store.book[?(@.rating >= 4.8)]' },
+      { label: 'All keys of store',   query: '$.store.*' },
+      { label: 'Root wildcard',       query: '$.*' },
+    ];
+
+    const JMESPATH_EXAMPLES = [
+      { label: 'All book titles',     query: 'store.book[*].title' },
+      { label: 'First book',          query: 'store.book[0]' },
+      { label: 'Books, price only',   query: 'store.book[*].price' },
+      { label: 'Filter cheap books',  query: 'store.book[?price < `15`]' },
+      { label: 'Fiction books',       query: "store.book[?category == 'fiction']" },
+      { label: 'Author + price proj', query: 'store.book[*].{author: author, price: price}' },
+      { label: 'Book count',          query: 'length(store.book)' },
+      { label: 'Bike color',          query: 'store.bicycle.color' },
+      { label: 'Tags',                query: 'store.tags' },
+      { label: 'Meta version',        query: 'meta.version' },
+    ];
+
+    // ─── State ────────────────────────────────────────────────────────────────
+    let mode = 'jsonpath'; // 'jsonpath' | 'jmespath'
+    let parsedJson = null;
+    let debounceTimer = null;
+
+    // ─── Elements ─────────────────────────────────────────────────────────────
+    const btnJsonpath       = document.getElementById('btn-jsonpath');
+    const btnJmespath       = document.getElementById('btn-jmespath');
+    const queryInput        = document.getElementById('query-input');
+    const pathsToggleWrap   = document.getElementById('paths-toggle-wrap');
+    const pathsToggle       = document.getElementById('paths-toggle');
+    const queryError        = document.getElementById('query-error');
+    const jsonInput         = document.getElementById('json-input');
+    const jsonError         = document.getElementById('json-error');
+    const jsonOk            = document.getElementById('json-ok');
+    const resultContainer   = document.getElementById('result-container');
+    const matchCount        = document.getElementById('match-count');
+    const btnCopyResult     = document.getElementById('btn-copy-result');
+    const btnDownload       = document.getElementById('btn-download-result');
+    const examplesContainer = document.getElementById('examples-container');
+    const cheatJsonpath     = document.getElementById('cheat-jsonpath');
+    const cheatJmespath     = document.getElementById('cheat-jmespath');
+
+    // ─── Syntax highlighting ──────────────────────────────────────────────────
+    function syntaxHighlight(obj) {
+      const json = JSON.stringify(obj, null, 2);
+      return json.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        (match) => {
+          if (/^"/.test(match)) {
+            if (/:$/.test(match)) return `<span class="json-key">${escHtml(match)}</span>`;
+            return `<span class="json-string">${escHtml(match)}</span>`;
+          }
+          if (/true|false/.test(match)) return `<span class="json-bool">${match}</span>`;
+          if (/null/.test(match))       return `<span class="json-null">${match}</span>`;
+          return `<span class="json-number">${match}</span>`;
+        }
+      );
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ─── Parse JSON ───────────────────────────────────────────────────────────
+    function parseJson(text) {
+      jsonError.classList.add('hidden');
+      jsonOk.classList.add('hidden');
+      if (!text.trim()) {
+        parsedJson = null;
+        return;
+      }
+      try {
+        parsedJson = JSON.parse(text);
+        jsonOk.classList.remove('hidden');
+      } catch (e) {
+        parsedJson = null;
+        jsonError.textContent = 'JSON parse error: ' + e.message;
+        jsonError.classList.remove('hidden');
+      }
+    }
+
+    // ─── Run query ────────────────────────────────────────────────────────────
+    function runQuery() {
+      queryError.classList.add('hidden');
+      matchCount.textContent = '';
+
+      if (!parsedJson) {
+        setPlaceholder('Paste valid JSON on the left to get started…');
+        return;
+      }
+
+      const q = queryInput.value.trim();
+      if (!q) {
+        setPlaceholder('Enter a query above…');
+        return;
+      }
+
+      try {
+        let result;
+        if (mode === 'jsonpath') {
+          const resultType = pathsToggle.checked ? 'path' : 'value';
+          result = JSONPath({ path: q, json: parsedJson, resultType });
+          showResult(result);
+        } else {
+          // JMESPath returns a single value (not an array of matches)
+          result = jmespath ? jmespath.search(parsedJson, q) : null;
+          if (!jmespath) {
+            queryError.textContent = 'JMESPath library failed to load.';
+            queryError.classList.remove('hidden');
+            return;
+          }
+          // Wrap in array for consistent display
+          const wrapped = result === null ? [] : (Array.isArray(result) ? result : [result]);
+          showResult(wrapped, result);
+        }
+      } catch (e) {
+        queryError.textContent = 'Query error: ' + e.message;
+        queryError.classList.remove('hidden');
+        setPlaceholder('');
+      }
+    }
+
+    function showResult(arr, rawResult) {
+      // arr = array of matched values (or paths)
+      // rawResult (optional) = the raw JMESPath result for display
+      const displayVal = (rawResult !== undefined) ? rawResult : arr;
+      const count = Array.isArray(arr) ? arr.length : (arr !== null ? 1 : 0);
+
+      if (count === 0) {
+        matchCount.textContent = 'No matches';
+        resultContainer.innerHTML = '<span class="text-gray-600">No results matched.</span>';
+        return;
+      }
+
+      const noun = count === 1 ? 'match' : 'matches';
+      matchCount.textContent = `${count} ${noun}`;
+
+      // For paths mode, display the paths array as-is
+      // For value mode: if single match and not array-wrapped, show directly
+      let toDisplay;
+      if (rawResult !== undefined) {
+        // JMESPath — show raw result
+        toDisplay = rawResult;
+      } else {
+        // JSONPath — arr is always an array
+        toDisplay = arr.length === 1 ? arr[0] : arr;
+      }
+
+      resultContainer.innerHTML = syntaxHighlight(toDisplay);
+    }
+
+    function setPlaceholder(msg) {
+      matchCount.textContent = '';
+      resultContainer.innerHTML = `<span class="text-gray-600">${escHtml(msg)}</span>`;
+    }
+
+    // ─── Debounced re-run ─────────────────────────────────────────────────────
+    function scheduleRun(immediate) {
+      clearTimeout(debounceTimer);
+      if (immediate) { runQuery(); return; }
+      debounceTimer = setTimeout(runQuery, 300);
+    }
+
+    // ─── Mode switching ───────────────────────────────────────────────────────
+    function setMode(m) {
+      mode = m;
+      const activeClass = 'px-4 py-2 text-sm font-medium bg-brand text-white transition cursor-pointer';
+      const inactiveClass = 'px-4 py-2 text-sm font-medium bg-surface-light text-gray-400 hover:text-gray-200 transition cursor-pointer';
+
+      if (mode === 'jsonpath') {
+        btnJsonpath.className = activeClass;
+        btnJmespath.className = inactiveClass;
+        queryInput.placeholder = '$.store.book[*].author';
+        pathsToggleWrap.style.display = '';
+        cheatJsonpath.style.display = '';
+        cheatJmespath.style.display = 'none';
+      } else {
+        btnJmespath.className = activeClass;
+        btnJsonpath.className = inactiveClass;
+        queryInput.placeholder = 'store.book[*].title';
+        pathsToggleWrap.style.display = 'none';
+        cheatJsonpath.style.display = 'none';
+        cheatJmespath.style.display = '';
+      }
+
+      renderExamples();
+      scheduleRun(true);
+    }
+
+    // ─── Examples ─────────────────────────────────────────────────────────────
+    function renderExamples() {
+      const examples = mode === 'jsonpath' ? JSONPATH_EXAMPLES : JMESPATH_EXAMPLES;
+      examplesContainer.innerHTML = '';
+      examples.forEach(({ label, query }) => {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        btn.title = query;
+        btn.className = 'px-3 py-1.5 text-xs font-mono rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer';
+        btn.addEventListener('click', () => {
+          queryInput.value = query;
+          scheduleRun(true);
+        });
+        examplesContainer.appendChild(btn);
+      });
+    }
+
+    // ─── Copy / Download ──────────────────────────────────────────────────────
+    function getRawResultText() {
+      // Re-run query to get raw value for copy/download
+      if (!parsedJson) return '';
+      const q = queryInput.value.trim();
+      if (!q) return '';
+      try {
+        if (mode === 'jsonpath') {
+          const resultType = pathsToggle.checked ? 'path' : 'value';
+          const arr = JSONPath({ path: q, json: parsedJson, resultType });
+          const display = arr.length === 1 ? arr[0] : arr;
+          return JSON.stringify(display, null, 2);
+        } else {
+          if (!jmespath) return '';
+          const r = jmespath.search(parsedJson, q);
+          return JSON.stringify(r, null, 2);
+        }
+      } catch {
+        return '';
+      }
+    }
+
+    btnCopyResult.addEventListener('click', async () => {
+      const text = getRawResultText();
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopyResult.textContent;
+      btnCopyResult.textContent = 'Copied!';
+      setTimeout(() => { btnCopyResult.textContent = orig; }, 1500);
+    });
+
+    btnDownload.addEventListener('click', () => {
+      const text = getRawResultText();
+      if (!text) return;
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'result.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ─── Event listeners ──────────────────────────────────────────────────────
+    btnJsonpath.addEventListener('click', () => setMode('jsonpath'));
+    btnJmespath.addEventListener('click', () => setMode('jmespath'));
+
+    queryInput.addEventListener('input', () => scheduleRun(false));
+    queryInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') scheduleRun(true);
+    });
+
+    pathsToggle.addEventListener('change', () => scheduleRun(true));
+
+    jsonInput.addEventListener('input', () => {
+      parseJson(jsonInput.value);
+      scheduleRun(false);
+    });
+
+    document.getElementById('btn-load-sample').addEventListener('click', () => {
+      jsonInput.value = JSON.stringify(SAMPLE_JSON, null, 2);
+      parseJson(jsonInput.value);
+      // Set a sensible default query if field is empty
+      if (!queryInput.value.trim()) {
+        queryInput.value = mode === 'jsonpath' ? '$.store.book[*].author' : 'store.book[*].title';
+      }
+      scheduleRun(true);
+    });
+
+    // ─── Init ──────────────────────────────────────────────────────────────────
+    // Hide JMESPath cheat on start
+    cheatJmespath.style.display = 'none';
+    renderExamples();
+
+    // Auto-load sample on first visit
+    jsonInput.value = JSON.stringify(SAMPLE_JSON, null, 2);
+    parseJson(jsonInput.value);
+    queryInput.value = '$.store.book[*].author';
+    scheduleRun(true);
+  </script>
+</body>
+</html>

@@ -25,3 +25,32 @@ Deployed as a Cloudflare Workers static asset site.
 - [QR Code Generator](https://tools.massadas.com/qr-code/): Generate QR codes with custom size, colors, and error correction.
 - [Password Generator](https://tools.massadas.com/password-generator/): Generate secure random passwords or passphrases.
 - [EXIF Stripper](https://tools.massadas.com/exif-stripper/): View image EXIF metadata and download a stripped copy.
+- [PDF Tools](https://tools.massadas.com/pdf-tools/): Merge, split, reorder, rotate, and delete pages across one or multiple PDFs.
+- [PDF to Images](https://tools.massadas.com/pdf-to-images/): Convert PDF pages to PNG, JPEG, or WebP at adjustable resolution; download all as a ZIP.
+- [PDF Compressor](https://tools.massadas.com/pdf-compress/): Shrink PDF file size by rasterizing pages to JPEG, with quality, scale, and grayscale controls.
+- [Image Converter](https://tools.massadas.com/image-converter/): Convert HEIC, WebP, AVIF, PNG, JPEG, GIF, and BMP images to any format.
+- [Background Remover](https://tools.massadas.com/background-remover/): Remove image backgrounds with an on-device AI model; transparent PNG output, no uploads.
+- [Video Converter](https://tools.massadas.com/video-converter/): Convert video/audio to MP4, WebM, GIF, MP3, or WAV and trim clips, locally with ffmpeg.wasm.
+- [Markdown Editor](https://tools.massadas.com/markdown-editor/): Live split-pane editor with formatting toolbar, GitHub-style preview, and MD/HTML/PDF export.
+- [Data Converter](https://tools.massadas.com/data-converter/): Convert data between JSON, YAML, and TOML with live preview and auto-detection.
+- [Timestamp Converter](https://tools.massadas.com/timestamp-converter/): Parse Unix timestamps or date strings and convert across any timezone.
+- [URL Encoder/Decoder](https://tools.massadas.com/url-encoder/): Encode/decode URL components, parse URLs into editable fields, and build query strings.
+- [Text Case Converter](https://tools.massadas.com/text-case/): Convert text between 12 case formats with live character, word, and reading-time stats.
+- [Lorem Ipsum Generator](https://tools.massadas.com/lorem-ipsum/): Generate placeholder text and tables of fake data as JSON, CSV, SQL, or a table.
+- [JSON to CSV](https://tools.massadas.com/json-csv/): Convert JSON arrays to CSV (with nested flattening) and CSV back to JSON.
+- [HTML to Markdown](https://tools.massadas.com/html-markdown/): Convert between HTML and Markdown in both directions with a sanitized preview.
+- [String Escape](https://tools.massadas.com/string-escape/): Escape/unescape strings across 12 formats: JSON, JS, HTML, XML, URL, SQL, CSV, Shell, and more.
+- [Number Base Converter](https://tools.massadas.com/number-base/): Convert numbers between binary, octal, decimal, hex, and any base 2-36.
+- [Text Encrypt/Decrypt](https://tools.massadas.com/text-encrypt/): Encrypt and decrypt text with AES-256-GCM (PBKDF2 password) in your browser.
+- [PGP Tool](https://tools.massadas.com/pgp/): Generate PGP keypairs and encrypt, decrypt, sign, and verify messages locally.
+- [Bcrypt Hash & Verify](https://tools.massadas.com/bcrypt/): Hash a password with bcrypt (adjustable cost) and verify a plaintext against any hash.
+- [Certificate Decoder](https://tools.massadas.com/cert-decoder/): Decode PEM X.509 certificates or chains: subject, issuer, validity, fingerprints, SANs.
+- [SVG to PNG](https://tools.massadas.com/svg-to-png/): Rasterize SVG markup or files to PNG, JPEG, or WebP at any scale or pixel size.
+- [Favicon Generator](https://tools.massadas.com/favicon-generator/): Generate a complete favicon set (ICO, PNGs, manifest, HTML snippet) as a ZIP.
+- [Color Palette Extractor](https://tools.massadas.com/color-palette/): Extract a color palette from any image; export as HEX/RGB, CSS variables, JSON, or Tailwind colors.
+- [Image Cropper](https://tools.massadas.com/image-cropper/): Crop images with aspect presets, rotate/flip, resize, and export to PNG/JPEG/WebP.
+- [ASCII Art Generator](https://tools.massadas.com/ascii-art/): Convert images to ASCII art, or generate ASCII block-letter banners from text.
+- [CSV to Excel](https://tools.massadas.com/csv-xlsx/): Convert between CSV and Excel/ODS spreadsheets; preview sheets and download as CSV or XLSX.
+- [Mermaid Editor](https://tools.massadas.com/mermaid-editor/): Write and live-preview Mermaid diagrams with examples and SVG/PNG export.
+- [Invoice Generator](https://tools.massadas.com/invoice-generator/): Build invoices with live preview, line items, tax/discount, and PDF export.
+- [JSONPath Playground](https://tools.massadas.com/jsonpath/): Run JSONPath and JMESPath queries against JSON with live results and a cheat sheet.

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>String Escape / Unescape — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    textarea {
+      resize: vertical;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">String Escape / Unescape</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Format selector -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5">
+      <label class="block text-sm font-medium text-gray-300 mb-2">Format</label>
+      <select id="format-select" class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 focus:border-brand focus:outline-none cursor-pointer">
+        <option value="json">JSON string</option>
+        <option value="js">JavaScript string</option>
+        <option value="html">HTML entities</option>
+        <option value="xml">XML</option>
+        <option value="url">URL component (encodeURIComponent)</option>
+        <option value="sql">SQL string (single-quote doubling)</option>
+        <option value="csv">CSV field (quote wrapping)</option>
+        <option value="shell">Shell / POSIX single-quote</option>
+        <option value="java">Java / C string</option>
+        <option value="base64">Base64 (encode / decode)</option>
+        <option value="unicode">Unicode \\uXXXX escape</option>
+        <option value="regex">Regex metacharacter escape</option>
+      </select>
+      <p id="format-desc" class="mt-2 text-xs text-gray-500"></p>
+    </div>
+
+    <!-- Input -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-medium text-gray-300" for="input-text">Input</label>
+        <button id="btn-clear" class="text-xs text-gray-500 hover:text-gray-300 transition cursor-pointer">Clear</button>
+      </div>
+      <textarea
+        id="input-text"
+        rows="7"
+        placeholder="Paste or type your text here…"
+        class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none placeholder-gray-600"
+      ></textarea>
+      <!-- Action buttons -->
+      <div class="flex flex-wrap gap-3">
+        <button id="btn-escape" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Escape</button>
+        <button id="btn-unescape" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Unescape</button>
+        <button id="btn-swap" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer" title="Swap input and output">&#8645; Swap</button>
+      </div>
+    </div>
+
+    <!-- Error banner -->
+    <div id="error-banner" class="hidden bg-err/10 border border-err/40 rounded-xl p-4 text-sm text-err"></div>
+
+    <!-- Output -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-medium text-gray-300" for="output-text">Output</label>
+        <button id="btn-copy" class="text-xs px-3 py-1 rounded-md border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy</button>
+      </div>
+      <textarea
+        id="output-text"
+        rows="7"
+        readonly
+        placeholder="Result will appear here…"
+        class="w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-100 font-mono focus:border-brand focus:outline-none placeholder-gray-600"
+      ></textarea>
+      <!-- Stats -->
+      <div id="stats" class="text-xs text-gray-500 hidden">
+        Input: <span id="stat-in-len">0</span> chars &nbsp;|&nbsp; Output: <span id="stat-out-len">0</span> chars
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ─── Elements ───────────────────────────────────────────────────
+    const formatSelect = document.getElementById('format-select');
+    const formatDesc   = document.getElementById('format-desc');
+    const inputText    = document.getElementById('input-text');
+    const outputText   = document.getElementById('output-text');
+    const btnEscape    = document.getElementById('btn-escape');
+    const btnUnescape  = document.getElementById('btn-unescape');
+    const btnSwap      = document.getElementById('btn-swap');
+    const btnCopy      = document.getElementById('btn-copy');
+    const btnClear     = document.getElementById('btn-clear');
+    const errorBanner  = document.getElementById('error-banner');
+    const stats        = document.getElementById('stats');
+    const statInLen    = document.getElementById('stat-in-len');
+    const statOutLen   = document.getElementById('stat-out-len');
+
+    // ─── Format descriptions ────────────────────────────────────────
+    const FORMAT_DESC = {
+      json:    'Escape/unescape a string for embedding inside JSON double quotes (\\\\, \\", \\n, \\r, \\t, \\uXXXX for control chars).',
+      js:      'Escape/unescape a JavaScript string literal — handles \\\\, \\', \\", \\n, \\r, \\t, \\0, \\uXXXX.',
+      html:    'Encode/decode HTML special characters to/from named or numeric entities (&amp; &lt; &gt; &quot; &#x27; &#x60;).',
+      xml:     'Encode/decode XML special characters (&amp; &lt; &gt; &apos; &quot;). Safe subset for XML content.',
+      url:     'Encode/decode with encodeURIComponent / decodeURIComponent (RFC 3986 percent-encoding).',
+      sql:     "Escape single quotes by doubling them (') and optionally escape backslashes — safe for embedding in SQL single-quoted strings.",
+      csv:     'Wrap the field in double quotes, doubling any internal double quotes — RFC 4180 compliant.',
+      shell:   "Wrap the string in POSIX single quotes; any embedded single quote is replaced with '\\''.",
+      java:    'Escape/unescape a Java or C string literal (\\\\, \\", \\n, \\r, \\t, \\0, \\b, \\f, \\uXXXX for non-ASCII).',
+      base64:  'Encode to Base64 (UTF-8 bytes) or decode from Base64 back to a UTF-8 string.',
+      unicode: 'Escape every non-ASCII character (and optionally all chars) to \\uXXXX form; unescape does the reverse.',
+      regex:   'Escape all regex metacharacters (. * + ? ^ $ { } [ ] | ( ) \\ /) so the string can be used as a literal in a RegExp.',
+    };
+
+    // ─── Codec implementations ──────────────────────────────────────
+
+    // JSON string
+    function escapeJSON(s) {
+      return s
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t')
+        .replace(/[\x00-\x1f\x7f]/g, c => {
+          const hex = c.charCodeAt(0).toString(16).padStart(4, '0');
+          return '\\u' + hex;
+        });
+    }
+
+    function unescapeJSON(s) {
+      // Use JSON.parse with wrapping quotes; handle bare string or quoted string
+      let src = s.trim();
+      // Allow user to paste with or without surrounding quotes
+      if (!src.startsWith('"')) src = '"' + src + '"';
+      try {
+        return JSON.parse(src);
+      } catch (e) {
+        throw new Error('Invalid JSON string: ' + e.message);
+      }
+    }
+
+    // JavaScript string
+    const JS_ESCAPE_MAP = {
+      '\\': '\\\\',
+      '"': '\\"',
+      "'": "\\'",
+      '\n': '\\n',
+      '\r': '\\r',
+      '\t': '\\t',
+      '\0': '\\0',
+      '\b': '\\b',
+      '\f': '\\f',
+    };
+
+    function escapeJS(s) {
+      return s.replace(/[\\\n\r\t\0\b\f"']/g, c => JS_ESCAPE_MAP[c] || c)
+              .replace(/[\x00-\x1f\x7f]/g, c => {
+                return '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0');
+              });
+    }
+
+    function unescapeJS(s) {
+      return s.replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|[\\'"nrtbf0])/g, (match, seq) => {
+        if (seq === 'n') return '\n';
+        if (seq === 'r') return '\r';
+        if (seq === 't') return '\t';
+        if (seq === 'b') return '\b';
+        if (seq === 'f') return '\f';
+        if (seq === '0') return '\0';
+        if (seq === '\\') return '\\';
+        if (seq === "'") return "'";
+        if (seq === '"') return '"';
+        if (seq.startsWith('u')) return String.fromCharCode(parseInt(seq.slice(1), 16));
+        if (seq.startsWith('x')) return String.fromCharCode(parseInt(seq.slice(1), 16));
+        return match;
+      });
+    }
+
+    // HTML entities
+    const HTML_NAMED = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#x27;',
+      '`': '&#x60;',
+    };
+
+    function escapeHTML(s) {
+      return s.replace(/[&<>"'`]/g, c => HTML_NAMED[c]);
+    }
+
+    function unescapeHTML(s) {
+      const ta = document.createElement('textarea');
+      ta.innerHTML = s;
+      return ta.value;
+    }
+
+    // XML
+    const XML_NAMED = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&apos;',
+    };
+
+    function escapeXML(s) {
+      return s.replace(/[&<>"']/g, c => XML_NAMED[c]);
+    }
+
+    function unescapeXML(s) {
+      return s
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+        .replace(/&#([0-9]+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+    }
+
+    // URL component
+    function escapeURL(s) {
+      return encodeURIComponent(s);
+    }
+
+    function unescapeURL(s) {
+      try {
+        return decodeURIComponent(s);
+      } catch (e) {
+        throw new Error('Invalid percent-encoded string: ' + e.message);
+      }
+    }
+
+    // SQL string (single-quote doubling, escape backslash too for safety)
+    function escapeSQL(s) {
+      return s.replace(/\\/g, '\\\\').replace(/'/g, "''");
+    }
+
+    function unescapeSQL(s) {
+      return s.replace(/\\'/g, "'").replace(/''/g, "'").replace(/\\\\/g, '\\');
+    }
+
+    // CSV field
+    function escapeCSV(s) {
+      // Always wrap in quotes; double any internal double-quote
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+
+    function unescapeCSV(s) {
+      const t = s.trim();
+      if (t.startsWith('"') && t.endsWith('"')) {
+        return t.slice(1, -1).replace(/""/g, '"');
+      }
+      // Not quoted — return as-is (no unescaping needed for plain CSV fields)
+      return t;
+    }
+
+    // Shell / POSIX single-quote
+    function escapeShell(s) {
+      // Wrap in single quotes; replace any ' with '\''
+      return "'" + s.replace(/'/g, "'\\''") + "'";
+    }
+
+    function unescapeShell(s) {
+      let result = '';
+      let i = 0;
+      const len = s.length;
+      while (i < len) {
+        if (s[i] === "'") {
+          // Consume single-quoted segment
+          i++; // skip opening quote
+          while (i < len && s[i] !== "'") {
+            result += s[i++];
+          }
+          i++; // skip closing quote
+        } else if (s[i] === '\\' && i + 1 < len) {
+          // Outside single quotes, handle common escape sequences
+          i++;
+          const c = s[i++];
+          if (c === 'n') result += '\n';
+          else if (c === 't') result += '\t';
+          else if (c === 'r') result += '\r';
+          else if (c === "'") result += "'";
+          else if (c === '"') result += '"';
+          else if (c === '\\') result += '\\';
+          else result += c;
+        } else {
+          result += s[i++];
+        }
+      }
+      return result;
+    }
+
+    // Java / C string
+    const JAVA_ESCAPE_MAP = {
+      '\\': '\\\\',
+      '"': '\\"',
+      '\n': '\\n',
+      '\r': '\\r',
+      '\t': '\\t',
+      '\0': '\\0',
+      '\b': '\\b',
+      '\f': '\\f',
+    };
+
+    function escapeJava(s) {
+      let out = '';
+      for (const ch of s) {
+        const code = ch.codePointAt(0);
+        if (JAVA_ESCAPE_MAP[ch] !== undefined) {
+          out += JAVA_ESCAPE_MAP[ch];
+        } else if (code < 0x20 || code === 0x7f) {
+          out += '\\u' + code.toString(16).padStart(4, '0');
+        } else if (code > 0xffff) {
+          // Surrogate pair for Java
+          const hi = Math.floor((code - 0x10000) / 0x400) + 0xD800;
+          const lo = ((code - 0x10000) % 0x400) + 0xDC00;
+          out += '\\u' + hi.toString(16).padStart(4, '0') + '\\u' + lo.toString(16).padStart(4, '0');
+        } else if (code > 0x7e) {
+          out += '\\u' + code.toString(16).padStart(4, '0');
+        } else {
+          out += ch;
+        }
+      }
+      return out;
+    }
+
+    function unescapeJava(s) {
+      return s.replace(/\\(u[0-9a-fA-F]{4}|[\\'"nrtbf0])/g, (match, seq) => {
+        if (seq === 'n') return '\n';
+        if (seq === 'r') return '\r';
+        if (seq === 't') return '\t';
+        if (seq === 'b') return '\b';
+        if (seq === 'f') return '\f';
+        if (seq === '0') return '\0';
+        if (seq === '\\') return '\\';
+        if (seq === "'") return "'";
+        if (seq === '"') return '"';
+        if (seq.startsWith('u')) return String.fromCharCode(parseInt(seq.slice(1), 16));
+        return match;
+      });
+    }
+
+    // Base64
+    function escapeBase64(s) {
+      try {
+        // UTF-8 encode first
+        const bytes = new TextEncoder().encode(s);
+        let binary = '';
+        bytes.forEach(b => binary += String.fromCharCode(b));
+        return btoa(binary);
+      } catch (e) {
+        throw new Error('Base64 encode failed: ' + e.message);
+      }
+    }
+
+    function unescapeBase64(s) {
+      try {
+        const cleaned = s.replace(/\s/g, '');
+        const binary = atob(cleaned);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch (e) {
+        throw new Error('Invalid Base64 or not valid UTF-8: ' + e.message);
+      }
+    }
+
+    // Unicode \uXXXX escape
+    function escapeUnicode(s) {
+      let out = '';
+      for (const ch of s) {
+        const code = ch.codePointAt(0);
+        if (code > 0x7e || code < 0x20) {
+          if (code > 0xffff) {
+            // Encode as surrogate pair \uXXXX\uXXXX
+            const hi = Math.floor((code - 0x10000) / 0x400) + 0xD800;
+            const lo = ((code - 0x10000) % 0x400) + 0xDC00;
+            out += '\\u' + hi.toString(16).padStart(4, '0') + '\\u' + lo.toString(16).padStart(4, '0');
+          } else {
+            out += '\\u' + code.toString(16).padStart(4, '0');
+          }
+        } else {
+          out += ch;
+        }
+      }
+      return out;
+    }
+
+    function unescapeUnicode(s) {
+      return s.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
+        return String.fromCharCode(parseInt(hex, 16));
+      });
+    }
+
+    // Regex metacharacter escape
+    function escapeRegex(s) {
+      return s.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
+    }
+
+    function unescapeRegex(s) {
+      // Remove backslash before known regex metacharacters
+      return s.replace(/\\([.*+?^${}()|[\]\\\/])/g, '$1');
+    }
+
+    // ─── Dispatch ────────────────────────────────────────────────────
+    const CODECS = {
+      json:    { escape: escapeJSON,    unescape: unescapeJSON    },
+      js:      { escape: escapeJS,      unescape: unescapeJS      },
+      html:    { escape: escapeHTML,    unescape: unescapeHTML    },
+      xml:     { escape: escapeXML,     unescape: unescapeXML     },
+      url:     { escape: escapeURL,     unescape: unescapeURL     },
+      sql:     { escape: escapeSQL,     unescape: unescapeSQL     },
+      csv:     { escape: escapeCSV,     unescape: unescapeCSV     },
+      shell:   { escape: escapeShell,   unescape: unescapeShell   },
+      java:    { escape: escapeJava,    unescape: unescapeJava    },
+      base64:  { escape: escapeBase64,  unescape: unescapeBase64  },
+      unicode: { escape: escapeUnicode, unescape: unescapeUnicode },
+      regex:   { escape: escapeRegex,   unescape: unescapeRegex   },
+    };
+
+    // ─── State ───────────────────────────────────────────────────────
+    let lastAction = 'escape'; // 'escape' | 'unescape'
+
+    // ─── Helpers ─────────────────────────────────────────────────────
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function clearError() {
+      errorBanner.classList.add('hidden');
+      errorBanner.textContent = '';
+    }
+
+    function setOutput(value) {
+      outputText.value = value;
+      statInLen.textContent = inputText.value.length;
+      statOutLen.textContent = value.length;
+      if (inputText.value.length > 0 || value.length > 0) {
+        stats.classList.remove('hidden');
+      } else {
+        stats.classList.add('hidden');
+      }
+    }
+
+    function run(action) {
+      clearError();
+      lastAction = action;
+      const fmt = formatSelect.value;
+      const codec = CODECS[fmt];
+      if (!codec) return;
+      const input = inputText.value;
+      if (input === '') {
+        setOutput('');
+        return;
+      }
+      try {
+        const result = codec[action](input);
+        setOutput(result);
+      } catch (e) {
+        setOutput('');
+        showError(e.message);
+      }
+    }
+
+    // ─── Live update on input change ─────────────────────────────────
+    inputText.addEventListener('input', () => run(lastAction));
+
+    // ─── Format change ───────────────────────────────────────────────
+    formatSelect.addEventListener('change', () => {
+      const fmt = formatSelect.value;
+      formatDesc.textContent = FORMAT_DESC[fmt] || '';
+      // Re-run the current action when format changes
+      if (inputText.value !== '') run(lastAction);
+    });
+
+    // ─── Button actions ──────────────────────────────────────────────
+    btnEscape.addEventListener('click', () => run('escape'));
+    btnUnescape.addEventListener('click', () => run('unescape'));
+
+    btnSwap.addEventListener('click', () => {
+      const out = outputText.value;
+      if (!out) return;
+      inputText.value = out;
+      outputText.value = '';
+      clearError();
+      stats.classList.add('hidden');
+      // Don't auto-run on swap — let the user choose the action
+    });
+
+    btnClear.addEventListener('click', () => {
+      inputText.value = '';
+      outputText.value = '';
+      clearError();
+      stats.classList.add('hidden');
+    });
+
+    btnCopy.addEventListener('click', async () => {
+      const text = outputText.value;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btnCopy.textContent;
+      btnCopy.textContent = 'Copied!';
+      setTimeout(() => { btnCopy.textContent = orig; }, 1500);
+    });
+
+    // ─── Init ────────────────────────────────────────────────────────
+    formatDesc.textContent = FORMAT_DESC[formatSelect.value] || '';
+  </script>
+</body>
+</html>

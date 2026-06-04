@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Palette Extractor — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    #image-canvas { cursor: crosshair; }
+    .swatch-card { transition: transform 0.1s, box-shadow 0.1s; }
+    .swatch-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+    .swatch-card:active { transform: translateY(0); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.8s linear infinite; }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">Color Palette Extractor</h1>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="max-w-4xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <!-- Drop zone -->
+    <div id="drop-zone"
+         class="bg-surface-light border-2 border-dashed border-surface-lighter rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition hover:border-brand group"
+         role="button" tabindex="0" aria-label="Upload image">
+      <div class="text-4xl group-hover:scale-110 transition-transform select-none">&#127912;</div>
+      <p class="text-gray-300 font-medium text-sm">Drop an image here or <span class="text-brand-light underline">click to select</span></p>
+      <p class="text-xs text-gray-500">PNG, JPEG, WebP, GIF, BMP — processed entirely in your browser</p>
+      <input type="file" id="file-input" accept="image/*" class="hidden">
+    </div>
+
+    <!-- Error -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/30 rounded-xl p-4 text-err text-sm"></div>
+
+    <!-- Spinner -->
+    <div id="spinner" class="hidden flex flex-col items-center gap-3 py-8">
+      <div class="spinner w-10 h-10 border-4 border-surface-lighter border-t-brand rounded-full"></div>
+      <p class="text-sm text-gray-400">Extracting palette…</p>
+    </div>
+
+    <!-- Results (hidden until image loaded) -->
+    <div id="results" class="hidden flex flex-col gap-6">
+
+      <!-- Image preview + eyedropper -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="text-sm font-medium text-gray-300">Image Preview</span>
+          <div id="eyedropper-bar" class="flex items-center gap-2 text-xs text-gray-400">
+            <span id="eyedropper-hint">Hover or click to pick a color</span>
+            <div id="eyedropper-swatch" class="w-5 h-5 rounded border border-surface-lighter hidden"></div>
+            <code id="eyedropper-hex" class="font-mono text-gray-300 hidden"></code>
+            <button id="btn-eyedropper-api" class="hidden px-3 py-1 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">
+              &#128068; Pick from screen
+            </button>
+          </div>
+        </div>
+        <div class="relative overflow-auto rounded-lg max-h-72 bg-surface/50">
+          <canvas id="image-canvas" class="block max-w-full mx-auto rounded-lg"></canvas>
+        </div>
+      </div>
+
+      <!-- Dominant color -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <span class="text-sm font-medium text-gray-300">Dominant Color</span>
+        <div class="flex items-center gap-4">
+          <div id="dominant-swatch" class="w-16 h-16 rounded-xl border-2 border-surface-lighter flex-shrink-0 cursor-pointer" title="Click to copy HEX"></div>
+          <div class="flex flex-col gap-1">
+            <code id="dominant-hex" class="text-lg font-mono text-gray-100 cursor-pointer hover:text-brand-light transition" title="Click to copy"></code>
+            <code id="dominant-rgb" class="text-sm font-mono text-gray-400 cursor-pointer hover:text-brand-light transition" title="Click to copy"></code>
+            <code id="dominant-hsl" class="text-xs font-mono text-gray-500 cursor-pointer hover:text-brand-light transition" title="Click to copy"></code>
+          </div>
+          <div id="dominant-copy-msg" class="text-xs text-ok hidden ml-2">Copied!</div>
+        </div>
+      </div>
+
+      <!-- Palette controls -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-4">
+        <div class="flex flex-wrap items-center gap-4 justify-between">
+          <div class="flex items-center gap-3">
+            <label for="color-count" class="text-sm font-medium text-gray-300 whitespace-nowrap">Colors:</label>
+            <input type="range" id="color-count" min="4" max="16" value="8" class="w-28">
+            <span id="color-count-val" class="text-sm font-mono text-brand-light w-5">8</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500">Sort by:</span>
+            <button id="btn-sort-freq" class="px-3 py-1.5 text-xs rounded-lg bg-brand text-white cursor-pointer transition">Frequency</button>
+            <button id="btn-sort-lum" class="px-3 py-1.5 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light cursor-pointer transition">Luminance</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Swatches grid -->
+      <div id="swatches-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+      <!-- Export actions -->
+      <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-3">
+        <span class="text-sm font-medium text-gray-300">Export Palette</span>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-css" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy as CSS variables</button>
+          <button id="btn-json" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy as JSON</button>
+          <button id="btn-tailwind" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Copy as Tailwind colors</button>
+          <button id="btn-png" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Download palette PNG</button>
+        </div>
+        <div id="export-msg" class="text-xs text-ok hidden">Copied!</div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    // ─── State ────────────────────────────────────────────────────────────────
+    let currentPalette = [];   // [{r,g,b,count}]
+    let sortMode = 'freq';     // 'freq' | 'lum'
+    let colorCount = 8;
+    let offscreenCanvas = null;
+    let offscreenCtx = null;
+
+    // ─── Elements ─────────────────────────────────────────────────────────────
+    const dropZone     = document.getElementById('drop-zone');
+    const fileInput    = document.getElementById('file-input');
+    const errorCard    = document.getElementById('error-card');
+    const spinner      = document.getElementById('spinner');
+    const results      = document.getElementById('results');
+    const imageCanvas  = document.getElementById('image-canvas');
+    const imageCtx     = imageCanvas.getContext('2d');
+    const colorCountEl = document.getElementById('color-count');
+    const colorCountVal= document.getElementById('color-count-val');
+    const swatchesGrid = document.getElementById('swatches-grid');
+    const btnSortFreq  = document.getElementById('btn-sort-freq');
+    const btnSortLum   = document.getElementById('btn-sort-lum');
+    const dominantSwatch = document.getElementById('dominant-swatch');
+    const dominantHex  = document.getElementById('dominant-hex');
+    const dominantRgb  = document.getElementById('dominant-rgb');
+    const dominantHsl  = document.getElementById('dominant-hsl');
+    const dominantCopyMsg = document.getElementById('dominant-copy-msg');
+    const exportMsg    = document.getElementById('export-msg');
+    const eyedropperSwatch = document.getElementById('eyedropper-swatch');
+    const eyedropperHex    = document.getElementById('eyedropper-hex');
+    const btnEyedropperApi = document.getElementById('btn-eyedropper-api');
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorCard.textContent = msg;
+      errorCard.classList.remove('hidden');
+    }
+    function clearError() {
+      errorCard.classList.add('hidden');
+    }
+    function showSpinner() {
+      spinner.classList.remove('hidden');
+      results.classList.add('hidden');
+    }
+    function hideSpinner() {
+      spinner.classList.add('hidden');
+    }
+
+    function toHex(r, g, b) {
+      return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+
+    function toRgbStr(r, g, b) {
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function toHslStr(r, g, b) {
+      const rn = r / 255, gn = g / 255, bn = b / 255;
+      const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+      let h, s, l = (max + min) / 2;
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case rn: h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6; break;
+          case gn: h = ((bn - rn) / d + 2) / 6; break;
+          case bn: h = ((rn - gn) / d + 4) / 6; break;
+        }
+      }
+      return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+    }
+
+    function luminance(r, g, b) {
+      // Perceived luminance (Rec. 709)
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    function contrastColor(r, g, b) {
+      return luminance(r, g, b) > 128 ? '#000000' : '#ffffff';
+    }
+
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      }
+    }
+
+    function flashMsg(el) {
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 1600);
+    }
+
+    // ─── Median-Cut Quantization ──────────────────────────────────────────────
+    function medianCut(pixels, depth, maxDepth) {
+      if (pixels.length === 0) return [];
+      if (depth === maxDepth || pixels.length <= 1) {
+        // Average this bucket
+        let r = 0, g = 0, b = 0;
+        for (const p of pixels) { r += p[0]; g += p[1]; b += p[2]; }
+        const n = pixels.length;
+        return [{ r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n), count: n }];
+      }
+
+      // Find channel with greatest range
+      let rMin = 255, rMax = 0, gMin = 255, gMax = 0, bMin = 255, bMax = 0;
+      for (const p of pixels) {
+        if (p[0] < rMin) rMin = p[0]; if (p[0] > rMax) rMax = p[0];
+        if (p[1] < gMin) gMin = p[1]; if (p[1] > gMax) gMax = p[1];
+        if (p[2] < bMin) bMin = p[2]; if (p[2] > bMax) bMax = p[2];
+      }
+      const rRange = rMax - rMin, gRange = gMax - gMin, bRange = bMax - bMin;
+      const maxRange = Math.max(rRange, gRange, bRange);
+      let sortCh = 0;
+      if (gRange === maxRange) sortCh = 1;
+      else if (bRange === maxRange) sortCh = 2;
+
+      pixels.sort((a, b) => a[sortCh] - b[sortCh]);
+      const mid = Math.floor(pixels.length / 2);
+      return [
+        ...medianCut(pixels.slice(0, mid), depth + 1, maxDepth),
+        ...medianCut(pixels.slice(mid), depth + 1, maxDepth)
+      ];
+    }
+
+    function extractPalette(imageData, numColors) {
+      const data = imageData.data;
+      const step = Math.max(1, Math.floor(data.length / 4 / 8000)); // sample at most ~8000 pixels
+      const pixels = [];
+      for (let i = 0; i < data.length; i += 4 * step) {
+        const a = data[i + 3];
+        if (a < 128) continue; // skip transparent
+        pixels.push([data[i], data[i + 1], data[i + 2]]);
+      }
+      if (pixels.length === 0) return [];
+
+      // depth = log2(numColors)
+      const depth = Math.ceil(Math.log2(numColors));
+      let buckets = medianCut(pixels, 0, depth);
+
+      // If we got too many (due to rounding depth up), merge smallest
+      while (buckets.length > numColors) {
+        buckets.sort((a, b) => a.count - b.count);
+        const small = buckets.shift();
+        // add count to most similar neighbour
+        let bestIdx = 0, bestDist = Infinity;
+        for (let i = 0; i < buckets.length; i++) {
+          const d = (buckets[i].r - small.r) ** 2 + (buckets[i].g - small.g) ** 2 + (buckets[i].b - small.b) ** 2;
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+        buckets[bestIdx].count += small.count;
+      }
+
+      // Sort by count descending
+      buckets.sort((a, b) => b.count - a.count);
+      return buckets;
+    }
+
+    // ─── Render ───────────────────────────────────────────────────────────────
+    function renderPalette() {
+      if (currentPalette.length === 0) return;
+
+      let sorted = [...currentPalette];
+      if (sortMode === 'freq') {
+        sorted.sort((a, b) => b.count - a.count);
+      } else {
+        sorted.sort((a, b) => luminance(b.r, b.g, b.b) - luminance(a.r, a.g, a.b));
+      }
+
+      // Dominant color (always by frequency)
+      const dominant = currentPalette[0]; // already sorted by freq
+      const domHex = toHex(dominant.r, dominant.g, dominant.b);
+      const domRgb = toRgbStr(dominant.r, dominant.g, dominant.b);
+      const domHsl = toHslStr(dominant.r, dominant.g, dominant.b);
+      dominantSwatch.style.background = domHex;
+      dominantHex.textContent = domHex;
+      dominantRgb.textContent = domRgb;
+      dominantHsl.textContent = domHsl;
+
+      // Swatches
+      swatchesGrid.innerHTML = '';
+      sorted.forEach((color, idx) => {
+        const hex = toHex(color.r, color.g, color.b);
+        const rgb = toRgbStr(color.r, color.g, color.b);
+        const fg  = contrastColor(color.r, color.g, color.b);
+        const pct = Math.round((color.count / currentPalette.reduce((s, c) => s + c.count, 0)) * 100);
+
+        const card = document.createElement('div');
+        card.className = 'swatch-card rounded-xl overflow-hidden border border-surface-lighter cursor-pointer select-none';
+        card.title = 'Click to copy HEX';
+        card.innerHTML = `
+          <div style="background:${hex};height:80px;"></div>
+          <div class="bg-surface-light p-3 flex flex-col gap-0.5">
+            <code class="text-xs font-mono font-semibold text-gray-100">${hex}</code>
+            <code class="text-[11px] font-mono text-gray-400">${rgb}</code>
+            <span class="text-[10px] text-gray-500 mt-1">${pct}% of image</span>
+          </div>
+        `;
+        // Copy on click
+        let copyTimeout;
+        card.addEventListener('click', async () => {
+          await copyText(hex);
+          const orig = card.title;
+          card.title = 'Copied!';
+          clearTimeout(copyTimeout);
+          const code = card.querySelector('code');
+          const origColor = code.style.color;
+          code.style.color = '#22c55e';
+          copyTimeout = setTimeout(() => {
+            card.title = orig;
+            code.style.color = origColor;
+          }, 1500);
+        });
+        swatchesGrid.appendChild(card);
+      });
+    }
+
+    // ─── Load Image ───────────────────────────────────────────────────────────
+    function loadImage(file) {
+      clearError();
+      if (!file || !file.type.startsWith('image/')) {
+        showError('Please select a valid image file (PNG, JPEG, WebP, GIF, BMP).');
+        return;
+      }
+
+      showSpinner();
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Draw to display canvas (max 800px wide to fit container)
+          const maxW = 800, maxH = 280;
+          let w = img.naturalWidth, h = img.naturalHeight;
+          const scaleW = w > maxW ? maxW / w : 1;
+          const scaleH = h > maxH ? maxH / h : 1;
+          const scale = Math.min(scaleW, scaleH, 1);
+          imageCanvas.width  = Math.round(w * scale);
+          imageCanvas.height = Math.round(h * scale);
+          imageCtx.drawImage(img, 0, 0, imageCanvas.width, imageCanvas.height);
+
+          // Build offscreen canvas for pixel sampling (downscale to max 400x400)
+          const maxSample = 400;
+          const sW = Math.min(w, maxSample);
+          const sH = Math.min(h, Math.round((h / w) * sW));
+          offscreenCanvas = document.createElement('canvas');
+          offscreenCanvas.width = sW;
+          offscreenCanvas.height = sH;
+          offscreenCtx = offscreenCanvas.getContext('2d');
+          offscreenCtx.drawImage(img, 0, 0, sW, sH);
+
+          // Defer heavy quantization to next frame so spinner renders
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              try {
+                const imageData = offscreenCtx.getImageData(0, 0, sW, sH);
+                currentPalette = extractPalette(imageData, colorCount);
+                if (currentPalette.length === 0) {
+                  hideSpinner();
+                  showError('Could not extract colors. The image may be fully transparent or empty.');
+                  return;
+                }
+                hideSpinner();
+                results.classList.remove('hidden');
+                renderPalette();
+              } catch (err) {
+                hideSpinner();
+                showError('Error processing image: ' + err.message);
+              }
+            }, 20);
+          });
+        };
+        img.onerror = () => {
+          hideSpinner();
+          showError('Failed to load image. Please try another file.');
+        };
+        img.src = e.target.result;
+      };
+      reader.onerror = () => {
+        hideSpinner();
+        showError('Failed to read file.');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ─── Eyedropper ───────────────────────────────────────────────────────────
+    imageCanvas.addEventListener('mousemove', (e) => {
+      if (!offscreenCtx) return;
+      const rect = imageCanvas.getBoundingClientRect();
+      const scaleX = offscreenCanvas.width / imageCanvas.width;
+      const scaleY = offscreenCanvas.height / imageCanvas.height;
+      const x = Math.floor((e.clientX - rect.left) * (imageCanvas.width / rect.width) * scaleX);
+      const y = Math.floor((e.clientY - rect.top) * (imageCanvas.height / rect.height) * scaleY);
+      if (x < 0 || y < 0 || x >= offscreenCanvas.width || y >= offscreenCanvas.height) return;
+      const px = offscreenCtx.getImageData(x, y, 1, 1).data;
+      const hex = toHex(px[0], px[1], px[2]);
+      eyedropperSwatch.style.background = hex;
+      eyedropperSwatch.classList.remove('hidden');
+      eyedropperHex.textContent = hex;
+      eyedropperHex.classList.remove('hidden');
+    });
+
+    imageCanvas.addEventListener('mouseleave', () => {
+      eyedropperSwatch.classList.add('hidden');
+      eyedropperHex.classList.add('hidden');
+    });
+
+    imageCanvas.addEventListener('click', async (e) => {
+      if (!offscreenCtx) return;
+      const rect = imageCanvas.getBoundingClientRect();
+      const scaleX = offscreenCanvas.width / imageCanvas.width;
+      const scaleY = offscreenCanvas.height / imageCanvas.height;
+      const x = Math.floor((e.clientX - rect.left) * (imageCanvas.width / rect.width) * scaleX);
+      const y = Math.floor((e.clientY - rect.top) * (imageCanvas.height / rect.height) * scaleY);
+      if (x < 0 || y < 0 || x >= offscreenCanvas.width || y >= offscreenCanvas.height) return;
+      const px = offscreenCtx.getImageData(x, y, 1, 1).data;
+      const hex = toHex(px[0], px[1], px[2]);
+      await copyText(hex);
+      const prevText = document.getElementById('eyedropper-hint').textContent;
+      document.getElementById('eyedropper-hint').textContent = `Copied ${hex}!`;
+      setTimeout(() => { document.getElementById('eyedropper-hint').textContent = prevText; }, 1500);
+    });
+
+    // EyeDropper API button (if supported)
+    if ('EyeDropper' in window) {
+      btnEyedropperApi.classList.remove('hidden');
+      btnEyedropperApi.addEventListener('click', async () => {
+        try {
+          const dropper = new EyeDropper();
+          const result = await dropper.open();
+          const hex = result.sRGBHex;
+          await copyText(hex);
+          eyedropperSwatch.style.background = hex;
+          eyedropperSwatch.classList.remove('hidden');
+          eyedropperHex.textContent = hex;
+          eyedropperHex.classList.remove('hidden');
+          document.getElementById('eyedropper-hint').textContent = `Picked & copied ${hex}`;
+          setTimeout(() => { document.getElementById('eyedropper-hint').textContent = 'Hover or click to pick a color'; }, 2000);
+        } catch {
+          // User cancelled — ignore
+        }
+      });
+    }
+
+    // ─── Dominant copy ────────────────────────────────────────────────────────
+    [dominantSwatch, dominantHex, dominantRgb, dominantHsl].forEach((el, i) => {
+      el.addEventListener('click', async () => {
+        const texts = [dominantHex.textContent, dominantRgb.textContent, dominantHsl.textContent];
+        await copyText(i === 0 ? dominantHex.textContent : texts[i - 1]);
+        flashMsg(dominantCopyMsg);
+      });
+    });
+
+    // ─── Sort buttons ─────────────────────────────────────────────────────────
+    function setSortMode(mode) {
+      sortMode = mode;
+      if (mode === 'freq') {
+        btnSortFreq.className = 'px-3 py-1.5 text-xs rounded-lg bg-brand text-white cursor-pointer transition';
+        btnSortLum.className  = 'px-3 py-1.5 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light cursor-pointer transition';
+      } else {
+        btnSortLum.className  = 'px-3 py-1.5 text-xs rounded-lg bg-brand text-white cursor-pointer transition';
+        btnSortFreq.className = 'px-3 py-1.5 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light cursor-pointer transition';
+      }
+      renderPalette();
+    }
+    btnSortFreq.addEventListener('click', () => setSortMode('freq'));
+    btnSortLum.addEventListener('click', () => setSortMode('lum'));
+
+    // ─── Color count slider ───────────────────────────────────────────────────
+    colorCountEl.addEventListener('input', () => {
+      colorCount = parseInt(colorCountEl.value, 10);
+      colorCountVal.textContent = colorCount;
+      if (offscreenCtx) {
+        // Re-extract
+        showSpinner();
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            try {
+              const imageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+              currentPalette = extractPalette(imageData, colorCount);
+              hideSpinner();
+              results.classList.remove('hidden');
+              renderPalette();
+            } catch (err) {
+              hideSpinner();
+              showError('Error re-extracting: ' + err.message);
+            }
+          }, 20);
+        });
+      }
+    });
+
+    // ─── Export buttons ───────────────────────────────────────────────────────
+    function sortedPalette() {
+      const sorted = [...currentPalette];
+      if (sortMode === 'freq') sorted.sort((a, b) => b.count - a.count);
+      else sorted.sort((a, b) => luminance(b.r, b.g, b.b) - luminance(a.r, a.g, a.b));
+      return sorted;
+    }
+
+    document.getElementById('btn-css').addEventListener('click', async () => {
+      const palette = sortedPalette();
+      const css = ':root {\n' + palette.map((c, i) => `  --color-${i + 1}: ${toHex(c.r, c.g, c.b)};`).join('\n') + '\n}';
+      await copyText(css);
+      flashMsg(exportMsg);
+    });
+
+    document.getElementById('btn-json').addEventListener('click', async () => {
+      const palette = sortedPalette();
+      const obj = palette.map((c, i) => ({
+        name: `color-${i + 1}`,
+        hex: toHex(c.r, c.g, c.b),
+        rgb: { r: c.r, g: c.g, b: c.b }
+      }));
+      await copyText(JSON.stringify(obj, null, 2));
+      flashMsg(exportMsg);
+    });
+
+    document.getElementById('btn-tailwind').addEventListener('click', async () => {
+      const palette = sortedPalette();
+      const lines = palette.map((c, i) => `        'palette-${i + 1}': '${toHex(c.r, c.g, c.b)}',`).join('\n');
+      const tw = `/** tailwind.config.js */\nmodule.exports = {\n  theme: {\n    extend: {\n      colors: {\n${lines}\n      },\n    },\n  },\n};\n`;
+      await copyText(tw);
+      flashMsg(exportMsg);
+    });
+
+    document.getElementById('btn-png').addEventListener('click', () => {
+      const palette = sortedPalette();
+      const swatchW = 80, swatchH = 120, labelH = 30;
+      const totalW = swatchW * palette.length;
+      const totalH = swatchH + labelH;
+      const pc = document.createElement('canvas');
+      pc.width = totalW;
+      pc.height = totalH;
+      const pctx = pc.getContext('2d');
+
+      palette.forEach((color, i) => {
+        const x = i * swatchW;
+        pctx.fillStyle = toHex(color.r, color.g, color.b);
+        pctx.fillRect(x, 0, swatchW, swatchH);
+
+        // Label
+        pctx.fillStyle = '#1e293b';
+        pctx.fillRect(x, swatchH, swatchW, labelH);
+        pctx.fillStyle = '#e2e8f0';
+        pctx.font = '10px monospace';
+        pctx.textAlign = 'center';
+        pctx.fillText(toHex(color.r, color.g, color.b), x + swatchW / 2, swatchH + 19);
+      });
+
+      const link = document.createElement('a');
+      link.download = 'palette.png';
+      link.href = pc.toDataURL('image/png');
+      link.click();
+    });
+
+    // ─── Drag & Drop ──────────────────────────────────────────────────────────
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-brand', 'bg-brand/5');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-brand', 'bg-brand/5');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand', 'bg-brand/5');
+      const file = e.dataTransfer.files[0];
+      if (file) loadImage(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) loadImage(fileInput.files[0]);
+    });
+  </script>
+</body>
+</html>

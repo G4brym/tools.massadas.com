@@ -27,6 +27,35 @@ Deployed as a Cloudflare Workers static asset site.
 - **[QR Code Generator](/qr-code/)** — Generate QR codes with custom size, colors, and error correction.
 - **[Password Generator](/password-generator/)** — Generate secure random passwords or passphrases.
 - **[EXIF Stripper](/exif-stripper/)** — View image EXIF metadata and download a stripped copy.
+- **[PDF Tools](/pdf-tools/)** — Merge, split, reorder, rotate, and delete pages across one or multiple PDFs.
+- **[PDF to Images](/pdf-to-images/)** — Convert PDF pages to PNG, JPEG, or WebP at adjustable resolution; download all as a ZIP.
+- **[PDF Compressor](/pdf-compress/)** — Shrink PDF file size by rasterizing pages to JPEG, with quality, scale, and grayscale controls.
+- **[Image Converter](/image-converter/)** — Convert HEIC, WebP, AVIF, PNG, JPEG, GIF, and BMP images to any format.
+- **[Background Remover](/background-remover/)** — Remove image backgrounds with an on-device AI model; transparent PNG output, no uploads.
+- **[Video Converter](/video-converter/)** — Convert video/audio to MP4, WebM, GIF, MP3, or WAV and trim clips, locally with ffmpeg.wasm.
+- **[Markdown Editor](/markdown-editor/)** — Live split-pane editor with formatting toolbar, GitHub-style preview, and MD/HTML/PDF export.
+- **[Data Converter](/data-converter/)** — Convert data between JSON, YAML, and TOML with live preview and auto-detection.
+- **[Timestamp Converter](/timestamp-converter/)** — Parse Unix timestamps or date strings and convert across any timezone.
+- **[URL Encoder/Decoder](/url-encoder/)** — Encode/decode URL components, parse URLs into editable fields, and build query strings.
+- **[Text Case Converter](/text-case/)** — Convert text between 12 case formats with live character, word, and reading-time stats.
+- **[Lorem Ipsum Generator](/lorem-ipsum/)** — Generate placeholder text and tables of fake data as JSON, CSV, SQL, or a table.
+- **[JSON ↔ CSV](/json-csv/)** — Convert JSON arrays to CSV (with nested flattening) and CSV back to JSON.
+- **[HTML ↔ Markdown](/html-markdown/)** — Convert between HTML and Markdown in both directions with a sanitized preview.
+- **[String Escape](/string-escape/)** — Escape/unescape strings across 12 formats: JSON, JS, HTML, XML, URL, SQL, CSV, Shell, and more.
+- **[Number Base Converter](/number-base/)** — Convert numbers between binary, octal, decimal, hex, and any base 2–36.
+- **[Text Encrypt/Decrypt](/text-encrypt/)** — Encrypt and decrypt text with AES-256-GCM (PBKDF2 password) in your browser.
+- **[PGP Tool](/pgp/)** — Generate PGP keypairs and encrypt, decrypt, sign, and verify messages locally.
+- **[Bcrypt Hash & Verify](/bcrypt/)** — Hash a password with bcrypt (adjustable cost) and verify a plaintext against any hash.
+- **[Certificate Decoder](/cert-decoder/)** — Decode PEM X.509 certificates or chains: subject, issuer, validity, fingerprints, SANs.
+- **[SVG to PNG](/svg-to-png/)** — Rasterize SVG markup or files to PNG, JPEG, or WebP at any scale or pixel size.
+- **[Favicon Generator](/favicon-generator/)** — Generate a complete favicon set (ICO, PNGs, manifest, HTML snippet) as a ZIP.
+- **[Color Palette Extractor](/color-palette/)** — Extract a color palette from any image; export as HEX/RGB, CSS variables, JSON, or Tailwind colors.
+- **[Image Cropper](/image-cropper/)** — Crop images with aspect presets, rotate/flip, resize, and export to PNG/JPEG/WebP.
+- **[ASCII Art Generator](/ascii-art/)** — Convert images to ASCII art, or generate ASCII block-letter banners from text.
+- **[CSV ↔ Excel](/csv-xlsx/)** — Convert between CSV and Excel/ODS spreadsheets; preview sheets and download as CSV or XLSX.
+- **[Mermaid Editor](/mermaid-editor/)** — Write and live-preview Mermaid diagrams with examples and SVG/PNG export.
+- **[Invoice Generator](/invoice-generator/)** — Build invoices with live preview, line items, tax/discount, and PDF export.
+- **[JSONPath Playground](/jsonpath/)** — Run JSONPath and JMESPath queries against JSON with live results and a cheat sheet.
 
 ## Running Locally
 

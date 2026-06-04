@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Tools — tools.massadas.com</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+
+    .page-thumb {
+      cursor: grab;
+      user-select: none;
+    }
+    .page-thumb:active {
+      cursor: grabbing;
+    }
+    .page-thumb.dragging {
+      opacity: 0.4;
+      cursor: grabbing;
+    }
+    .page-thumb.drag-over {
+      outline: 2px solid var(--color-brand);
+      outline-offset: 2px;
+    }
+    .page-thumb.selected .thumb-border {
+      border-color: var(--color-brand) !important;
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.4);
+    }
+    canvas.thumb-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+    .rotate-badge {
+      font-size: 10px;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-3 px-4 h-12 flex-wrap">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition shrink-0">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200 shrink-0">PDF Tools</h1>
+      <div class="ml-auto flex items-center gap-2 flex-wrap">
+        <span id="page-count-badge" class="hidden text-xs text-gray-500 font-mono"></span>
+        <button id="btn-select-more" class="hidden text-xs font-medium px-3 py-1 rounded-md bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">+ Add PDFs</button>
+        <button id="btn-clear-all" class="hidden text-xs text-gray-500 hover:text-gray-300 transition cursor-pointer">Clear all</button>
+        <button id="btn-merge-export" class="hidden text-xs font-medium px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-light transition cursor-pointer">Merge &amp; Export</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Drop overlay -->
+  <div id="drop-overlay" class="hidden fixed inset-0 z-40 bg-brand/10 border-4 border-dashed border-brand flex items-center justify-center pointer-events-none">
+    <span class="text-brand-light font-semibold text-xl">Drop PDFs here</span>
+  </div>
+
+  <!-- Error banner -->
+  <div id="error-banner" class="hidden max-w-5xl mx-auto px-4 mt-4">
+    <div class="bg-err/10 border border-err/40 rounded-xl px-5 py-3 text-sm text-red-300 flex items-start gap-3">
+      <span class="mt-0.5 shrink-0">⚠</span>
+      <span id="error-text"></span>
+      <button onclick="document.getElementById('error-banner').classList.add('hidden')" class="ml-auto text-red-400 hover:text-red-200 transition cursor-pointer shrink-0">✕</button>
+    </div>
+  </div>
+
+  <!-- Spinner -->
+  <div id="spinner" class="hidden fixed inset-0 z-50 bg-surface/70 flex items-center justify-center">
+    <div class="flex flex-col items-center gap-3">
+      <svg class="animate-spin w-8 h-8 text-brand-light" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+      </svg>
+      <p id="spinner-text" class="text-sm text-gray-300">Processing…</p>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="empty-state" class="flex flex-col items-center justify-center min-h-[calc(100vh-3rem)]">
+    <div class="flex flex-col items-center gap-5 py-16 px-4 text-center max-w-md">
+      <div class="w-16 h-16 rounded-2xl bg-surface-light border border-surface-lighter flex items-center justify-center text-3xl">
+        &#128196;
+      </div>
+      <div>
+        <p class="text-gray-200 font-semibold text-lg">PDF Tools</p>
+        <p class="text-sm text-gray-400 mt-1 leading-relaxed">Merge, split, reorder, rotate, and delete pages across one or multiple PDFs. Runs 100% in your browser — nothing is uploaded anywhere.</p>
+      </div>
+      <div id="drop-zone-empty" class="w-full border-2 border-dashed border-surface-lighter rounded-2xl p-8 cursor-pointer hover:border-brand/60 transition flex flex-col items-center gap-3">
+        <p class="text-gray-300 text-sm font-medium">Drag &amp; drop PDF files here</p>
+        <p class="text-gray-500 text-xs">or</p>
+        <button id="btn-select-empty" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Select PDFs</button>
+      </div>
+      <input id="file-input-empty" type="file" accept="application/pdf,.pdf" multiple class="hidden" />
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div id="editor" class="hidden max-w-5xl mx-auto px-4 py-6 flex flex-col gap-5">
+
+    <!-- Selection toolbar -->
+    <div id="selection-toolbar" class="hidden bg-surface-light border border-surface-lighter rounded-xl px-5 py-3 flex flex-wrap items-center gap-3">
+      <span id="selection-count" class="text-sm text-gray-300 font-medium"></span>
+      <div class="flex gap-2 flex-wrap">
+        <button id="btn-download-selection" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Download selection as PDF</button>
+        <button id="btn-delete-selection" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-err/50 text-red-400 hover:bg-err/10 transition cursor-pointer">Delete selected</button>
+        <button id="btn-clear-selection" class="px-4 py-1.5 text-xs font-medium rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:text-gray-200 transition cursor-pointer">Deselect all</button>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-1 items-center">
+      <span>&#x2195; Drag to reorder</span>
+      <span>&#x21bb; Rotate with button</span>
+      <span>&#x2715; Delete with button</span>
+      <span>Click thumbnail to select</span>
+    </div>
+
+    <!-- Page grid -->
+    <div id="page-grid" class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));">
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-wrap gap-3 items-center">
+      <div class="flex flex-wrap gap-3 flex-1">
+        <button id="btn-merge-main" class="px-5 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer">Merge &amp; Export PDF</button>
+        <button id="btn-split-pages" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Split — one PDF per page</button>
+        <button id="btn-select-all" class="px-5 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-300 hover:border-brand hover:text-brand-light transition cursor-pointer">Select all</button>
+      </div>
+      <div>
+        <button id="btn-add-more" class="px-4 py-2 text-sm font-medium rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer">+ Add more PDFs</button>
+        <input id="file-input-more" type="file" accept="application/pdf,.pdf" multiple class="hidden" />
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.worker.min.mjs';
+
+    const { PDFDocument, degrees } = PDFLib;
+
+    // ── State ──────────────────────────────────────────────────────────────
+    // Each page entry: { id, sourceFile, sourcePageIndex, bytes (ArrayBuffer), label, rotation (0|90|180|270) }
+    let pages = [];
+    let nextId = 0;
+    let selectedIds = new Set();
+
+    // Drag state
+    let dragSrcId = null;
+
+    // ── Elements ───────────────────────────────────────────────────────────
+    const emptyState       = document.getElementById('empty-state');
+    const editor           = document.getElementById('editor');
+    const pageGrid         = document.getElementById('page-grid');
+    const fileInputEmpty   = document.getElementById('file-input-empty');
+    const fileInputMore    = document.getElementById('file-input-more');
+    const btnSelectEmpty   = document.getElementById('btn-select-empty');
+    const btnSelectMore    = document.getElementById('btn-select-more');
+    const btnAddMore       = document.getElementById('btn-add-more');
+    const btnClearAll      = document.getElementById('btn-clear-all');
+    const btnMergeExport   = document.getElementById('btn-merge-export');
+    const btnMergeMain     = document.getElementById('btn-merge-main');
+    const btnSplitPages    = document.getElementById('btn-split-pages');
+    const btnSelectAll     = document.getElementById('btn-select-all');
+    const pageCountBadge   = document.getElementById('page-count-badge');
+    const dropZoneEmpty    = document.getElementById('drop-zone-empty');
+    const dropOverlay      = document.getElementById('drop-overlay');
+    const errorBanner      = document.getElementById('error-banner');
+    const errorText        = document.getElementById('error-text');
+    const spinner          = document.getElementById('spinner');
+    const spinnerText      = document.getElementById('spinner-text');
+    const selectionToolbar = document.getElementById('selection-toolbar');
+    const selectionCount   = document.getElementById('selection-count');
+    const btnDownloadSel   = document.getElementById('btn-download-selection');
+    const btnDeleteSel     = document.getElementById('btn-delete-selection');
+    const btnClearSel      = document.getElementById('btn-clear-selection');
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+    function hideError() {
+      errorBanner.classList.add('hidden');
+    }
+    function showSpinner(msg = 'Processing…') {
+      spinnerText.textContent = msg;
+      spinner.classList.remove('hidden');
+    }
+    function hideSpinner() {
+      spinner.classList.add('hidden');
+    }
+    function formatBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(1) + ' MB';
+    }
+    function downloadBlob(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────────
+    function updateUI() {
+      const count = pages.length;
+      const hasPages = count > 0;
+
+      emptyState.classList.toggle('hidden', hasPages);
+      editor.classList.toggle('hidden', !hasPages);
+      btnSelectMore.classList.toggle('hidden', !hasPages);
+      btnClearAll.classList.toggle('hidden', !hasPages);
+      btnMergeExport.classList.toggle('hidden', !hasPages);
+
+      if (hasPages) {
+        pageCountBadge.textContent = `${count} page${count !== 1 ? 's' : ''}`;
+        pageCountBadge.classList.remove('hidden');
+      } else {
+        pageCountBadge.classList.add('hidden');
+      }
+
+      updateSelectionToolbar();
+    }
+
+    function updateSelectionToolbar() {
+      const count = selectedIds.size;
+      selectionToolbar.classList.toggle('hidden', count === 0);
+      if (count > 0) {
+        selectionCount.textContent = `${count} page${count !== 1 ? 's' : ''} selected`;
+      }
+      // update selected visual state
+      document.querySelectorAll('.page-thumb').forEach(el => {
+        el.classList.toggle('selected', selectedIds.has(Number(el.dataset.id)));
+      });
+    }
+
+    async function renderThumbnail(page) {
+      // Render via PDF.js into a canvas
+      try {
+        const loadingTask = pdfjsLib.getDocument({ data: page.bytes.slice(0) });
+        const doc = await loadingTask.promise;
+        const pdfPage = await doc.getPage(page.sourcePageIndex + 1);
+        const viewport = pdfPage.getViewport({ scale: 1 });
+        // Aim for ~140px wide thumbnail
+        const scale = 140 / viewport.width;
+        const scaledVP = pdfPage.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(scaledVP.width);
+        canvas.height = Math.round(scaledVP.height);
+        canvas.className = 'thumb-canvas';
+        const ctx = canvas.getContext('2d');
+        await pdfPage.render({ canvasContext: ctx, viewport: scaledVP }).promise;
+        return canvas;
+      } catch {
+        // Fallback: grey placeholder
+        const canvas = document.createElement('canvas');
+        canvas.width = 100; canvas.height = 141;
+        canvas.className = 'thumb-canvas';
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, 100, 141);
+        ctx.fillStyle = '#475569';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Page', 50, 66);
+        ctx.fillText(page.sourcePageIndex + 1, 50, 82);
+        return canvas;
+      }
+    }
+
+    function buildThumbCard(page) {
+      const card = document.createElement('div');
+      card.className = 'page-thumb relative bg-surface-light border border-surface-lighter rounded-xl p-2 flex flex-col gap-2 select-none';
+      card.dataset.id = page.id;
+      card.draggable = true;
+
+      // Inner border wrapper
+      const borderWrap = document.createElement('div');
+      borderWrap.className = 'thumb-border rounded-lg overflow-hidden bg-surface border border-surface-lighter flex items-center justify-center';
+      borderWrap.style.aspectRatio = '0.707'; // roughly A4 proportion
+
+      // Canvas placeholder initially
+      const placeholder = document.createElement('div');
+      placeholder.className = 'w-full h-full flex items-center justify-center text-gray-600 text-xs';
+      placeholder.textContent = '…';
+      borderWrap.appendChild(placeholder);
+      card.appendChild(borderWrap);
+
+      // Rotation indicator overlay (if rotated)
+      const rotBadge = document.createElement('div');
+      rotBadge.className = 'rotate-badge absolute top-3 left-3 bg-surface-lighter/90 text-gray-300 rounded px-1 py-0.5 hidden';
+      card.appendChild(rotBadge);
+
+      // Label
+      const label = document.createElement('div');
+      label.className = 'text-center text-[10px] text-gray-500 truncate px-1 leading-tight';
+      label.title = page.label;
+      label.textContent = page.label;
+      card.appendChild(label);
+
+      // Buttons row
+      const btnRow = document.createElement('div');
+      btnRow.className = 'flex gap-1 justify-center';
+
+      const rotBtn = document.createElement('button');
+      rotBtn.className = 'flex-1 text-xs py-1 rounded-md bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer';
+      rotBtn.title = 'Rotate 90°';
+      rotBtn.textContent = '↻ 90°';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'text-xs px-2 py-1 rounded-md bg-surface border border-surface-lighter text-red-400/70 hover:border-err/50 hover:text-red-400 transition cursor-pointer';
+      delBtn.title = 'Delete page';
+      delBtn.textContent = '✕';
+
+      btnRow.appendChild(rotBtn);
+      btnRow.appendChild(delBtn);
+      card.appendChild(btnRow);
+
+      // ── Events ──
+      card.addEventListener('click', (e) => {
+        if (e.target === rotBtn || rotBtn.contains(e.target)) return;
+        if (e.target === delBtn || delBtn.contains(e.target)) return;
+        toggleSelection(page.id);
+      });
+
+      rotBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        rotatePage(page.id);
+      });
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deletePage(page.id);
+      });
+
+      // Drag handlers
+      card.addEventListener('dragstart', (e) => {
+        dragSrcId = page.id;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', page.id);
+      });
+      card.addEventListener('dragend', () => {
+        dragSrcId = null;
+        card.classList.remove('dragging');
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      });
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragSrcId !== page.id) {
+          card.classList.add('drag-over');
+        }
+      });
+      card.addEventListener('dragleave', () => {
+        card.classList.remove('drag-over');
+      });
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        if (dragSrcId !== null && dragSrcId !== page.id) {
+          reorderPage(dragSrcId, page.id);
+        }
+      });
+
+      // Async: render thumbnail
+      renderThumbnail(page).then(canvas => {
+        // Apply rotation transform via CSS
+        const rot = page.rotation || 0;
+        if (rot !== 0) {
+          canvas.style.transform = `rotate(${rot}deg)`;
+          canvas.style.transformOrigin = 'center center';
+          if (rot === 90 || rot === 270) {
+            // canvas is physically wider than tall after 90° — scale to fit
+            canvas.style.transform = `rotate(${rot}deg) scale(${borderWrap.clientHeight / (borderWrap.clientWidth || 1)})`;
+          }
+        }
+        borderWrap.innerHTML = '';
+        borderWrap.appendChild(canvas);
+        updateRotBadge(rotBadge, page.rotation);
+      });
+
+      updateRotBadge(rotBadge, page.rotation);
+      return card;
+    }
+
+    function updateRotBadge(badge, rotation) {
+      if (rotation && rotation !== 0) {
+        badge.textContent = `${rotation}°`;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function renderGrid() {
+      pageGrid.innerHTML = '';
+      pages.forEach(page => {
+        pageGrid.appendChild(buildThumbCard(page));
+      });
+      updateSelectionToolbar();
+    }
+
+    // ── Page operations ────────────────────────────────────────────────────
+    function rotatePage(id) {
+      const page = pages.find(p => p.id === id);
+      if (!page) return;
+      page.rotation = ((page.rotation || 0) + 90) % 360;
+
+      const card = pageGrid.querySelector(`[data-id="${id}"]`);
+      if (!card) return;
+
+      // Update rotation badge
+      const badge = card.querySelector('.rotate-badge');
+      updateRotBadge(badge, page.rotation);
+
+      // Re-render thumbnail with new rotation
+      const borderWrap = card.querySelector('.thumb-border');
+      borderWrap.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-600 text-xs">…</div>';
+      renderThumbnail(page).then(canvas => {
+        const rot = page.rotation;
+        if (rot === 90 || rot === 270) {
+          canvas.style.transform = `rotate(${rot}deg)`;
+          canvas.style.transformOrigin = 'center center';
+          canvas.style.maxWidth = '100%';
+          canvas.style.maxHeight = '100%';
+        } else if (rot === 180) {
+          canvas.style.transform = `rotate(180deg)`;
+        }
+        borderWrap.innerHTML = '';
+        borderWrap.appendChild(canvas);
+      });
+
+      updateUI();
+    }
+
+    function deletePage(id) {
+      pages = pages.filter(p => p.id !== id);
+      selectedIds.delete(id);
+      const card = pageGrid.querySelector(`[data-id="${id}"]`);
+      if (card) card.remove();
+      updateUI();
+    }
+
+    function reorderPage(srcId, targetId) {
+      const srcIdx = pages.findIndex(p => p.id === srcId);
+      const tgtIdx = pages.findIndex(p => p.id === targetId);
+      if (srcIdx === -1 || tgtIdx === -1) return;
+      const [moved] = pages.splice(srcIdx, 1);
+      pages.splice(tgtIdx, 0, moved);
+
+      // Re-render the grid (thumbnail canvases are cached via DOM manipulation)
+      const srcCard = pageGrid.querySelector(`[data-id="${srcId}"]`);
+      const tgtCard = pageGrid.querySelector(`[data-id="${targetId}"]`);
+      if (!srcCard || !tgtCard) { renderGrid(); return; }
+
+      if (srcIdx < tgtIdx) {
+        tgtCard.after(srcCard);
+      } else {
+        tgtCard.before(srcCard);
+      }
+      updateSelectionToolbar();
+    }
+
+    function toggleSelection(id) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      updateSelectionToolbar();
+    }
+
+    function clearSelection() {
+      selectedIds.clear();
+      updateSelectionToolbar();
+    }
+
+    function selectAll() {
+      pages.forEach(p => selectedIds.add(p.id));
+      updateSelectionToolbar();
+    }
+
+    // ── Load PDFs ──────────────────────────────────────────────────────────
+    async function loadFiles(files) {
+      hideError();
+      const pdfs = Array.from(files).filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+      if (pdfs.length === 0) {
+        showError('No valid PDF files found. Please select one or more PDF files.');
+        return;
+      }
+
+      showSpinner('Loading PDFs…');
+      const errors = [];
+
+      for (const file of pdfs) {
+        try {
+          const bytes = await file.arrayBuffer();
+          // Validate with pdf-lib
+          const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+          const count = doc.getPageCount();
+
+          // Also quick-load with pdfjs to confirm it's renderable
+          // We'll just try loading — errors will be caught
+          for (let i = 0; i < count; i++) {
+            const id = nextId++;
+            // Create a single-page PDF buffer for this page using pdf-lib
+            // Store the full file bytes + page index to extract later
+            pages.push({
+              id,
+              sourceFile: file.name,
+              sourcePageIndex: i,
+              bytes,           // full source PDF ArrayBuffer
+              label: count > 1 ? `${file.name.replace(/\.pdf$/i, '')} p${i + 1}` : file.name.replace(/\.pdf$/i, ''),
+              rotation: 0,
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to load ${file.name}:`, err);
+          errors.push(`${file.name}: ${err.message || 'Could not read PDF (may be corrupt or password-protected)'}`);
+        }
+      }
+
+      hideSpinner();
+
+      if (errors.length > 0) {
+        showError(errors.join(' | '));
+      }
+
+      if (pages.length > 0) {
+        renderGrid();
+        updateUI();
+      }
+    }
+
+    // ── Export ─────────────────────────────────────────────────────────────
+    async function mergeAndExport(pageList, filename = 'merged.pdf') {
+      showSpinner('Building PDF…');
+      try {
+        const out = await PDFDocument.create();
+
+        // Group pages by their source bytes to avoid re-parsing the same PDF multiple times
+        const bytesMap = new Map(); // bytes ref (by identity) → loaded PDFDocument
+        // Use a WeakMap-like approach via index
+        const bytesSeen = [];
+        const docsCache = [];
+
+        for (const page of pageList) {
+          let srcDoc;
+          // Find by reference identity
+          let idx = bytesSeen.indexOf(page.bytes);
+          if (idx === -1) {
+            srcDoc = await PDFDocument.load(page.bytes, { ignoreEncryption: true });
+            bytesSeen.push(page.bytes);
+            docsCache.push(srcDoc);
+          } else {
+            srcDoc = docsCache[idx];
+          }
+
+          const [copied] = await out.copyPages(srcDoc, [page.sourcePageIndex]);
+
+          // Apply rotation
+          if (page.rotation) {
+            const existingRot = copied.getRotation().angle;
+            copied.setRotation(degrees((existingRot + page.rotation) % 360));
+          }
+
+          out.addPage(copied);
+        }
+
+        const pdfBytes = await out.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        downloadBlob(blob, filename);
+      } catch (err) {
+        console.error('Export failed:', err);
+        showError('Export failed: ' + (err.message || 'Unknown error'));
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    async function splitAllPages() {
+      if (pages.length === 0) return;
+      showSpinner(`Splitting ${pages.length} pages…`);
+      try {
+        const zip = new JSZip();
+
+        const bytesSeen = [];
+        const docsCache = [];
+
+        for (let i = 0; i < pages.length; i++) {
+          const page = pages[i];
+          let srcDoc;
+          let idx = bytesSeen.indexOf(page.bytes);
+          if (idx === -1) {
+            srcDoc = await PDFDocument.load(page.bytes, { ignoreEncryption: true });
+            bytesSeen.push(page.bytes);
+            docsCache.push(srcDoc);
+          } else {
+            srcDoc = docsCache[idx];
+          }
+
+          const out = await PDFDocument.create();
+          const [copied] = await out.copyPages(srcDoc, [page.sourcePageIndex]);
+          if (page.rotation) {
+            const existingRot = copied.getRotation().angle;
+            copied.setRotation(degrees((existingRot + page.rotation) % 360));
+          }
+          out.addPage(copied);
+          const pdfBytes = await out.save();
+
+          const safeName = page.label.replace(/[^a-zA-Z0-9\-_ ]/g, '_');
+          zip.file(`${String(i + 1).padStart(3, '0')}_${safeName}.pdf`, pdfBytes);
+        }
+
+        spinnerText.textContent = 'Compressing ZIP…';
+        const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 3 } });
+        downloadBlob(zipBlob, 'pages.zip');
+      } catch (err) {
+        console.error('Split failed:', err);
+        showError('Split failed: ' + (err.message || 'Unknown error'));
+      } finally {
+        hideSpinner();
+      }
+    }
+
+    // ── Event wiring ───────────────────────────────────────────────────────
+    btnSelectEmpty.addEventListener('click', () => fileInputEmpty.click());
+    dropZoneEmpty.addEventListener('click', (e) => {
+      if (e.target === btnSelectEmpty || btnSelectEmpty.contains(e.target)) return;
+      fileInputEmpty.click();
+    });
+    fileInputEmpty.addEventListener('change', () => {
+      if (fileInputEmpty.files.length) loadFiles(fileInputEmpty.files);
+      fileInputEmpty.value = '';
+    });
+
+    btnAddMore.addEventListener('click', () => fileInputMore.click());
+    btnSelectMore.addEventListener('click', () => fileInputMore.click());
+    fileInputMore.addEventListener('change', () => {
+      if (fileInputMore.files.length) loadFiles(fileInputMore.files);
+      fileInputMore.value = '';
+    });
+
+    btnClearAll.addEventListener('click', () => {
+      pages = [];
+      selectedIds.clear();
+      pageGrid.innerHTML = '';
+      updateUI();
+      hideError();
+    });
+
+    btnMergeExport.addEventListener('click', () => mergeAndExport(pages, 'merged.pdf'));
+    btnMergeMain.addEventListener('click', () => mergeAndExport(pages, 'merged.pdf'));
+
+    btnSplitPages.addEventListener('click', splitAllPages);
+
+    btnSelectAll.addEventListener('click', selectAll);
+    btnClearSel.addEventListener('click', clearSelection);
+
+    btnDeleteSel.addEventListener('click', () => {
+      selectedIds.forEach(id => {
+        pages = pages.filter(p => p.id !== id);
+        const card = pageGrid.querySelector(`[data-id="${id}"]`);
+        if (card) card.remove();
+      });
+      selectedIds.clear();
+      updateUI();
+    });
+
+    btnDownloadSel.addEventListener('click', () => {
+      const selPages = pages.filter(p => selectedIds.has(p.id));
+      if (selPages.length === 0) return;
+      mergeAndExport(selPages, 'selection.pdf');
+    });
+
+    // ── Drag & drop (global) ───────────────────────────────────────────────
+    let dragEnterCounter = 0;
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      if ([...e.dataTransfer.types].includes('Files')) {
+        dragEnterCounter++;
+        dropOverlay.classList.remove('hidden');
+      }
+    });
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      if (--dragEnterCounter <= 0) {
+        dragEnterCounter = 0;
+        dropOverlay.classList.add('hidden');
+      }
+    });
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragEnterCounter = 0;
+      dropOverlay.classList.add('hidden');
+      if (e.dataTransfer.files && e.dataTransfer.files.length) {
+        // Only handle if it's not an internal page drag
+        if (!dragSrcId) {
+          loadFiles(e.dataTransfer.files);
+        }
+      }
+    });
+
+    // Initial UI
+    updateUI();
+  </script>
+</body>
+</html>
