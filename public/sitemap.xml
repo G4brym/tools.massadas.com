@@ -2,62 +2,82 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://tools.massadas.com/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/swagger/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/image-to-pdf/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/pdf-booklet/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/file-to-markdown/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/json-formatter/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/base64/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/jwt-decoder/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/diff/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/regex/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/csv-viewer/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/uuid-generator/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/cron-parser/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/color-converter/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/hash-generator/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/image-compressor/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/svg-optimizer/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/qr-code/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/password-generator/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
   <url>
     <loc>https://tools.massadas.com/exif-stripper/</loc>
+    <lastmod>2026-06-04</lastmod>
   </url>
 </urlset>

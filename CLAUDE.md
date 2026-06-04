@@ -26,3 +26,4 @@ tools.massadas.com is a collection of browser-only tools deployed as a Cloudflar
 - **100% browser-side.** Every tool must run entirely in the browser. No data is sent to any server, no analytics, no external API calls at runtime.
 - **No shared JS framework, no bundler, no build tooling.** Each tool is a self-contained HTML file.
 - **When adding or updating a tool**, always update `public/index.html` (add/update the tool card), `README.md` (add/update the tools list), `public/sitemap.xml` (add the URL), and `public/llms.txt` (add the tool entry) to keep them all in sync.
+- **Sitemap `lastmod` dates** — every `<url>` in `public/sitemap.xml` must carry a `<lastmod>` tag in `YYYY-MM-DD` format. Whenever you create a new tool, add its `<url>` with `<lastmod>` set to today's date. Whenever you update an existing tool, bump that tool's `<lastmod>` to today's date (and bump the homepage `https://tools.massadas.com/` entry too, since its tool listing changed).
