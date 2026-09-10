@@ -30,6 +30,7 @@ Deployed as a Cloudflare Workers static asset site.
 - **[PDF Tools](/pdf-tools/)** — Merge, split, reorder, rotate, and delete pages across one or multiple PDFs.
 - **[PDF to Images](/pdf-to-images/)** — Convert PDF pages to PNG, JPEG, or WebP at adjustable resolution; download all as a ZIP.
 - **[PDF Compressor](/pdf-compress/)** — Shrink PDF file size by rasterizing pages to JPEG, with quality, scale, and grayscale controls.
+- **[PDF to Black & White](/pdf-black-white/)** — Convert color PDFs to grayscale or pure black & white for cheaper, sharper printing.
 - **[Image Converter](/image-converter/)** — Convert HEIC, WebP, AVIF, PNG, JPEG, GIF, and BMP images to any format.
 - **[Background Remover](/background-remover/)** — Remove image backgrounds with an on-device AI model; transparent PNG output, no uploads.
 - **[Video Converter](/video-converter/)** — Convert video/audio to MP4, WebM, GIF, MP3, or WAV and trim clips, locally with ffmpeg.wasm.

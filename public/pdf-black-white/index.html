@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF to Black &amp; White — tools.massadas.com</title>
+  <!-- seo:start -->
+  <meta name="description" content="Convert color PDFs to grayscale or pure black &amp; white for cheaper, sharper printing. 100% client-side — no uploads.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://tools.massadas.com/pdf-black-white/">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="tools.massadas.com">
+  <meta property="og:title" content="PDF to Black &amp; White — tools.massadas.com">
+  <meta property="og:description" content="Convert color PDFs to grayscale or pure black &amp; white for cheaper, sharper printing. 100% client-side — no uploads.">
+  <meta property="og:url" content="https://tools.massadas.com/pdf-black-white/">
+  <meta property="og:image" content="https://tools.massadas.com/og/pdf-black-white.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PDF to Black &amp; White — tools.massadas.com">
+  <meta name="twitter:description" content="Convert color PDFs to grayscale or pure black &amp; white for cheaper, sharper printing. 100% client-side — no uploads.">
+  <meta name="twitter:image" content="https://tools.massadas.com/og/pdf-black-white.png">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"PDF to Black & White","url":"https://tools.massadas.com/pdf-black-white/","description":"Convert color PDFs to grayscale or pure black & white for cheaper, sharper printing. 100% client-side — no uploads.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any (modern web browser)","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"isAccessibleForFree":true,"publisher":{"@type":"Organization","name":"tools.massadas.com","url":"https://tools.massadas.com/"}}</script>
+  <!-- seo:end -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-brand: #6366f1;
+      --color-brand-light: #818cf8;
+      --color-surface: #0f172a;
+      --color-surface-light: #1e293b;
+      --color-surface-lighter: #334155;
+      --color-err: #ef4444;
+      --color-warn: #f59e0b;
+      --color-ok: #22c55e;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 1.25rem;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      margin-top: -6px;
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-surface-lighter);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-brand);
+      border: 2px solid var(--color-surface);
+    }
+    input[type="range"]:disabled::-webkit-slider-thumb {
+      background: var(--color-surface-lighter);
+      border-color: var(--color-surface-lighter);
+    }
+    input[type="range"]:disabled::-moz-range-thumb {
+      background: var(--color-surface-lighter);
+      border-color: var(--color-surface-lighter);
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      animation: spin 0.8s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen antialiased">
+
+  <!-- Top bar -->
+  <header class="border-b border-surface-lighter bg-surface-light/80 backdrop-blur sticky top-0 z-50">
+    <div class="flex items-center gap-4 px-4 h-12">
+      <a href="/" class="text-sm text-gray-400 hover:text-brand-light transition">&larr; tools</a>
+      <h1 class="text-sm font-semibold text-gray-200">PDF to Black &amp; White</h1>
+      <span class="hidden sm:inline text-xs text-gray-500">Convert color PDFs to grayscale or pure B&amp;W for cheaper, sharper printing</span>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-6">
+
+    <div class="text-center sm:text-left">
+      <h2 class="text-2xl font-bold tracking-tight text-gray-100">PDF to Black &amp; White</h2>
+      <p class="mt-2 text-sm text-gray-400 leading-relaxed">Convert every page of a PDF to grayscale or pure black &amp; white for cheaper ink usage and sharper laser printing. All processing runs 100% in your browser — nothing is uploaded.</p>
+    </div>
+
+    <!-- Drop zone -->
+    <div
+      id="drop-zone"
+      class="bg-surface-light border-2 border-dashed border-surface-lighter rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition hover:border-brand group"
+    >
+      <div class="w-14 h-14 rounded-xl bg-surface border border-surface-lighter flex items-center justify-center text-2xl text-gray-500 group-hover:border-brand group-hover:text-brand-light transition">
+        &#128424;
+      </div>
+      <p class="text-sm text-gray-300 font-medium">Drop a PDF here, or click to select</p>
+      <p class="text-xs text-gray-500">All processing runs 100% in your browser — nothing is uploaded</p>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" class="hidden">
+    </div>
+
+    <!-- File info (hidden until file selected) -->
+    <div id="file-info" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex items-center gap-4">
+      <div class="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center text-brand-light font-bold text-xs flex-shrink-0">PDF</div>
+      <div class="min-w-0 flex-1">
+        <p id="file-name" class="text-sm font-medium text-gray-200 truncate"></p>
+        <p id="file-size-orig" class="text-xs text-gray-400 mt-0.5"></p>
+      </div>
+      <button id="btn-clear" class="text-xs text-gray-500 hover:text-gray-200 transition cursor-pointer flex-shrink-0">Change</button>
+    </div>
+
+    <!-- Large file warning -->
+    <div id="large-warning" class="hidden bg-warn/10 border border-warn/30 rounded-xl p-4 flex items-start gap-3">
+      <span class="text-warn flex-shrink-0 mt-0.5">&#9888;</span>
+      <div>
+        <p class="text-sm font-medium text-warn">Large file</p>
+        <p class="text-xs text-gray-400 mt-0.5">This PDF is large (&gt; 25&nbsp;MB) and high-resolution conversion may use significant memory. If your browser slows down, try 150&nbsp;DPI or split the PDF first.</p>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+      <p class="text-xs text-warn flex items-start gap-2">
+        <span class="flex-shrink-0 mt-0.5">&#9888;</span>
+        <span>This tool rasterises each page to an image — text will no longer be selectable or searchable in the output PDF.</span>
+      </p>
+
+      <!-- Mode radio -->
+      <div>
+        <p class="text-sm font-medium text-gray-300 mb-3">Conversion mode</p>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <label class="flex-1 flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition" id="label-grayscale">
+            <input type="radio" name="mode" value="grayscale" checked class="mt-1 accent-brand">
+            <span class="flex flex-col">
+              <span class="text-sm font-medium text-gray-200">Grayscale</span>
+              <span class="text-xs text-gray-400 mt-0.5">Smooth tones, recommended for printing</span>
+            </span>
+          </label>
+          <label class="flex-1 flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition" id="label-bw">
+            <input type="radio" name="mode" value="bw" class="mt-1 accent-brand">
+            <span class="flex flex-col">
+              <span class="text-sm font-medium text-gray-200">Pure B&amp;W</span>
+              <span class="text-xs text-gray-400 mt-0.5">Crisp threshold, smallest file, sharp text</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Threshold slider -->
+      <div id="threshold-wrap" class="opacity-50">
+        <div class="flex items-center justify-between mb-2">
+          <label for="threshold-slider" class="text-sm font-medium text-gray-300">Threshold</label>
+          <span id="threshold-value" class="text-sm font-mono text-brand-light">128</span>
+        </div>
+        <input type="range" id="threshold-slider" min="0" max="255" step="1" value="128" class="w-full" disabled>
+        <div class="flex justify-between mt-1">
+          <span class="text-[10px] text-gray-600">0 — more white</span>
+          <span class="text-[10px] text-gray-600">255 — more black</span>
+        </div>
+        <p class="text-[11px] text-gray-500 mt-2">Pixels brighter than threshold become white, others black. Only applies to Pure B&amp;W mode.</p>
+      </div>
+
+      <!-- DPI selector -->
+      <div>
+        <label class="text-sm font-medium text-gray-300 mb-2 block">Quality / DPI</label>
+        <div class="grid grid-cols-2 gap-2" id="dpi-buttons">
+          <button data-dpi="150" class="dpi-btn px-3 py-3 text-xs rounded-lg bg-brand text-white transition cursor-pointer flex flex-col items-center gap-0.5">
+            <span class="font-semibold text-sm">150 DPI</span>
+            <span class="opacity-80 text-[11px]">Standard — smaller file</span>
+          </button>
+          <button data-dpi="300" class="dpi-btn px-3 py-3 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer flex flex-col items-center gap-0.5">
+            <span class="font-semibold text-sm">300 DPI</span>
+            <span class="opacity-60 text-[11px]">High — larger, sharper</span>
+          </button>
+        </div>
+        <p class="text-[11px] text-gray-500 mt-2">Higher DPI preserves detail but increases file size and memory use. Large pages are automatically capped to avoid out-of-memory errors.</p>
+      </div>
+
+      <!-- Convert button -->
+      <button id="btn-convert" class="px-5 py-2.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start">
+        Convert to Black &amp; White
+      </button>
+    </div>
+
+    <!-- Progress (hidden until processing) -->
+    <div id="progress-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-6 flex flex-col items-center gap-4">
+      <svg class="spinner w-8 h-8 text-brand" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2.5" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round"/>
+      </svg>
+      <p id="progress-text" class="text-sm text-gray-300 font-medium">Preparing…</p>
+      <div class="w-full bg-surface-lighter rounded-full h-1.5">
+        <div id="progress-bar" class="h-1.5 rounded-full bg-brand transition-all duration-300" style="width: 0%"></div>
+      </div>
+      <p id="progress-detail" class="text-xs text-gray-500"></p>
+    </div>
+
+    <!-- Result (hidden until done) -->
+    <div id="result-card" class="hidden bg-surface-light border border-surface-lighter rounded-xl p-5 flex flex-col gap-5">
+      <h2 class="text-sm font-semibold text-gray-200">Conversion result</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        <div class="bg-surface rounded-lg p-3 border border-surface-lighter">
+          <p class="text-xs text-gray-500 mb-1">Pages</p>
+          <p id="result-pages" class="text-base font-semibold text-gray-200">—</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3 border border-surface-lighter">
+          <p class="text-xs text-gray-500 mb-1">Original</p>
+          <p id="result-orig" class="text-base font-semibold text-gray-200">—</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3 border border-surface-lighter">
+          <p class="text-xs text-gray-500 mb-1">B&amp;W PDF</p>
+          <p id="result-new" class="text-base font-semibold text-gray-200">—</p>
+        </div>
+        <div class="bg-surface rounded-lg p-3 border border-ok/20">
+          <p class="text-xs text-gray-500 mb-1">Saved</p>
+          <p id="result-saved" class="text-base font-semibold text-ok">—</p>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="preview-wrap" class="hidden flex flex-col gap-3">
+        <p class="text-xs font-medium text-gray-400">Preview — first page</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-surface rounded-xl border border-surface-lighter overflow-hidden flex flex-col">
+            <p class="text-[11px] text-gray-500 text-center py-2 border-b border-surface-lighter bg-surface-light">Original</p>
+            <div class="p-2 flex-1 flex items-center justify-center bg-white">
+              <img id="preview-original" alt="Original first page" class="max-w-full max-h-[320px] object-contain shadow-sm">
+            </div>
+          </div>
+          <div class="bg-surface rounded-xl border border-surface-lighter overflow-hidden flex flex-col">
+            <p class="text-[11px] text-gray-500 text-center py-2 border-b border-surface-lighter bg-surface-light">Converted</p>
+            <div class="p-2 flex-1 flex items-center justify-center bg-white">
+              <img id="preview-converted" alt="Converted first page" class="max-w-full max-h-[320px] object-contain shadow-sm">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-download" disabled class="px-5 py-2.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-light transition cursor-pointer self-start">
+        Download B&amp;W PDF
+      </button>
+    </div>
+
+    <!-- Error (hidden until error) -->
+    <div id="error-card" class="hidden bg-err/10 border border-err/40 rounded-xl p-4 flex items-start gap-3">
+      <span class="text-err text-lg flex-shrink-0 mt-0.5">&#10006;</span>
+      <div>
+        <p class="text-sm font-medium text-err">Error</p>
+        <p id="error-msg" class="text-sm text-gray-300 mt-0.5"></p>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    // ---- pdf.js ES module ----
+    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.worker.min.mjs';
+
+    // ---- State ----
+    let pdfFile = null;
+    let outputBytes = null;
+    let selectedDpi = 150;
+    let selectedMode = 'grayscale';
+    let threshold = 128;
+
+    // ---- Elements ----
+    const dropZone     = document.getElementById('drop-zone');
+    const fileInput    = document.getElementById('file-input');
+    const fileInfoEl   = document.getElementById('file-info');
+    const fileNameEl   = document.getElementById('file-name');
+    const fileSizeEl   = document.getElementById('file-size-orig');
+    const btnClear     = document.getElementById('btn-clear');
+    const largeWarning = document.getElementById('large-warning');
+    const controlsEl   = document.getElementById('controls');
+    const thresholdSlider = document.getElementById('threshold-slider');
+    const thresholdValue  = document.getElementById('threshold-value');
+    const thresholdWrap   = document.getElementById('threshold-wrap');
+    const dpiBtns      = document.querySelectorAll('.dpi-btn');
+    const modeRadios   = document.querySelectorAll('input[name="mode"]');
+    const labelGrayscale = document.getElementById('label-grayscale');
+    const labelBw        = document.getElementById('label-bw');
+    const btnConvert   = document.getElementById('btn-convert');
+    const progressCard = document.getElementById('progress-card');
+    const progressText = document.getElementById('progress-text');
+    const progressBar  = document.getElementById('progress-bar');
+    const progressDetail = document.getElementById('progress-detail');
+    const resultCard   = document.getElementById('result-card');
+    const resultPages  = document.getElementById('result-pages');
+    const resultOrig   = document.getElementById('result-orig');
+    const resultNew    = document.getElementById('result-new');
+    const resultSaved  = document.getElementById('result-saved');
+    const previewWrap  = document.getElementById('preview-wrap');
+    const previewOriginal = document.getElementById('preview-original');
+    const previewConverted = document.getElementById('preview-converted');
+    const btnDownload  = document.getElementById('btn-download');
+    const errorCard    = document.getElementById('error-card');
+    const errorMsg     = document.getElementById('error-msg');
+
+    // ---- Helpers ----
+    function fmtBytes(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorCard.classList.remove('hidden');
+      progressCard.classList.add('hidden');
+    }
+
+    function hideError() {
+      errorCard.classList.add('hidden');
+    }
+
+    function setProgress(current, total, label, detail) {
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      progressBar.style.width = pct + '%';
+      progressText.textContent = label || `Page ${current} / ${total}`;
+      if (detail) progressDetail.textContent = detail;
+      else progressDetail.textContent = '';
+    }
+
+    function updateModeUI() {
+      const isBw = selectedMode === 'bw';
+      thresholdSlider.disabled = !isBw;
+      thresholdWrap.classList.toggle('opacity-50', !isBw);
+      thresholdWrap.classList.toggle('opacity-100', isBw);
+      // highlight selected label
+      if (selectedMode === 'grayscale') {
+        labelGrayscale.className = 'flex-1 flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition bg-brand/10 border-brand';
+        labelBw.className = 'flex-1 flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition bg-surface border-surface-lighter hover:border-brand/50';
+      } else {
+        labelBw.className = 'flex-1 flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition bg-brand/10 border-brand';
+        labelGrayscale.className = 'flex-1 flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition bg-surface border-surface-lighter hover:border-brand/50';
+      }
+    }
+
+    function updateDpiUI() {
+      dpiBtns.forEach(btn => {
+        const dpi = parseInt(btn.dataset.dpi, 10);
+        if (dpi === selectedDpi) {
+          btn.className = 'dpi-btn px-3 py-3 text-xs rounded-lg bg-brand text-white transition cursor-pointer flex flex-col items-center gap-0.5';
+        } else {
+          btn.className = 'dpi-btn px-3 py-3 text-xs rounded-lg bg-surface border border-surface-lighter text-gray-400 hover:border-brand hover:text-brand-light transition cursor-pointer flex flex-col items-center gap-0.5';
+        }
+      });
+    }
+
+    // init mode UI
+    updateModeUI();
+    updateDpiUI();
+
+    // ---- File handling ----
+    function loadFile(file) {
+      if (!file || (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf'))) {
+        showError('Please select a valid PDF file.');
+        return;
+      }
+      pdfFile = file;
+      outputBytes = null;
+      hideError();
+      resultCard.classList.add('hidden');
+      previewWrap.classList.add('hidden');
+      fileNameEl.textContent = file.name;
+      fileSizeEl.textContent = fmtBytes(file.size) + '  •  ' + file.name;
+      fileInfoEl.classList.remove('hidden');
+      controlsEl.classList.remove('hidden');
+      dropZone.classList.add('hidden');
+
+      // large file warning > 25MB
+      if (file.size > 25 * 1024 * 1024) {
+        largeWarning.classList.remove('hidden');
+      } else {
+        largeWarning.classList.add('hidden');
+      }
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('border-brand');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-brand');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('border-brand');
+      const file = e.dataTransfer.files[0];
+      if (file) loadFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) loadFile(fileInput.files[0]);
+    });
+
+    btnClear.addEventListener('click', () => {
+      pdfFile = null;
+      outputBytes = null;
+      fileInput.value = '';
+      fileInfoEl.classList.add('hidden');
+      controlsEl.classList.add('hidden');
+      resultCard.classList.add('hidden');
+      progressCard.classList.add('hidden');
+      largeWarning.classList.add('hidden');
+      previewWrap.classList.add('hidden');
+      hideError();
+      dropZone.classList.remove('hidden');
+    });
+
+    // ---- Mode radios ----
+    modeRadios.forEach(r => {
+      r.addEventListener('change', () => {
+        selectedMode = document.querySelector('input[name="mode"]:checked').value;
+        updateModeUI();
+      });
+    });
+
+    // ---- Threshold slider ----
+    thresholdSlider.addEventListener('input', () => {
+      threshold = parseInt(thresholdSlider.value, 10);
+      thresholdValue.textContent = String(threshold);
+    });
+
+    // ---- DPI buttons ----
+    dpiBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedDpi = parseInt(btn.dataset.dpi, 10);
+        updateDpiUI();
+      });
+    });
+
+    // ---- Convert ----
+    btnConvert.addEventListener('click', async () => {
+      if (!pdfFile) {
+        showError('No file selected.');
+        return;
+      }
+      hideError();
+      resultCard.classList.add('hidden');
+      previewWrap.classList.add('hidden');
+      progressCard.classList.remove('hidden');
+      setProgress(0, 1, 'Loading PDF…');
+      btnConvert.disabled = true;
+      btnConvert.classList.add('opacity-50', 'cursor-not-allowed');
+      btnDownload.disabled = true;
+      fileInput.disabled = true;
+      dropZone.style.pointerEvents = 'none';
+      dropZone.style.opacity = '0.5';
+
+      let originalPreviewUrl = null;
+      let convertedPreviewUrl = null;
+
+      try {
+        const useThreshold = selectedMode === 'bw';
+        const dpi = selectedDpi;
+
+        // 1. Read file bytes
+        const arrayBuf  = await pdfFile.arrayBuffer();
+        const uint8     = new Uint8Array(arrayBuf);
+
+        // 2. Load with pdf.js
+        let pdfDoc;
+        try {
+          const loadingTask = pdfjsLib.getDocument({ data: uint8 });
+          pdfDoc = await loadingTask.promise;
+        } catch (e) {
+          const msg = e && e.message ? e.message : '';
+          if (e && e.name === 'PasswordException' || /password|encrypted/i.test(msg)) {
+            throw new Error('This PDF is encrypted / password-protected and cannot be processed in the browser.');
+          }
+          throw e;
+        }
+        const numPages = pdfDoc.numPages;
+
+        // 3. Create new pdf-lib document
+        const { PDFDocument } = window.PDFLib;
+        const newPdf = await PDFDocument.create();
+
+        // 4. Render each page
+        for (let i = 1; i <= numPages; i++) {
+          setProgress(i - 1, numPages, `Processing page ${i} / ${numPages}…`, useThreshold ? `Threshold ${threshold} • ${dpi} DPI • ${useThreshold ? 'PNG' : 'JPEG'}` : `${dpi} DPI • Grayscale JPEG`);
+          // yield to allow UI updates
+          await new Promise(r => setTimeout(r, 0));
+
+          const page = await pdfDoc.getPage(i);
+
+          // Compute scale with DPI and memory cap
+          let pageScale = dpi / 72;
+          let viewport = page.getViewport({ scale: pageScale });
+          const MAX_DIM = 16000;
+          if (viewport.width > MAX_DIM || viewport.height > MAX_DIM) {
+            const ratio = Math.min(MAX_DIM / viewport.width, MAX_DIM / viewport.height);
+            pageScale *= ratio;
+            viewport = page.getViewport({ scale: pageScale });
+          }
+          // Also cap canvas area approx 40 MP to avoid OOM (additional safety)
+          const area = viewport.width * viewport.height;
+          const MAX_AREA = 40 * 1000 * 1000;
+          if (area > MAX_AREA) {
+            const ratio = Math.sqrt(MAX_AREA / area);
+            pageScale *= ratio;
+            viewport = page.getViewport({ scale: pageScale });
+          }
+
+          // Create offscreen canvas
+          const canvas = document.createElement('canvas');
+          canvas.width  = Math.round(viewport.width);
+          canvas.height = Math.round(viewport.height);
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) throw new Error('Failed to create canvas context.');
+
+          // White background to avoid transparent black
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          await page.render({ canvasContext: ctx, viewport }).promise;
+
+          // Capture original preview for first page before filter
+          if (i === 1) {
+            // Create thumbnail limited to ~500px wide for preview
+            const maxPreviewW = 500;
+            const scalePreview = Math.min(1, maxPreviewW / canvas.width);
+            if (scalePreview < 1) {
+              const pCanvas = document.createElement('canvas');
+              pCanvas.width = Math.round(canvas.width * scalePreview);
+              pCanvas.height = Math.round(canvas.height * scalePreview);
+              const pCtx = pCanvas.getContext('2d');
+              pCtx.drawImage(canvas, 0, 0, pCanvas.width, pCanvas.height);
+              originalPreviewUrl = pCanvas.toDataURL('image/jpeg', 0.7);
+            } else {
+              originalPreviewUrl = canvas.toDataURL('image/jpeg', 0.7);
+            }
+          }
+
+          // Apply grayscale / threshold per pixel
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          // luminosity conversion
+          if (useThreshold) {
+            for (let p = 0; p < data.length; p += 4) {
+              const r = data[p], g = data[p+1], b = data[p+2];
+              const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+              const v = gray > threshold ? 255 : 0;
+              data[p] = v;
+              data[p+1] = v;
+              data[p+2] = v;
+            }
+          } else {
+            for (let p = 0; p < data.length; p += 4) {
+              const r = data[p], g = data[p+1], b = data[p+2];
+              const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+              const gByte = Math.round(gray);
+              data[p] = gByte;
+              data[p+1] = gByte;
+              data[p+2] = gByte;
+            }
+          }
+          ctx.putImageData(imageData, 0, 0);
+
+          // Capture converted preview for first page
+          if (i === 1) {
+            const maxPreviewW = 500;
+            const scalePreview = Math.min(1, maxPreviewW / canvas.width);
+            if (scalePreview < 1) {
+              const pCanvas = document.createElement('canvas');
+              pCanvas.width = Math.round(canvas.width * scalePreview);
+              pCanvas.height = Math.round(canvas.height * scalePreview);
+              const pCtx = pCanvas.getContext('2d');
+              pCtx.drawImage(canvas, 0, 0, pCanvas.width, pCanvas.height);
+              convertedPreviewUrl = pCanvas.toDataURL(useThreshold ? 'image/png' : 'image/jpeg', 0.85);
+            } else {
+              convertedPreviewUrl = canvas.toDataURL(useThreshold ? 'image/png' : 'image/jpeg', 0.85);
+            }
+          }
+
+          // Embed image into new PDF
+          // Original page dimensions in PDF points (1 pt = 1/72 inch)
+          const origViewport = page.getViewport({ scale: 1 });
+          const pWidth  = origViewport.width;
+          const pHeight = origViewport.height;
+
+          let pdfImage;
+          if (useThreshold) {
+            const pngDataUrl = canvas.toDataURL('image/png');
+            const pngBase64  = pngDataUrl.split(',')[1];
+            const pngBytes   = Uint8Array.from(atob(pngBase64), c => c.charCodeAt(0));
+            pdfImage = await newPdf.embedPng(pngBytes);
+          } else {
+            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const jpegBase64  = jpegDataUrl.split(',')[1];
+            const jpegBytes   = Uint8Array.from(atob(jpegBase64), c => c.charCodeAt(0));
+            pdfImage = await newPdf.embedJpg(jpegBytes);
+          }
+
+          const newPage = newPdf.addPage([pWidth, pHeight]);
+          newPage.drawImage(pdfImage, { x: 0, y: 0, width: pWidth, height: pHeight });
+
+          setProgress(i, numPages, `Page ${i} / ${numPages} done`);
+        }
+
+        setProgress(numPages, numPages, 'Finalising…');
+        await new Promise(r => setTimeout(r, 0));
+
+        outputBytes = await newPdf.save();
+
+        // 5. Show results
+        const origSize = pdfFile.size;
+        const newSize = outputBytes.byteLength;
+        const saved    = origSize > newSize ? Math.round((1 - newSize / origSize) * 100) : 0;
+
+        resultPages.textContent   = String(numPages);
+        resultOrig.textContent    = fmtBytes(origSize);
+        resultNew.textContent     = fmtBytes(newSize);
+        if (saved > 0) {
+          resultSaved.textContent = `${saved}% saved`;
+          resultSaved.className   = 'text-base font-semibold text-ok';
+        } else if (newSize > origSize) {
+          const inc = Math.round((newSize / origSize - 1) * 100);
+          resultSaved.textContent = `+${inc}% larger`;
+          resultSaved.className   = 'text-base font-semibold text-warn';
+        } else {
+          resultSaved.textContent = 'No change';
+          resultSaved.className   = 'text-base font-semibold text-gray-400';
+        }
+
+        // Preview
+        if (originalPreviewUrl && convertedPreviewUrl) {
+          previewOriginal.src = originalPreviewUrl;
+          previewConverted.src = convertedPreviewUrl;
+          previewWrap.classList.remove('hidden');
+        }
+
+        progressCard.classList.add('hidden');
+        resultCard.classList.remove('hidden');
+        btnDownload.disabled = false;
+        // scroll result into view on mobile
+        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      } catch (err) {
+        console.error(err);
+        const msg = err && err.message ? err.message : 'Failed to convert PDF. Make sure it is a valid, non-encrypted PDF.';
+        showError(msg);
+      } finally {
+        btnConvert.disabled = false;
+        btnConvert.classList.remove('opacity-50', 'cursor-not-allowed');
+        fileInput.disabled = false;
+        dropZone.style.pointerEvents = '';
+        dropZone.style.opacity = '';
+      }
+    });
+
+    // ---- Download ----
+    btnDownload.addEventListener('click', () => {
+      if (!outputBytes) return;
+      const blob = new Blob([outputBytes], { type: 'application/pdf' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      const rawBase = pdfFile ? pdfFile.name.replace(/\.pdf$/i, '') : 'converted';
+      const baseName = rawBase.replace(/[\\\/]/g, '_').slice(0, 120);
+      a.href     = url;
+      a.download = `${baseName}-blackwhite.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  </script>
+</body>
+</html>
