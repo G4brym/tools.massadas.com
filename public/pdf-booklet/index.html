@@ -28,7 +28,7 @@
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"PDF to Booklet","url":"https://tools.massadas.com/pdf-booklet/","description":"Upload a PDF and rearrange it into a foldable saddle-stitch booklet (2 pages per sheet) to print double-sided, fold, and staple.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any (modern web browser)","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"isAccessibleForFree":true,"publisher":{"@type":"Organization","name":"tools.massadas.com","url":"https://tools.massadas.com/"}}</script>
   <!-- seo:end -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <style type="text/tailwindcss">
     @theme {
       --color-brand: #6366f1;
@@ -93,18 +93,11 @@
       <h2 class="text-sm font-semibold text-gray-300">Options</h2>
 
       <div class="grid sm:grid-cols-2 gap-5">
-        <label class="block">
-          <span class="text-xs font-medium text-gray-400">Output paper size</span>
-          <select id="opt-paper" class="mt-1.5 w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-brand focus:outline-none cursor-pointer">
-            <option value="auto">Auto (detect from PDF)</option>
-            <option value="A3">A3</option>
-            <option value="A4">A4</option>
-            <option value="A5">A5</option>
-            <option value="Letter">Letter</option>
-            <option value="Legal">Legal</option>
-          </select>
-          <span class="text-[11px] text-gray-500 mt-1 block">Each sheet is landscape and holds 2 source pages side by side.</span>
-        </label>
+        <div class="block">
+          <span class="text-xs font-medium text-gray-400">Output paper</span>
+          <div class="mt-1.5 w-full bg-surface border border-surface-lighter rounded-lg px-3 py-2 text-sm text-gray-200">A4 landscape (fixed)</div>
+          <span class="text-[11px] text-gray-500 mt-1 block">Each sheet is A4 landscape and holds 2 source pages side by side.</span>
+        </div>
 
         <label class="block">
           <span class="text-xs font-medium text-gray-400">Margin around each page (mm)</span>
@@ -127,6 +120,7 @@
     <div class="rounded-2xl bg-surface-light border border-surface-lighter p-5">
       <h2 class="text-sm font-semibold text-gray-300 mb-3">Booklet plan</h2>
       <div id="summary" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center"></div>
+      <p id="aspect-warn" class="hidden mt-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-200 leading-relaxed"></p>
       <p id="order-preview" class="text-[11px] text-gray-500 mt-4 font-mono break-words"></p>
       <div class="mt-4 rounded-lg bg-surface border border-surface-lighter p-3 text-xs text-gray-400 leading-relaxed">
         <span class="font-medium text-gray-300">How to print:</span> Print double-sided with <span class="text-gray-300">"flip on short edge"</span>. Then fold the whole stack in half and staple along the fold. Pages will read in order.
@@ -143,8 +137,12 @@
   <script>
     const { PDFDocument } = PDFLib;
 
-    // Standard paper sizes in points (portrait: [short, long]). 1pt = 1/72in.
-    const PAPER = {
+    // Output sheets are always A4 landscape. 1pt = 1/72in.
+    const OUT_W = 842, OUT_H = 595; // A4 landscape
+    const CELL_W = OUT_W / 2, CELL_H = OUT_H;
+    // Reference sizes in points (portrait: [short, long]), used ONLY to label
+    // the source file. Output never depends on them.
+    const REF_SIZES = {
       A3:     [842, 1191],
       A4:     [595, 842],
       A5:     [420, 595],
@@ -166,9 +164,9 @@
     const summaryEl    = document.getElementById('summary');
     const orderPreview = document.getElementById('order-preview');
     const statusEl     = document.getElementById('status');
-    const optPaper     = document.getElementById('opt-paper');
     const optMargin    = document.getElementById('opt-margin');
     const optRtl       = document.getElementById('opt-rtl');
+    const aspectWarn   = document.getElementById('aspect-warn');
 
     let pdfBytes = null;     // ArrayBuffer of the loaded source PDF
     let fileName = '';
@@ -226,7 +224,7 @@
     function detectPaper(w, h) {
       const lo = Math.min(w, h), hi = Math.max(w, h);
       let best = null, bestDelta = 12; // tolerance in points
-      for (const [key, [s, l]] of Object.entries(PAPER)) {
+      for (const [key, [s, l]] of Object.entries(REF_SIZES)) {
         const d = Math.abs(lo - s) + Math.abs(hi - l);
         if (d < bestDelta) { bestDelta = d; best = key; }
       }
@@ -244,26 +242,41 @@
       const detText = detected ? `${detected} (detected)` : 'non-standard size';
       fileMetaEl.textContent = `${pageCount} page${pageCount !== 1 ? 's' : ''} · ${dim} · ${detText} · ${formatBytes(byteSize)}`;
 
-      // default the dropdown to detected size on first load
-      optPaper.value = detected || 'auto';
       updateSummary();
     }
 
-    optPaper.addEventListener('change', updateSummary);
+    optMargin.addEventListener('input', updateSummary);
     optRtl.addEventListener('change', updateSummary);
+
+    // Letterboxing estimate for the fixed A4 cell, based on the first page.
+    // Returns null when unknown, {match:true} when ratios agree (edge-to-edge),
+    // or {match:false, dir, mm} with the total gutter in millimetres.
+    function aspectMismatch() {
+      if (!firstSize) return null;
+      const margin = Math.max(0, parseFloat(optMargin.value) || 0) * MM_TO_PT;
+      const availW = CELL_W - 2 * margin, availH = CELL_H - 2 * margin;
+      if (availW <= 0 || availH <= 0) return null;
+      const srcAspect = firstSize.width / firstSize.height;
+      const cellAspect = availW / availH;
+      if (Math.abs(srcAspect - cellAspect) / cellAspect <= 0.02) return { match: true };
+      const scale = Math.min(availW / firstSize.width, availH / firstSize.height);
+      const w = firstSize.width * scale, h = firstSize.height * scale;
+      const gutW = availW - w, gutH = availH - h;
+      if (gutH >= gutW) return { match: false, dir: 'top/bottom', mm: gutH / MM_TO_PT };
+      return { match: false, dir: 'left/right', mm: gutW / MM_TO_PT };
+    }
 
     function updateSummary() {
       const padded = Math.ceil(pageCount / 4) * 4;
       const blanks = padded - pageCount;
       const sheets = padded / 4;
       const outputPages = padded / 2;
-      const paperKey = optPaper.value === 'auto' ? (detected || 'A4') : optPaper.value;
 
       summaryEl.innerHTML = [
         ['Source pages', pageCount],
         ['Blank pages added', blanks],
         ['Physical sheets', sheets],
-        ['Output paper', `${paperKey} landscape`],
+        ['Output paper', 'A4 landscape (fixed)'],
       ].map(([label, val]) => `
         <div class="rounded-lg bg-surface border border-surface-lighter py-3 px-2">
           <div class="text-lg font-semibold text-gray-200">${val}</div>
@@ -277,6 +290,15 @@
         labels.push(`sheet ${Math.floor(i / 4) + 1} ${side}: [${fmtPage(order[i])} | ${fmtPage(order[i + 1])}]`);
       }
       orderPreview.textContent = 'Page order — ' + labels.join('   ·   ');
+
+      const mm = aspectMismatch();
+      if (mm && !mm.match) {
+        aspectWarn.textContent = `Output is fixed A4 landscape — about ${mm.mm.toFixed(1)}mm total (${(mm.mm / 2).toFixed(1)}mm each side) of letterboxing will appear ${mm.dir} for this source aspect (based on first page; may vary if pages differ in size).`;
+        aspectWarn.classList.remove('hidden');
+      } else {
+        aspectWarn.textContent = '';
+        aspectWarn.classList.add('hidden');
+      }
 
       function fmtPage(n) { return n > pageCount ? '∅' : n; }
     }
@@ -331,11 +353,9 @@
         // Embed every source page once into the output document.
         const embedded = await out.embedPages(src.getPages());
 
-        const paperKey = optPaper.value === 'auto' ? (detected || 'A4') : optPaper.value;
-        const [shortSide, longSide] = PAPER[paperKey];
-        const paperW = longSide, paperH = shortSide; // landscape
-        const cellW = paperW / 2, cellH = paperH;
-        const margin = Math.max(0, parseFloat(optMargin.value) || 0) * MM_TO_PT;
+        const paperW = OUT_W, paperH = OUT_H; // always A4 landscape
+        const cellW = CELL_W, cellH = CELL_H;
+        const margin = Math.min(Math.max(0, parseFloat(optMargin.value) || 0) * MM_TO_PT, (cellW - 1) / 2, (cellH - 1) / 2);
 
         for (let i = 0; i < order.length; i += 2) {
           const page = out.addPage([paperW, paperH]);
@@ -365,10 +385,23 @@
       const emb = embedded[pageNum - 1];
       const availW = cellW - 2 * margin;
       const availH = cellH - 2 * margin;
-      const scale = Math.min(availW / emb.width, availH / emb.height);
-      const w = emb.width * scale, h = emb.height * scale;
-      const x = xOffset + margin + (availW - w) / 2;
-      const y = margin + (availH - h) / 2;
+      if (availW <= 0 || availH <= 0) return;
+      const srcAspect = emb.width / emb.height;
+      const cellAspect = availW / availH;
+      let w, h, x, y;
+      if (Math.abs(srcAspect - cellAspect) / cellAspect <= 0.02) {
+        // Matching ratio: stretch to fill the cell exactly (<=2% distortion,
+        // imperceptible) so content touches sheet edges/fold with zero gutters.
+        w = availW; h = availH;
+        x = xOffset + margin; y = margin;
+      } else {
+        // Odd aspect: fit inside and center (letterboxing is unavoidable
+        // without cropping); the summary warns about the resulting gutters.
+        const scale = Math.min(availW / emb.width, availH / emb.height);
+        w = emb.width * scale; h = emb.height * scale;
+        x = xOffset + margin + (availW - w) / 2;
+        y = margin + (availH - h) / 2;
+      }
       page.drawPage(emb, { x, y, width: w, height: h });
     }
 
