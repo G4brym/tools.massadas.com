@@ -293,7 +293,7 @@
 
       const mm = aspectMismatch();
       if (mm && !mm.match) {
-        aspectWarn.textContent = `Output is fixed A4 landscape — about ${mm.mm.toFixed(1)}mm of letterboxing will appear ${mm.dir} for this source aspect.`;
+        aspectWarn.textContent = `Output is fixed A4 landscape — about ${mm.mm.toFixed(1)}mm total (${(mm.mm / 2).toFixed(1)}mm each side) of letterboxing will appear ${mm.dir} for this source aspect (based on first page; may vary if pages differ in size).`;
         aspectWarn.classList.remove('hidden');
       } else {
         aspectWarn.textContent = '';
@@ -355,7 +355,7 @@
 
         const paperW = OUT_W, paperH = OUT_H; // always A4 landscape
         const cellW = CELL_W, cellH = CELL_H;
-        const margin = Math.max(0, parseFloat(optMargin.value) || 0) * MM_TO_PT;
+        const margin = Math.min(Math.max(0, parseFloat(optMargin.value) || 0) * MM_TO_PT, (cellW - 1) / 2, (cellH - 1) / 2);
 
         for (let i = 0; i < order.length; i += 2) {
           const page = out.addPage([paperW, paperH]);
@@ -385,6 +385,7 @@
       const emb = embedded[pageNum - 1];
       const availW = cellW - 2 * margin;
       const availH = cellH - 2 * margin;
+      if (availW <= 0 || availH <= 0) return;
       const srcAspect = emb.width / emb.height;
       const cellAspect = availW / availH;
       let w, h, x, y;
