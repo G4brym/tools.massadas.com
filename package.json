@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/G4brym/tools.massadas.com#readme",
   "devDependencies": {
-    "wrangler": "^4.81.0"
+    "wrangler": "^4.141.0"
   }
 }

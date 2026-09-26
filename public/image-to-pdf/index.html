@@ -49,6 +49,17 @@
       <div class="ml-auto flex items-center gap-3">
         <span id="image-count" class="text-xs text-gray-500"></span>
         <button id="btn-clear" class="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer hidden">Clear all</button>
+        <label for="paper-size" class="hidden text-xs text-gray-400" id="paper-label">Paper:</label>
+        <select id="paper-size" class="hidden text-xs bg-surface-light border border-surface-lighter text-gray-300 rounded-md px-2 py-1 cursor-pointer focus:outline-none focus:border-brand">
+          <option value="595x842" selected>A4 portrait</option>
+          <option value="842x595">A4 landscape</option>
+          <option value="420x595">A5 portrait</option>
+          <option value="595x420">A5 landscape</option>
+          <option value="842x1191">A3 portrait</option>
+          <option value="1191x842">A3 landscape</option>
+          <option value="612x792">Letter portrait</option>
+          <option value="792x612">Letter landscape</option>
+        </select>
         <button id="btn-download" class="text-xs font-medium px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-light transition cursor-pointer hidden">Download PDF</button>
       </div>
     </div>
@@ -77,6 +88,7 @@
     </div>
 
     <!-- Image grid -->
+    <p id="paper-note" class="hidden w-full max-w-5xl mx-auto px-4 sm:px-6 pt-6 pb-0 text-xs text-gray-500 text-center">Images are stretched to fill the selected paper size.</p>
     <div id="image-grid" class="hidden w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
     </div>
 
@@ -102,6 +114,9 @@
     const btnClear = document.getElementById('btn-clear');
     const btnDownload = document.getElementById('btn-download');
     const imageCount = document.getElementById('image-count');
+    const paperSize = document.getElementById('paper-size');
+    const paperLabel = document.getElementById('paper-label');
+    const paperNote = document.getElementById('paper-note');
 
     let images = []; // { file, dataUrl, name }
     let dragSrcIndex = null;
@@ -163,6 +178,9 @@
         addMore.classList.add('hidden');
         btnClear.classList.add('hidden');
         btnDownload.classList.add('hidden');
+        paperSize.classList.add('hidden');
+        paperLabel.classList.add('hidden');
+        paperNote.classList.add('hidden');
         imageCount.textContent = '';
         return;
       }
@@ -172,6 +190,9 @@
       addMore.classList.remove('hidden');
       btnClear.classList.remove('hidden');
       btnDownload.classList.remove('hidden');
+      paperSize.classList.remove('hidden');
+      paperLabel.classList.remove('hidden');
+      paperNote.classList.remove('hidden');
       imageCount.textContent = `${images.length} image${images.length > 1 ? 's' : ''}`;
 
       imageGrid.innerHTML = images.map((img, i) => `
@@ -246,6 +267,7 @@
 
       try {
         const pdfDoc = await PDFDocument.create();
+        const [paperW, paperH] = paperSize.value.split('x').map(Number);
 
         for (const img of images) {
           const bytes = await img.file.arrayBuffer();
@@ -261,12 +283,12 @@
             pdfImage = await embedViaCanvas(pdfDoc, img.dataUrl);
           }
 
-          const page = pdfDoc.addPage([pdfImage.width, pdfImage.height]);
+          const page = pdfDoc.addPage([paperW, paperH]);
           page.drawImage(pdfImage, {
             x: 0,
             y: 0,
-            width: pdfImage.width,
-            height: pdfImage.height,
+            width: paperW,
+            height: paperH,
           });
         }
 
